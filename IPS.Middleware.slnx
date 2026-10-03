@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <Project Path="src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <Project Path="src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <Project Path="src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
+    <Project Path="src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/IPS.Middleware.Tests/IPS.Middleware.Tests.csproj" />
+    <Project Path="tests/IPS.Middleware.IntegrationTests/IPS.Middleware.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
