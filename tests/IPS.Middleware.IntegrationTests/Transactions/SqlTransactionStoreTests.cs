@@ -1,6 +1,10 @@
+using System.Data.Common;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Transactions;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Xunit;
@@ -194,6 +198,41 @@ public sealed class SqlTransactionStoreTests
     }
 
     [Fact]
+    public async Task Reader_holds_parent_lock_until_history_is_loaded()
+    {
+        await using var database = await SqlTestDatabase.CreateAsync();
+        var transaction = New();
+        await database.Store.GetOrAddOutgoingAsync(transaction, "{}", CancellationToken.None);
+        var gate = new HistoryReadGate();
+        var reader = new SqlTransactionStore(database.CreateFactory(gate));
+        var read = reader.FindAsync(transaction.Id, CancellationToken.None);
+
+        try
+        {
+            await gate.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await using var writer = await database.Factory.CreateDbContextAsync();
+            var blocked = await Assert.ThrowsAsync<SqlException>(() => writer.Database.ExecuteSqlInterpolatedAsync(
+                $"SET LOCK_TIMEOUT 500; UPDATE [Transactions] SET [LastSequence] = [LastSequence] WHERE [Id] = {transaction.Id}"));
+            Assert.Equal(1222, blocked.Number);
+        }
+        finally
+        {
+            gate.Release.TrySetResult();
+            await read.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+
+        var snapshot = await read;
+        Assert.NotNull(snapshot);
+        Assert.Single(snapshot.History);
+        Assert.Equal(TransactionStatus.Received, snapshot.Current.Status);
+        Assert.Equal(TransactionUpdateResult.Saved, await database.Store.TryUpdateAsync(transaction.Id, current =>
+        {
+            current.ChangeStatus(TransactionStatus.Accepted, StatusSource.Ips, Now);
+            return true;
+        }, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Missing_initial_history_is_not_silently_recreated()
     {
         await using var database = await SqlTestDatabase.CreateAsync();
@@ -270,4 +309,23 @@ public sealed class SqlTransactionStoreTests
 
     private static PaymentTransaction New(string messageType = "pacs.008") =>
         new(Guid.NewGuid(), messageType, TransactionDirection.Outgoing, Now, "CBS-1");
+
+    private sealed class HistoryReadGate : DbCommandInterceptor
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FROM [TransactionHistory]", StringComparison.Ordinal))
+            {
+                Entered.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+
+            return result;
+        }
+    }
 }

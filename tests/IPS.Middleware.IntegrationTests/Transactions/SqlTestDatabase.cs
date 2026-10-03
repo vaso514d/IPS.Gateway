@@ -1,6 +1,7 @@
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace IPS.Middleware.IntegrationTests.Transactions;
@@ -21,12 +22,15 @@ internal sealed class SqlTestDatabase : IAsyncDisposable
             TrustServerCertificate = true,
             ConnectTimeout = 30
         }.ConnectionString;
-        Factory = new PooledDbContextFactory<TransactionDbContext>(
-            new DbContextOptionsBuilder<TransactionDbContext>().UseSqlServer(_connectionString).Options);
+        Factory = CreateFactory();
     }
 
     public IDbContextFactory<TransactionDbContext> Factory { get; }
     public SqlTransactionStore Store => new(Factory);
+
+    public IDbContextFactory<TransactionDbContext> CreateFactory(params IInterceptor[] interceptors) =>
+        new PooledDbContextFactory<TransactionDbContext>(new DbContextOptionsBuilder<TransactionDbContext>()
+            .UseSqlServer(_connectionString).AddInterceptors(interceptors).Options);
 
     public static async Task<SqlTestDatabase> CreateAsync()
     {

@@ -7,6 +7,6 @@ public sealed class DesignTimeTransactionDbContextFactory : IDesignTimeDbContext
 {
     public TransactionDbContext CreateDbContext(string[] args) => new(
         new DbContextOptionsBuilder<TransactionDbContext>()
-            .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=IPS_Middleware_DesignTime;Integrated Security=true;TrustServerCertificate=true")
+            .UseSqlServer()
             .Options);
 }

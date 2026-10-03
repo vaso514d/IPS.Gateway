@@ -112,8 +112,12 @@ public sealed class SqlTransactionStore(IDbContextFactory<TransactionDbContext> 
     {
         // Keep the parent and all history coherent during the read; release read locks before running a caller's decision.
         await using var read = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
-        var row = await db.Transactions.Include(entry => entry.History).AsSingleQuery()
-            .SingleOrDefaultAsync(predicate, cancellationToken);
+        var row = await db.Transactions.SingleOrDefaultAsync(predicate, cancellationToken);
+        if (row is not null)
+        {
+            // Acquire the parent lock before reading history, independently of SQL join order.
+            await db.Entry(row).Collection(entry => entry.History).LoadAsync(cancellationToken);
+        }
         await read.CommitAsync(cancellationToken);
         return row;
     }

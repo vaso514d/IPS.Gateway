@@ -44,7 +44,7 @@ Application owns a small transaction-specific storage interface, intake, and exp
 
 The fresh schema contains Transactions (including the original JSON, current-state fields, and rowversion) and TransactionHistory (keyed by transaction identity plus append sequence). Current details are rebuilt from immutable history. The adapter verifies that the recorded current state agrees with that history.
 
-Consistent reads use a short repeatable-read transaction. Read locks are released before an update decision runs; a subsequent write transaction checks the original rowversion. This avoids holding read locks across caller work while detecting changes between read and write. Full-history loading is intentionally simple; its performance is not established for long-lived transactions.
+Consistent reads use a short repeatable-read transaction: read and lock the parent first, then load its history while that lock prevents an adapter writer from changing the parent and appending history. Read locks are released before an update decision runs; a subsequent write transaction checks the original rowversion. This avoids holding read locks across caller work while detecting changes between read and write. Full-history loading is intentionally simple; its performance is not established for long-lived transactions.
 
 EF Core's documented [transaction guarantees](https://learn.microsoft.com/en-us/ef/core/saving/transactions) and [SQL Server concurrency tokens](https://learn.microsoft.com/en-us/ef/core/saving/concurrency) inform the implementation. Real SQL tests, rather than an in-memory provider, verify the guarantees above.
 
@@ -54,7 +54,7 @@ Use the repository-local EF CLI to generate InitialTransactionStorage in Infrast
 
 The host still exposes only liveness and development OpenAPI and does not connect to storage. No migration is applied to an existing application database. No API status meanings or Contracts declarations change.
 
-Application tests cover waiting for persistence, failures, cancellation, and returning the store's existing outcome. SQL tests cover durable request reload, repeated cross-type references, simultaneous inserts and updates, unrelated key collisions, database constraint failures, rollback, declined/thrown decisions, ordered history, and generated migration round trips.
+Application tests cover waiting for persistence, failures, cancellation, and returning the store's existing outcome. SQL tests cover durable request reload, repeated cross-type references, simultaneous inserts and updates, unrelated key collisions, database constraint failures, rollback, declined/thrown decisions, ordered history, generated migration round trips, and a controlled read/write overlap proving the parent read lock is held until history is loaded.
 
 Remaining capability 1c: pending-work discovery, claims/leases, and restart recovery foundations. A new store/context proves persisted data can be reopened; process crashes, abandoned work, and multi-instance lease fencing are not yet verified. HTTP intake, wake-up signals, identifiers, payment validation, and dispatch belong to later capabilities.
 
