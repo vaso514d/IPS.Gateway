@@ -2,7 +2,7 @@
 
 A fresh foundation for rebuilding the IPS middleware in reviewed capability increments.
 
-**Status:** foundation, transaction lifecycle, and durable intake are awaiting separate reviews. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
+**Status:** foundation, transaction lifecycle, durable intake, and pending-work ownership are implemented on review branches; owner merge approval is pending. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
 
 ## Start
 
@@ -36,6 +36,8 @@ The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally kee
 - [Transaction lifecycle review](docs/reviews/001a-transaction-lifecycle.md)
 - [Durable intake specification and source commits](docs/specs/001b-durable-intake.md)
 - [Durable intake review](docs/reviews/001b-durable-intake.md)
+- [Pending-work specification](docs/specs/001c-pending-work.md)
+- [Pending-work review](docs/reviews/001c-pending-work.md)
 - [Transaction terminology](CONTEXT.md)
 - [Foundation review and verification](docs/foundation-review.md)
 - [Contract baseline provenance](tests/IPS.Middleware.Tests/Baselines/README.md)

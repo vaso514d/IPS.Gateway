@@ -51,4 +51,4 @@ Implement the first capability directly. Add a shared module when multiple imple
 - [Single executable host](adr/0001-single-host.md)
 - [Preserved external contracts](adr/0002-contract-compatibility.md)
 
-Infrastructure owns SQL Server persistence and generated EF Core migrations for transaction intake and history. Its records remain separate from Domain. Application owns intake and the storage interface; the Api host will register storage when payment endpoints arrive. Worker claims and pending-work discovery remain the next increment.
+Infrastructure owns SQL Server persistence and generated EF Core migrations for transaction intake and history. Its records remain separate from Domain. Application owns intake and the storage interface; the Api host will register storage when payment endpoints arrive. Infrastructure also persists due times and ownership tokens, with atomic claims and fenced completion/recovery. Application owns start and recovery status decisions; Domain has no lease or scheduling fields. The Api will register processing workers and storage when payment processing is implemented.

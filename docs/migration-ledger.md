@@ -2,16 +2,17 @@
 
 ## Resume checkpoint — 2026-10-03
 
-Read this checkpoint after compaction, in a new session, or before continuing implementation. Follow the [capability-by-capability workflow](../CONTRIBUTING.md#capability-by-capability-rebuild-workflow).
+Updated 2026-10-04. Read this checkpoint after compaction, in a new session, or before continuing implementation. Follow the [capability-by-capability workflow](../CONTRIBUTING.md#capability-by-capability-rebuild-workflow).
 
-- Purpose: preserve the original capability-led rebuild as an alternative to the commit-by-commit process. This branch is codex/capability-rebuild, created from codex/durable-intake at 4639ce6. Its descendant review branches follow the same process unless the owner changes it.
+- Owner resumed this workflow on 2026-10-04. Active branch: codex/capability-rebuild. Capability 1c is based on cdd52f9, the branch's workflow setup commit. The separate codex/payment-mapping and commit-by-commit branches are preserved.
 - Copy repository: D:\vaso\Running\IPS\IPS.Middleware. Read-only source: D:\vaso\Running\IPS\IPS.MiidleWear, pinned at d498de6c4638aa71cdb20189d13642b41abab5f1.
-- Completed implementation anchors: foundation 705eeb3; lifecycle/state/history d2ed3ac; durable outgoing intake and atomic SQL updates 1e1e924. Reuse this code. No merges have occurred; exact owner merge approval is still unrecorded.
-- Latest implementation verification: 78 passing tests, including real SQL tests; build, formatting, migration consistency, and independent reviews passed. This branch setup changes documentation only and is not a new test run.
-- Next implementation slice, when the owner resumes this alternative: 1c, pending-work discovery, safe claims, and restart recovery foundations. First establish its behavior specification from the pinned dispatcher/recovery code and tests. No 1c production changes exist yet.
-- Keep payment sending, investigation/resends, and protocol-specific behavior in their later capabilities. Introduce workers and typed clients with concrete capability needs. The empty-worker/client request from the commit-by-commit discussion was interrupted before any edits and is not the next action on this alternative branch.
-- The source-history audit remains on codex/durable-intake. It identified 84 original commits with e448c97 as the first open substantive commit; that audit does not dictate execution order on this branch.
-- Branch creation alone preserves this option. No capability implementation, merge, remote creation, publication, or cutover is requested by this setup.
+- Completed earlier implementation anchors: foundation 705eeb3; lifecycle/history d2ed3ac; durable intake/atomic SQL updates 1e1e924. Reuse this code. Nothing has merged into main; owner merge approval remains pending.
+- Implemented 1c: bounded priority discovery, durable due times, atomic ownership claims, fenced completion, expired-work recovery to Uncertain, and generated SQL migration. Application owns start/recovery decisions. Host registration, production workers, and remote processing are deferred to their implemented capabilities.
+- Verification: 96 passing tests (57 unit/architecture/compatibility, 39 integration). SQL tests cover competing claims and completion/recovery, delayed retries, stale owners, rollback including cancellation after a parent write, fresh-store recovery, and migration data preservation. Model consistency and formatting pass.
+- 1c implementation commit: 065c0ce. Independent Standards and Spec reviews found no actionable findings; fresh-checkout verification also passed. See docs/reviews/001c-pending-work.md.
+- Next action: owner review of 1c; wait for explicit approval before merging. After owner approval to advance, capability 2 is outgoing pacs.008 (validation, identifiers, XML/schema/signing, transport, HTTP intake/status, and normal outcomes).
+- Limits: reopen tests use fresh store/context instances, not an operating-system process kill. Network crash windows belong to capabilities 2/3. Claims use a supplied operation time, consistent UTC clocks, and fixed durations; no heartbeat renewal or commit-time database-clock expiry is promised.
+- Original source commits remain evidence rather than execution order on this branch. The commit-by-commit history audit remains on codex/durable-intake.
 
 ## Reference
 
@@ -33,7 +34,7 @@ The foundation starts with empty internal libraries. Capability 1a adds transact
 
 | ID | Capability | Source evidence | Acceptance scenarios | Status | Approved behavior differences |
 |---|---|---|---|---|---|
-| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | 1a and 1b implemented; merges pending; 1c is next when this workflow resumes | None |
+| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | 1a, 1b, and 1c implemented; merges pending | None |
 | 2 | Outgoing pacs.008 | `API/Controllers/GatewayController.cs`; `API/Transactions/OutgoingTransactionIntake.cs`, `Pacs008TransactionSender.cs`; tests `Api/Pacs008InstantPaymentTests.cs`, `OutgoingTransactionFlowTests.cs`, `IpsV1FieldProfileTests.cs` | Valid/invalid HTTP inputs; 202 Processing after storage; generated identifiers; correct XML/signature/headers; accept/reject outcomes; status query and existing delivery acknowledgement semantics | Planned | None |
 | 3 | Outgoing reliability and status delivery | `API/Transactions/TransactionRecovery.cs`, `Pacs008StatusInvestigator.cs`; `Gateway/Services/TransactionStatusDelivery.cs`; tests `Api/TransactionRecoveryTests.cs`, `MockIpsEndToEndTests.cs`, `Gateway/TransactionStatusDeliveryTests.cs` | Connection failed before send versus lost reply after processing; pacs.028 investigation; duplicate-safe resends; deadlines; restart recovery; status callback retry and idempotency; manual review | Planned | None |
 | 4 | Incoming payment handling | `Application/BackgroundServices/IpsInboundReceiverService.cs`; `Gateway/Services/CoreApiInboundMessageHandler.cs`, `InboundCoreReconciliation.cs`; tests `Gateway/InboundAckOrderingTests.cs`, `InboundReadProcessingSplitTests.cs`, `InboundCoreReconciliationTests.cs`, `IncomingStatusReportApplierTests.cs` | Store receipt before acknowledgement; duplicate delivery; core callback result; pacs.008 reply versus MessageAck ordering; lost core response; incoming status application; restart and lease loss | Planned | None |
@@ -79,3 +80,7 @@ Remaining: 1c must establish pending-work selection, claims/leases, and restart 
 - DTO declarations preserve existing mixed JSON casing; validators, generated XML values, and HTTP error behavior must be characterized from runtime code/tests.
 - Storage records and audit timing reflect previous optimizations. Establish required durability and acknowledgement guarantees before choosing the new schema.
 - The pacs.008 foundation should establish reusable receive processing; add other message-specific paths with their capabilities rather than placeholder handlers.
+
+## Review 1c: pending work and abandoned claims
+
+Implemented on codex/capability-rebuild, based on cdd52f9. [Specification](specs/001c-pending-work.md) and [review evidence](reviews/001c-pending-work.md) describe discovery, ownership fencing, atomic SQL writes, and recovery to Uncertain. Verification: 96 tests pass, model and formatting checks pass. Independent Standards and Spec reviews have no findings; fresh-checkout verification passes. Owner merge approval is pending. No production processing or new endpoints were added.

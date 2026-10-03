@@ -4,7 +4,7 @@
 
 This branch preserves the capability-led process requested by the owner on 2026-10-03. Apply it on codex/capability-rebuild and review branches intentionally created from it. Source commits are behavior evidence; chronological commit coverage is not the execution order here. The separate codex/durable-intake branch retains the commit-by-commit process.
 
-1. Read the migration ledger checkpoint and architecture. Select the next incomplete capability slice; resume at 1c (pending-work discovery, safe claims, and restart recovery foundations).
+1. Read the migration ledger checkpoint and architecture. Select the next incomplete capability slice recorded in the checkpoint.
 2. Inspect relevant code, tests, documentation, and history at original reference d498de6c4638aa71cdb20189d13642b41abab5f1. Write a short behavior specification with acceptance scenarios, compatibility constraints, durability, and failure/retry behavior. Record contradictions explicitly; obtain the owner's decision before changing external behavior.
 3. Reuse completed foundation, lifecycle, and durable intake/storage work. Implement one coherent slice within the allowed dependencies on a codex/<capability> review branch. Introduce endpoints, workers, typed clients, and XML mapping when that slice needs their implemented behavior.
 4. Test through meaningful interfaces; use SQL Server for database concurrency and transaction guarantees. Run the verification commands below. Review correctness, unnecessary indirection, duplicated rules, oversized workflows, naming, comments, and coupling.

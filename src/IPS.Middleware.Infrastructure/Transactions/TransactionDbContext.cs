@@ -17,6 +17,10 @@ public sealed class TransactionDbContext(DbContextOptions<TransactionDbContext> 
         transaction.Property(row => row.ClientReference).HasMaxLength(35);
         transaction.HasIndex(row => row.ClientReference).IsUnique();
         transaction.Property(row => row.RowVersion).IsRowVersion();
+        transaction.HasIndex(row => new { row.Direction, row.CurrentStatus, row.MessageType, row.CurrentStatusAtUtc, row.Id });
+        transaction.HasIndex(row => row.ClaimExpiresAtUtc);
+        transaction.ToTable(table => table.HasCheckConstraint("CK_Transactions_Claim",
+            "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)"));
         transaction.HasMany(row => row.History).WithOne().HasForeignKey(row => row.TransactionId);
 
         var history = modelBuilder.Entity<TransactionHistoryRow>();

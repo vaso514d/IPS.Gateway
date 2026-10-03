@@ -14,6 +14,9 @@ internal sealed class TransactionRow
     public DateTimeOffset CurrentStatusAtUtc { get; set; }
     public int CurrentSequence { get; set; }
     public int LastSequence { get; set; }
+    public DateTimeOffset? NextActionAtUtc { get; set; }
+    public Guid? ClaimToken { get; set; }
+    public DateTimeOffset? ClaimExpiresAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = [];
     public List<TransactionHistoryRow> History { get; set; } = [];
 

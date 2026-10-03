@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IPS.Middleware.Infrastructure.Transactions;
 
-public sealed class SqlTransactionStore(IDbContextFactory<TransactionDbContext> contextFactory) : ITransactionStore
+public sealed partial class SqlTransactionStore(IDbContextFactory<TransactionDbContext> contextFactory) : ITransactionStore, ITransactionWorkStore
 {
     public async Task<TransactionIntakeResult> GetOrAddOutgoingAsync(
         PaymentTransaction transaction, string requestJson, CancellationToken cancellationToken)
@@ -82,6 +82,11 @@ public sealed class SqlTransactionStore(IDbContextFactory<TransactionDbContext> 
             return TransactionUpdateResult.NotFound;
         }
 
+        if (row.ClaimToken is not null)
+        {
+            return TransactionUpdateResult.Conflict;
+        }
+
         var transaction = row.ToDomain();
         var previousCount = transaction.History.Count;
         if (!change(transaction) || transaction.History.Count == previousCount)
@@ -89,6 +94,13 @@ public sealed class SqlTransactionStore(IDbContextFactory<TransactionDbContext> 
             return TransactionUpdateResult.Unchanged;
         }
 
+        return await PersistAsync(db, row, transaction, previousCount, cancellationToken);
+    }
+
+    private static async Task<TransactionUpdateResult> PersistAsync(
+        TransactionDbContext db, TransactionRow row, PaymentTransaction transaction, int previousCount,
+        CancellationToken cancellationToken)
+    {
         await using var write = await db.Database.BeginTransactionAsync(cancellationToken);
         row.SetCurrent(transaction);
         try
@@ -96,7 +108,7 @@ public sealed class SqlTransactionStore(IDbContextFactory<TransactionDbContext> 
             // Acquire the row-version-checked write before inserting history, so a losing writer cannot collide on sequence.
             await db.SaveChangesAsync(cancellationToken);
             db.History.AddRange(transaction.History.Skip(previousCount)
-                .Select(entry => TransactionHistoryRow.From(id, entry)));
+                .Select(entry => TransactionHistoryRow.From(row.Id, entry)));
             await db.SaveChangesAsync(cancellationToken);
             await write.CommitAsync(cancellationToken);
             return TransactionUpdateResult.Saved;
