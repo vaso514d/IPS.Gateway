@@ -2,7 +2,7 @@
 
 A fresh foundation for rebuilding the IPS middleware in reviewed capability increments.
 
-**Status:** foundation only, awaiting review. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
+**Status:** foundation and transaction lifecycle are awaiting separate reviews. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
 
 ## Start
 
@@ -30,6 +30,8 @@ The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally kee
 - [Architecture and dependency diagram](docs/architecture.md)
 - [Contribution and review process](CONTRIBUTING.md)
 - [Capability migration ledger](docs/migration-ledger.md)
+- [Transaction lifecycle specification](docs/specs/001a-transaction-lifecycle.md)
+- [Transaction terminology](CONTEXT.md)
 - [Foundation review and verification](docs/foundation-review.md)
 - [Contract baseline provenance](tests/IPS.Middleware.Tests/Baselines/README.md)
 
@@ -37,6 +39,6 @@ The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally kee
 
 The behavior reference is [IPS.MiidleWear at d498de6](https://github.com/vaso514d/IPS.MiidleWear/tree/d498de6c4638aa71cdb20189d13642b41abab5f1). The imported Contracts sources are byte-for-byte Git objects from that commit. The source repository's 233 passing tests are scenario evidence, not a claim that every documented behavior is correct.
 
-This repository has independent Git history. Foundation work stays on `codex/foundation`; it will be merged only after the owner's approval. There is no remote yet.
+This repository has independent Git history. Foundation work stays on `codex/foundation`; it will be merged only after the owner's approval. The lifecycle branch is temporarily based on the unmerged foundation; its review compares against that branch. Both merges need explicit owner approval. There is no remote yet.
 
 Reporting, standalone generator/mock hosts, and document tools are outside the rebuild scope. Protocol simulators will be introduced inside the integration tests when their capability needs them.

@@ -22,7 +22,7 @@ flowchart TD
 | IPS.Middleware.Application | Domain | Internal commands/results, feature workflows, external dependency interfaces |
 | IPS.Middleware.Infrastructure | Application, Domain, Contracts | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
 | IPS.Middleware.Api | Application, Infrastructure, Contracts | HTTP mapping, configuration, dependency registration |
-| IPS.Middleware.Tests | Contracts; Api as a build dependency only | Compatibility and evaluated dependency tests; later core behavior tests |
+| IPS.Middleware.Tests | Domain, Contracts; Api as a build dependency only | Domain behavior, compatibility, and evaluated dependency tests |
 | IPS.Middleware.IntegrationTests | Api | Host and adapter tests; later independent protocol simulators |
 
 Contracts and Domain use only the base class library. Application also has no external packages in the foundation. A future pure-library dependency needs a reviewed rule change; ASP.NET, EF Core, HTTP clients, hosting, signing, and telemetry implementations remain outside Application.
