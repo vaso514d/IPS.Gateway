@@ -2,11 +2,11 @@
 
 A fresh foundation for rebuilding the IPS middleware in reviewed capability increments.
 
-**Status:** foundation, transaction lifecycle, durable intake, and pending-work ownership are implemented on review branches; owner merge approval is pending. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
+**Status:** foundation, transaction lifecycle, durable intake, pending-work ownership, and the aggregate/event refactor are implemented on review branches; owner merge approval is pending. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
 
 ## Start
 
-The full test suite requires Windows and SQL Server Express LocalDB (MSSQLLocalDB). Each SQL test creates and deletes its own database; no application connection string is used. Install the SDK selected by `global.json`, then run from the repository root:
+The full test suite requires Windows and SQL Server Express LocalDB (MSSQLLocalDB). The aggregate schema replaces legacy history; recreate disposable rebuild databases rather than upgrading existing data. Each SQL test creates and deletes its own database; no application connection string is used. Install the SDK selected by `global.json`, then run from the repository root:
 
 ```powershell
 dotnet tool restore
@@ -29,6 +29,10 @@ The local profile listens on `http://localhost:5080`:
 
 The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally keep their original spelling for consumers. New internal projects use `IPS.Middleware`.
 
+- [Approved aggregate and synchronous outbound stages](docs/rebuild-plan.md)
+- [Aggregate refactor specification](docs/specs/001d-aggregate-events.md)
+- [Aggregate refactor review and checks](docs/reviews/001d-aggregate-events.md)
+- [Shared unit of work revision and checks](docs/reviews/001e-shared-unit-of-work.md)
 - [Architecture and dependency diagram](docs/architecture.md)
 - [Contribution and review process](CONTRIBUTING.md)
 - [Capability migration ledger](docs/migration-ledger.md)

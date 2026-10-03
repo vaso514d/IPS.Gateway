@@ -1,3 +1,5 @@
+using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Repositories.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using Xunit;
@@ -6,110 +8,97 @@ namespace IPS.Middleware.Tests.Transactions;
 
 public sealed class OutgoingTransactionIntakeTests
 {
-    private static readonly DateTimeOffset Now = new(2026, 10, 3, 10, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Now = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task Acceptance_waits_for_storage_and_uses_the_supplied_clock()
+    public async Task Intake_waits_for_commit_and_acknowledges_durable_acceptance_only_after_it()
     {
-        var store = new PendingStore();
-        var intake = new OutgoingTransactionIntake(store, new FixedTime());
-        using var cancellation = new CancellationTokenSource();
-        var acceptance = intake.AcceptAsync(" pacs.008 ", " CBS-1 ", "{\"amount\":10}", cancellation.Token);
-
-        Assert.False(acceptance.IsCompleted);
-        Assert.NotNull(store.Received);
-        Assert.Equal("pacs.008", store.Received.MessageType);
-        Assert.Equal("CBS-1", store.Received.ClientReference);
-        Assert.Equal(Now, store.Received.CreatedAtUtc);
-        Assert.Equal(TransactionDirection.Outgoing, store.Received.Direction);
-        Assert.Equal(TransactionStatus.Received, store.Received.Current.Status);
-        Assert.NotEqual(Guid.Empty, store.Received.Id);
-        Assert.Equal("{\"amount\":10}", store.Payload);
-        Assert.Equal(cancellation.Token, store.CancellationToken);
-
-        var committed = new TransactionIntakeResult(store.Received, Created: true);
-        store.Completion.SetResult(committed);
-        Assert.Same(committed, await acceptance);
+        var storage = new IntakeStorage();
+        var pending = new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync(" pacs.008 ", " CBS-1 ", "{\"a\":1}", CancellationToken.None);
+        Assert.False(pending.IsCompleted);
+        Assert.NotNull(storage.Added);
+        Assert.Equal(Now, storage.Added.CreatedAtUtc);
+        Assert.Equal("CBS-1", storage.Added.ClientReference);
+        Assert.Equal("{\"a\":1}", storage.Json);
+        storage.Commit.SetResult(2);
+        var result = await pending;
+        Assert.True(result.Created);
+        Assert.Same(storage.Added, result.Payment);
     }
 
     [Fact]
-    public async Task Duplicate_acceptance_returns_the_stored_outcome_unchanged()
+    public async Task Duplicate_reference_returns_original_without_staging_or_committing()
     {
-        var existing = new PaymentTransaction(Guid.NewGuid(), "pacs.009", TransactionDirection.Outgoing, Now, "CBS-1");
-        existing.ChangeStatus(TransactionStatus.Accepted, StatusSource.Ips, Now.AddSeconds(1));
-        var stored = new TransactionIntakeResult(existing, Created: false);
-        var store = new PendingStore();
-        store.Completion.SetResult(stored);
-
-        var result = await new OutgoingTransactionIntake(store, new FixedTime())
-            .AcceptAsync("pacs.008", "CBS-1", "{}", CancellationToken.None);
-
-        Assert.Same(stored, result);
-        Assert.Equal(TransactionStatus.Accepted, result.Transaction.Current.Status);
-        Assert.Equal("pacs.009", result.Transaction.MessageType);
+        var storage = new IntakeStorage { Existing = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.009", "CBS-1", Now) };
+        var result = await new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync("pacs.008", "CBS-1", "{\"changed\":true}", CancellationToken.None);
+        Assert.False(result.Created);
+        Assert.Same(storage.Existing, result.Payment);
+        Assert.Null(storage.Added);
+        Assert.Equal(0, storage.CommitCalls);
     }
 
     [Fact]
-    public async Task Storage_failure_is_not_reported_as_acceptance()
+    public async Task An_insert_race_returns_the_persisted_winner()
     {
-        var store = new PendingStore();
-        var failure = new IOException("Storage unavailable");
-        store.Completion.SetException(failure);
-
-        var actual = await Assert.ThrowsAsync<IOException>(() =>
-            new OutgoingTransactionIntake(store, new FixedTime())
-                .AcceptAsync("pacs.008", "CBS-1", "{}", CancellationToken.None));
-
-        Assert.Same(failure, actual);
+        var storage = new IntakeStorage { Winner = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.009", "CBS-1", Now) };
+        storage.Commit.SetException(new UniqueConstraintException("Unique key conflict.", new Exception("SQL failure")));
+        var result = await new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync("pacs.008", "CBS-1", "{}", CancellationToken.None);
+        Assert.False(result.Created);
+        Assert.Same(storage.Winner, result.Payment);
     }
 
     [Fact]
-    public async Task Cancelled_intake_does_not_call_storage()
+    public async Task Commit_failure_propagates_and_cancelled_intake_stages_nothing()
     {
-        var store = new PendingStore();
+        var storage = new IntakeStorage();
+        storage.Commit.SetException(new InvalidOperationException("unavailable"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync("pacs.008", "CBS-1", "{}", CancellationToken.None));
+        var cancelled = new IntakeStorage();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new OutgoingTransactionIntake(store, new FixedTime())
-                .AcceptAsync("pacs.008", "CBS-1", "{}", cancellation.Token));
-        Assert.Null(store.Received);
+            new OutgoingTransactionIntake(cancelled, cancelled, new Clock()).AcceptAsync("pacs.008", "CBS-1", "{}", cancellation.Token));
+        Assert.Null(cancelled.Added);
     }
 
     [Theory]
     [InlineData(" ", "{}")]
     [InlineData("CBS-1", " ")]
-    public async Task Missing_reference_or_request_does_not_call_storage(string reference, string payload)
+    public async Task Blank_reference_or_payload_does_not_stage(string reference, string json)
     {
-        var store = new PendingStore();
+        var storage = new IntakeStorage();
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            new OutgoingTransactionIntake(store, new FixedTime())
-                .AcceptAsync("pacs.008", reference, payload, CancellationToken.None));
-        Assert.Null(store.Received);
+            new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync("pacs.008", reference, json, CancellationToken.None));
+        Assert.Null(storage.Added);
     }
 
-    private sealed class FixedTime : TimeProvider
+    [Fact]
+    public async Task A_unique_failure_without_a_reference_winner_is_not_duplicate_intake()
     {
-        public override DateTimeOffset GetUtcNow() => Now;
+        var storage = new IntakeStorage();
+        var failure = new UniqueConstraintException("Unrelated unique constraint.", new Exception("SQL failure"));
+        storage.Commit.SetException(failure);
+        var actual = await Assert.ThrowsAsync<UniqueConstraintException>(() =>
+            new OutgoingTransactionIntake(storage, storage, new Clock()).AcceptAsync("pacs.008", "CBS-1", "{}", default));
+        Assert.Same(failure, actual);
     }
+    private sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => Now; }
 
-    private sealed class PendingStore : ITransactionStore
+    private sealed class IntakeStorage : IOutgoingPaymentRepository, IUnitOfWork
     {
-        public TaskCompletionSource<TransactionIntakeResult> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public PaymentTransaction? Received { get; private set; }
-        public string? Payload { get; private set; }
-        public CancellationToken CancellationToken { get; private set; }
-
-        public Task<TransactionIntakeResult> GetOrAddOutgoingAsync(PaymentTransaction transaction, string requestJson, CancellationToken cancellationToken)
-        {
-            Received = transaction;
-            Payload = requestJson;
-            CancellationToken = cancellationToken;
-            return Completion.Task;
-        }
-
-        public Task<PaymentTransaction?> FindAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public OutgoingPayment? Existing { get; init; }
+        public OutgoingPayment? Winner { get; init; }
+        public OutgoingPayment? Added { get; private set; }
+        public string? Json { get; private set; }
+        public int CommitCalls { get; private set; }
+        public TaskCompletionSource<int> Commit { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
+            Task.FromResult(CommitCalls == 0 ? Existing : Winner);
+        public void Add(OutgoingPayment payment, string requestJson) { Added = payment; Json = requestJson; }
+        public Task<int> SaveAsync(CancellationToken cancellationToken) { CommitCalls++; return Commit.Task; }
+        public Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<TransactionUpdateResult> TryUpdateAsync(Guid id, Func<PaymentTransaction, bool> change, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<StoredPaymentEvent>> ReadEventsAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

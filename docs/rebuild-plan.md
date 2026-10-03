@@ -1,0 +1,53 @@
+# Approved aggregate and synchronous outbound rebuild
+
+Owner approved implementation on 2026-10-04. Execute in the copy repository. Preserve other branches. Each increment has its own specification, meaningful tests, independent Standards/Spec reviews, and owner approval before merge. Source commits are evidence; this branch follows capability order. The active checkpoint in migration-ledger.md governs resuming after compaction or a new session.
+
+## Stage 1: aggregate refactor
+
+Refactor e24c28d into directly EF-mapped aggregates and atomic event history. See specs/001d-aggregate-events.md and ADR 0003. Review this separately before outgoing pacs.008 implementation. Current state is authoritative; full versioned events accompany it and are never replayed to load a payment.
+
+## Stage 2a: outgoing pacs.008 protocol preparation
+
+Inspect pinned source d498de6 before writing the capability specification. Implement request validation, stable identifiers, XML generation, existing-schema validation, signing, and immutable artifact storage. Persist identifiers once and reuse them on retries. Verify XML with independent fixtures; a simulator must not reproduce production mapping logic.
+
+## Stage 2b: durable workflow
+
+Persist checkpoints and required artifacts:
+
+| Durable checkpoint | Resume |
+|---|---|
+| Request and identifiers saved | Prepare message |
+| XML saved | Sign |
+| Signed message saved | Use stored signed message |
+| Submission started without durable response | Treat outcome as uncertain; investigate before repeating |
+| Raw response saved | Interpret saved response |
+| Final outcome saved | Return stored outcome |
+
+Persist the submission marker before remote I/O. A crash between the marker and the call is conservatively uncertain. Database transactions never span remote calls. Ownership acquisition and every checkpoint commit must exclude competing execution and stale results. A lost reply after remote processing must lead to investigation, never a blind resend.
+
+## Stage 2c: host, transport, HTTP and delivery
+
+Run the initial attempt immediately in a service-owned, supervised scope. The HTTP caller awaits the attempt; response completion or caller disconnect must not dispose its execution scope.
+
+- Default HTTP wait: 30 seconds after durable intake.
+- Final result, including definitive business rejection: 200.
+- Unresolved at deadline: 504 with existing TransactionStatusDto, identity, and current status.
+- Duplicate clientReference: immediate 200 with existing current status, including Processing. Never start another attempt or replace request JSON.
+- Preserve methods, routes, DTO JSON shapes, status queries, reference comparison semantics, callbacks, and IPS protocol. SQL remains authoritative; no initial cache.
+- Approved compatibility exception: replace 202 with the 200/504 rules above. Update route metadata and independent compatibility expectations explicitly in 2c, not Stage 1.
+- Store reliable final-status callback work atomically with the outcome even when a synchronous response succeeds. Preserve status-query acknowledgement behavior.
+- Recovery workers discover accepted-but-unstarted work and abandoned attempts and invoke the same Application workflow.
+- Defaults: IPS call timeout 25 seconds, attempt budget 35 seconds, ownership 45 seconds, outbound concurrency 8. Validate timeout ordering. Caller cancellation stops waiting; processing follows its own deadline and shutdown policy.
+
+Integration tests must cover final 200, unresolved 504, immediate duplicates, caller disconnect, competing request/recovery execution, callbacks, and process termination at each durable checkpoint. Use independent schemas/fixtures and a lost-reply simulator.
+
+## Remaining capability order
+
+1. Outgoing reliability: pacs.028 investigation, duplicate-safe resending, deadlines, callback retries, manual review.
+2. Incoming payments: separate aggregate/workflow, durable receipt, deduplication, core callbacks, acknowledgement ordering, reconciliation.
+3. pacs.009/pacs.004: message-specific behavior and aggregates where justified, demonstrated shared rules.
+4. Recalls and payment initiation.
+5. Proxy registration/update/removal.
+6. Operational completion: readiness, diagnostics, graceful shutdown, multi-instance coordination, measured performance.
+
+Essential recovery and diagnostics accompany the capability needing them. Use SQL Server/EF for real transactions/concurrency; in-memory stores prove application behavior only. No existing-data migration, production cutover, remote creation, package publication, reporting, standalone client/generator/mock hosts, or documentation tooling is included.

@@ -32,13 +32,21 @@ public sealed class DependencyTests
 
     [Theory]
     [InlineData("IPS.MiidleWear.Contracts")]
-    [InlineData("IPS.Middleware.Domain")]
     [InlineData("IPS.Middleware.Application")]
-    public void Core_projects_depend_only_on_the_base_class_library(string project)
+    public void Contracts_and_Application_declare_no_external_packages(string project)
     {
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", project + ".dependencies.txt"));
         Assert.Empty(Values(lines, "packageReference"));
-        Assert.Empty(Values(lines, "assemblyReference"));
+        Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "Stateless" } : [], Values(lines, "assemblyReference"));
+        Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
+    }
+
+    [Fact]
+    public void Domain_allows_only_Stateless_beyond_the_base_class_library()
+    {
+        var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.Middleware.Domain.dependencies.txt"));
+        Assert.Equal(new[] { "Stateless" }, Values(lines, "packageReference"));
+        Assert.Equal(new[] { "Stateless" }, Values(lines, "assemblyReference"));
         Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
     }
 

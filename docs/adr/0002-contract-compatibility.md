@@ -17,3 +17,7 @@ Use `IPS.Middleware` for new internal projects. Translate Contracts at Api and I
 The existing spelling and mixed JSON property casing remain part of compatibility. Preserving declarations does not copy the old controller convention, error filter, or workflow implementation. Each capability must prove HTTP behavior separately when its endpoint is added.
 
 A deliberate external change requires an approved compatibility/versioning decision and new independent expectations. Never refresh a baseline from the changed implementation merely to make a failing test pass. Internal database design is free to change; existing data migration is outside this milestone.
+
+## Approved synchronous outbound exception (2026-10-04)
+
+The owner approved replacing initial outgoing 202 with final 200 (including business rejection) or unresolved 504 with TransactionStatusDto after 30 seconds of durable intake. Duplicate submissions immediately return 200 current status, including Processing, and never start another attempt. Methods, routes, JSON shapes, reference semantics, callbacks and status-query acknowledgement remain preserved. Implement route metadata and independent baseline changes explicitly in Stage 2c; the aggregate refactor changes no Contracts source or baseline. See [the approved plan](../rebuild-plan.md).

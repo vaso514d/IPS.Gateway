@@ -11,7 +11,7 @@ This branch preserves the capability-led process requested by the owner on 2026-
 5. Present the diff, test results, source references, and remaining concerns. Wait for owner approval before merging. Local branches and reviewed diffs are the PR equivalent until a remote exists.
 6. Update the ledger checkpoint before ending work or handing off: implemented slice, branch/base, checks, unresolved decisions, approval status, and exact next action. Read it again after compaction or in a new session.
 
-Capability order: finish transaction/storage foundations (1c), outgoing pacs.008, outgoing reliability, incoming payments, pacs.009/pacs.004, recalls/payment initiation, proxy management, operational completion. Include essential reliability and diagnostics with each capability.
+Capability order: aggregate refactor (Stage 1), outgoing pacs.008 protocol preparation (2a), durable workflow (2b), host/HTTP/delivery (2c), outgoing reliability, incoming payments, pacs.009/pacs.004, recalls/payment initiation, proxy management, operational completion. Include essential reliability and diagnostics with each capability.
 
 All development and Git operations belong to D:\vaso\Running\IPS\IPS.Middleware. The original D:\vaso\Running\IPS\IPS.MiidleWear remains a read-only reference. Record stacked branch bases explicitly; authorization to continue is separate from merge approval. This branch preserves an alternative workflow for later use and does not authorize implementation merely by being created.
 
@@ -32,7 +32,7 @@ Build warnings are errors. GitHub Actions repeats restore, Release build, tests,
 
 ## Migrations
 
-Generate migrations with the repository-local EF tool in Infrastructure, using TransactionDbContext and output directory Transactions/Migrations. The design-time factory supplies model metadata without contacting a database. Review generated Up/Down and snapshot changes, then run the SQL integration tests. The Api host does not auto-migrate or connect to this database yet.
+Generate migrations with the repository-local EF tool in Infrastructure, using TransactionDbContext and output directory Transactions/Migrations. The design-time factory supplies model metadata without contacting a database. Review generated Up/Down and snapshot changes, then run the SQL integration tests. The Api host does not auto-migrate or connect to this database yet. AggregatePaymentsAndEvents drops the old history table without conversion. The complete chain is supported on fresh databases only; recreate disposable rebuild databases. Never apply it to a populated or production database.
 
 ## Implementation conventions
 

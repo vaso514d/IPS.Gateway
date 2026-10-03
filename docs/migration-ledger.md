@@ -1,18 +1,20 @@
 # Capability migration ledger
 
-## Resume checkpoint — 2026-10-03
+## Resume checkpoint — 2026-10-04
 
-Updated 2026-10-04. Read this checkpoint after compaction, in a new session, or before continuing implementation. Follow the [capability-by-capability workflow](../CONTRIBUTING.md#capability-by-capability-rebuild-workflow).
+Read after compaction, in a new session, or before continuing on codex/capability-rebuild descendants. The approved [rebuild plan](rebuild-plan.md) and [workflow](../CONTRIBUTING.md#capability-by-capability-rebuild-workflow) govern execution.
 
-- Owner resumed this workflow on 2026-10-04. Active branch: codex/capability-rebuild. Capability 1c is based on cdd52f9, the branch's workflow setup commit. The separate codex/payment-mapping and commit-by-commit branches are preserved.
-- Copy repository: D:\vaso\Running\IPS\IPS.Middleware. Read-only source: D:\vaso\Running\IPS\IPS.MiidleWear, pinned at d498de6c4638aa71cdb20189d13642b41abab5f1.
-- Completed earlier implementation anchors: foundation 705eeb3; lifecycle/history d2ed3ac; durable intake/atomic SQL updates 1e1e924. Reuse this code. Nothing has merged into main; owner merge approval remains pending.
-- Implemented 1c: bounded priority discovery, durable due times, atomic ownership claims, fenced completion, expired-work recovery to Uncertain, and generated SQL migration. Application owns start/recovery decisions. Host registration, production workers, and remote processing are deferred to their implemented capabilities.
-- Verification: 96 passing tests (57 unit/architecture/compatibility, 39 integration). SQL tests cover competing claims and completion/recovery, delayed retries, stale owners, rollback including cancellation after a parent write, fresh-store recovery, and migration data preservation. Model consistency and formatting pass.
-- 1c implementation commit: 065c0ce. Independent Standards and Spec reviews found no actionable findings; fresh-checkout verification also passed. See docs/reviews/001c-pending-work.md.
-- Next action: owner review of 1c; wait for explicit approval before merging. After owner approval to advance, capability 2 is outgoing pacs.008 (validation, identifiers, XML/schema/signing, transport, HTTP intake/status, and normal outcomes).
-- Limits: reopen tests use fresh store/context instances, not an operating-system process kill. Network crash windows belong to capabilities 2/3. Claims use a supplied operation time, consistent UTC clocks, and fixed durations; no heartbeat renewal or commit-time database-clock expiry is promised.
-- Original source commits remain evidence rather than execution order on this branch. The commit-by-commit history audit remains on codex/durable-intake.
+- Development/Git: D:\vaso\Running\IPS\IPS.Middleware. Original remains read-only at D:\vaso\Running\IPS\IPS.MiidleWear, pinned d498de6c4638aa71cdb20189d13642b41abab5f1.
+- Live capability branch base was verified clean at e24c28d (transaction work). Earlier lifecycle/intake/ownership implementations are already in that commit. Historical review anchors below describe prior work and must not be replayed or assumed to be the live base.
+- Active review branch: codex/aggregate-events, from e24c28d. Other branches are preserved. No merge into main or capability-rebuild is authorized.
+- Owner approved the aggregate/current-state/event design and synchronous outbound plan on 2026-10-04. Stage 1 refactors existing lifecycle/storage/ownership; Stage 2a/2b/2c remain separate reviews.
+- Stage 1: OutgoingPayment with private Stateless 5.20.1 transitions; directly EF-mapped current state; full immutable versioned event JSON; shared scoped repositories/unit of work; parent-first optimistic writes and atomic events/ownership/scheduling. Contracts and exposed host operations are unchanged. See [specification](specs/001d-aggregate-events.md).
+- Schema: preserve historical migrations; new AggregatePaymentsAndEvents replaces TransactionHistory. Full chain supported on fresh databases only. Recreate existing disposable rebuild databases. No legacy history conversion or production migration.
+- Live Git state on resuming the owner revision: HEAD e24c28d; earlier Stage 1 changes are uncommitted. Prior commits 3bc9b3d, 5a53658 and bc17a81 are historical comparison objects, not the current branch tip. Preserve staged/unstaged work; no commit or merge was made during the revision.
+- Latest owner-approved revision: shared IUnitOfWork.SaveAsync for all tracked changes; AggregateRoot event collection; dedicated payment validation; duplicate interpretation in Application; repository and persistence folders. See [revision specification](specs/001e-shared-unit-of-work.md). Verification: 185 passing tests (149 unit/architecture/contracts; 36 integration including 29 SQL), clean source export restore/build/test/format, and unchanged EF model. Independent Standards and Spec reviews report zero findings; see [revision review](reviews/001e-shared-unit-of-work.md).
+- Owner authorized committing revised Stage 1 shared persistence. The current branch contains the reviewed aggregate and shared-unit-of-work changes; identify the checkpoint with git log -1. Wait for explicit approval before merging into codex/capability-rebuild. After approval to advance, establish Stage 2a protocol-preparation specification from pinned source. Do not begin Stage 2b/2c in this review.
+- Approved future HTTP difference: final 200 (including business rejection), unresolved 504 after 30 seconds of durable intake, immediate duplicate 200 current status including Processing. Implement route metadata/baseline changes in 2c; no 202 response remains in the approved target design.
+- Limits retained from 1c: expiry checked at supplied operation time; fixed duration, no heartbeat renewal/database-clock commit deadline. Stage 1 SQL reopening tests use fresh contexts rather than process termination. Remote crash windows belong to 2b/2c.
 
 ## Reference
 
@@ -20,7 +22,7 @@ Source: [vaso514d/IPS.MiidleWear](https://github.com/vaso514d/IPS.MiidleWear/tre
 
 Source tests: 233 passed, 0 failed, 0 skipped on 2026-10-03. These are evidence to inspect, not a substitute for protocol requirements. File paths below are relative to that pinned source tree.
 
-Approved differences: one executable host; new internal layering/names; a fresh database schema when storage is implemented; exclusion of reporting and standalone helper hosts/tools. No external contract or payment-behavior differences are approved.
+Approved differences: one executable host; new internal layering/names; a fresh database schema when storage is implemented; exclusion of reporting and standalone helper hosts/tools. The owner approved synchronous outbound 200/504 responses and immediate duplicate 200 current status on 2026-10-04; see rebuild-plan.md. Stage 1 leaves Contracts unchanged.
 
 ## Foundation
 
@@ -34,8 +36,8 @@ The foundation starts with empty internal libraries. Capability 1a adds transact
 
 | ID | Capability | Source evidence | Acceptance scenarios | Status | Approved behavior differences |
 |---|---|---|---|---|---|
-| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | 1a, 1b, and 1c implemented; merges pending | None |
-| 2 | Outgoing pacs.008 | `API/Controllers/GatewayController.cs`; `API/Transactions/OutgoingTransactionIntake.cs`, `Pacs008TransactionSender.cs`; tests `Api/Pacs008InstantPaymentTests.cs`, `OutgoingTransactionFlowTests.cs`, `IpsV1FieldProfileTests.cs` | Valid/invalid HTTP inputs; 202 Processing after storage; generated identifiers; correct XML/signature/headers; accept/reject outcomes; status query and existing delivery acknowledgement semantics | Planned | None |
+| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | Foundations implemented at e24c28d; aggregate refactor under review | Guarded outgoing transitions; current state plus versioned events |
+| 2 | Outgoing pacs.008 | `API/Controllers/GatewayController.cs`; `API/Transactions/OutgoingTransactionIntake.cs`, `Pacs008TransactionSender.cs`; tests `Api/Pacs008InstantPaymentTests.cs`, `OutgoingTransactionFlowTests.cs`, `IpsV1FieldProfileTests.cs` | Valid/invalid HTTP inputs; 200 final or immediate duplicate status; 504 unresolved after durable intake; generated identifiers; correct XML/signature/headers; accept/reject outcomes; status query and existing delivery acknowledgement semantics | 2a/2b/2c planned separately | Approved 202→200/504; see rebuild-plan.md |
 | 3 | Outgoing reliability and status delivery | `API/Transactions/TransactionRecovery.cs`, `Pacs008StatusInvestigator.cs`; `Gateway/Services/TransactionStatusDelivery.cs`; tests `Api/TransactionRecoveryTests.cs`, `MockIpsEndToEndTests.cs`, `Gateway/TransactionStatusDeliveryTests.cs` | Connection failed before send versus lost reply after processing; pacs.028 investigation; duplicate-safe resends; deadlines; restart recovery; status callback retry and idempotency; manual review | Planned | None |
 | 4 | Incoming payment handling | `Application/BackgroundServices/IpsInboundReceiverService.cs`; `Gateway/Services/CoreApiInboundMessageHandler.cs`, `InboundCoreReconciliation.cs`; tests `Gateway/InboundAckOrderingTests.cs`, `InboundReadProcessingSplitTests.cs`, `InboundCoreReconciliationTests.cs`, `IncomingStatusReportApplierTests.cs` | Store receipt before acknowledgement; duplicate delivery; core callback result; pacs.008 reply versus MessageAck ordering; lost core response; incoming status application; restart and lease loss | Planned | None |
 | 5 | pacs.009 and pacs.004 | `API/Transactions/IsoTransactionSenders.cs`; `Gateway/Services/Pacs009InboundPaymentMapper.cs`, `Pacs004InboundPaymentMapper.cs`; tests `Api/Pacs009SchemaTests.cs`, `MockIpsEndToEndTests.cs` | Outgoing/incoming transfer and return; original transaction references; correct schema and acknowledgement path; type-specific outcomes/recovery | Planned | None |
@@ -84,3 +86,7 @@ Remaining: 1c must establish pending-work selection, claims/leases, and restart 
 ## Review 1c: pending work and abandoned claims
 
 Implemented on codex/capability-rebuild, based on cdd52f9. [Specification](specs/001c-pending-work.md) and [review evidence](reviews/001c-pending-work.md) describe discovery, ownership fencing, atomic SQL writes, and recovery to Uncertain. Verification: 96 tests pass, model and formatting checks pass. Independent Standards and Spec reviews have no findings; fresh-checkout verification passes. Owner merge approval is pending. No production processing or new endpoints were added.
+
+## Stage 1 aggregate refactor review
+
+Implemented on codex/aggregate-events from verified base e24c28d. Commits 3bc9b3d and 5a53658 replace callback storage/history replay with guarded aggregates and atomic full event history. [Specification](specs/001d-aggregate-events.md); [review and verification](reviews/001d-aggregate-events.md). All 178 tests pass, fresh checkout and actual host checks pass, independent reviews have no remaining findings. Owner merge approval pending. Stage 2a is the next separately specified capability.
