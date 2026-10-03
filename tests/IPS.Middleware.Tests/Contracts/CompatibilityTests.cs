@@ -1,6 +1,4 @@
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IPS.MiidleWear.Contracts.Abstractions;
@@ -22,30 +20,6 @@ public sealed class CompatibilityTests
     {
         var expected = File.ReadAllText(BaselinePath("public-api.json")).TrimEnd().ReplaceLineEndings("\n");
         Assert.Equal(expected, ContractSnapshot.Create(Contracts));
-    }
-
-    [Fact]
-    public void Imported_contract_sources_match_the_original_git_blobs()
-    {
-        using var manifest = JsonDocument.Parse(File.ReadAllText(BaselinePath("source-manifest.json")));
-        var sourceDirectory = Path.Combine(AppContext.BaseDirectory, "ContractSources");
-        var entries = manifest.RootElement.GetProperty("files").EnumerateArray().ToArray();
-        var expectedFiles = entries.Select(entry => entry.GetProperty("path").GetString()!).Order(StringComparer.Ordinal);
-        var actualFiles = Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(sourceDirectory, path).Replace('\\', '/')).Order(StringComparer.Ordinal);
-        Assert.Equal(expectedFiles, actualFiles);
-
-        foreach (var entry in entries)
-        {
-            var relativePath = entry.GetProperty("path").GetString()!;
-            var content = File.ReadAllBytes(Path.Combine(sourceDirectory, relativePath));
-            var header = Encoding.UTF8.GetBytes($"blob {content.Length}\0");
-            var gitObject = new byte[header.Length + content.Length];
-            header.CopyTo(gitObject, 0);
-            content.CopyTo(gitObject, header.Length);
-            var actualBlob = Convert.ToHexString(SHA1.HashData(gitObject)).ToLowerInvariant();
-            Assert.True(entry.GetProperty("gitBlob").GetString() == actualBlob, $"Contract source changed: {relativePath}");
-        }
     }
 
     [Fact]

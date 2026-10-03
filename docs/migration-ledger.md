@@ -10,7 +10,7 @@ Approved differences: one executable host; new internal layering/names; a fresh 
 
 ## Foundation
 
-Status: Ready for review; merge approval pending. Release build, 29 tests, formatting, Kestrel startup, and package metadata checks pass. See [foundation review](foundation-review.md).
+Status: Ready for review; merge approval pending. Release build, 28 tests, formatting, Kestrel startup, and package metadata checks pass. See [foundation review](foundation-review.md).
 
 Delivered: independent repository, seven projects, dependency rules, imported Contracts and immutable baselines, minimal host, integration smoke tests, build/format/test configuration, architecture decisions, and contribution instructions.
 

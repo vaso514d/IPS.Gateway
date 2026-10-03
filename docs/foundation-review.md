@@ -15,11 +15,11 @@ Contracts were imported from raw blobs at `d498de6c4638aa71cdb20189d13642b41abab
 ## Verification
 
 - Normal Release build: 0 warnings, 0 errors.
-- Tests: 29 passed, 0 failed, 0 skipped (22 architecture/contract cases; 7 HTTP host cases).
+- Tests: 28 passed, 0 failed, 0 skipped (21 architecture/contract cases; 7 HTTP host cases).
 - Formatting: verified, excluding imported Contracts.
 - Real Kestrel host: startup, `/health/live`, and development OpenAPI verified.
 - Local package inspection: original Contracts package/version, net8.0 assembly, and no package dependencies verified. Nothing was published.
-- Fresh checkout: restore, Release build, all 29 tests, and formatting pass.
+- Fresh checkout: restore, Release build, all 28 tests, and formatting pass.
 - Dependency guard probe: an intentionally added Infrastructure DLL reference in a temporary Domain project causes exactly the expected architecture-test failure. The real repository was not modified by the probe.
 
 These checks prove the foundation and compatibility declarations. They do not certify payment behavior that has not been rebuilt.
@@ -33,6 +33,10 @@ No remaining findings. The initial advisory identified a direct-DLL reference ga
 No remaining findings. The initial finding identified an incomplete pacs.004 JSON sample; it now captures the actual nested original-payment reference and return reason from the independently built original assembly. All sample inputs reject unknown fields to prevent silently lost coverage.
 
 Total remaining findings: Standards 0; Spec 0.
+
+## Test project simplification
+
+At the owner's request, Contracts compatibility tests use the existing project reference without linked source files or a source-byte identity test. Frozen public-interface, route metadata, and JSON expectations remain enforced. Generated architecture reports remain test inputs and are hidden from Solution Explorer. The source manifest remains as import provenance only.
 
 ## Owner review
 
