@@ -1,16 +1,17 @@
 # Contribution and review
 
-## Capability workflow
+## Commit-by-commit rebuild workflow
 
-1. Branch from the last approved `main` using `codex/<capability>`.
-2. Write a short behavior specification: input/output, persistence before acknowledgement, failure/retry behavior, compatibility constraints, and acceptance scenarios. Link the relevant ledger entry and pinned source files/tests.
-3. Resolve contradictions between code, tests, and protocol documentation explicitly. Record proposed differences and obtain the owner's decision before changing external behavior.
-4. Implement one coherent capability through the architecture's allowed references. Add tests through the interfaces callers use; use real SQL Server for database concurrency guarantees.
-5. Verify the commands below. Review behavior and architecture against the specification, including unnecessary indirection, duplication, oversized workflows, naming, comments, and coupling.
-6. Update the ledger and present the diff, tests, source evidence, and unresolved concerns.
-7. Wait for owner approval before merging. Local branches and diffs are the review equivalent until a remote exists.
+The owner's instruction on 2026-10-03 sets the execution order: walk the original repository history commit by commit. The capability backlog is a scope checklist, not permission to skip ahead.
 
-The first branch, `codex/foundation`, contains only the foundation described in the ledger. Later capabilities start after its approval.
+1. Read the migration ledger's resume checkpoint and inspect the original history through pinned commit d498de6c4638aa71cdb20189d13642b41abab5f1. Establish and record the ordered history traversal before marking commits covered; account for side-branch changes and merge commits explicitly.
+2. Take the next uncovered original commit. Explain what it introduced and why, using its diff, tests, and relevant documentation.
+3. Compare it with the clean repository. Record each relevant change as already covered (with evidence), to implement, excluded (with a scope reason), or deferred (with a reason and a named follow-up). A commit is accounted for only when every relevant change has a disposition.
+4. Write a short behavior specification covering acceptance scenarios, compatibility, persistence, and failure/retry behavior. Reimplement the required behavior in a focused codex/<change> review branch with the cleaner architecture and allowed dependencies. Historical commits provide evidence; do not mechanically cherry-pick them. Preserve external behavior and obtain an owner decision for proposed differences.
+5. Test through meaningful interfaces, using real SQL Server for database concurrency guarantees. Run the verification commands below and review functional correctness, unnecessary indirection, duplication, oversized workflows, naming, comments, and coupling. Present source references, test results, exclusions/deferrals, and remaining concerns. Wait for explicit owner approval before merging into the copy repository's main.
+6. Update the ledger's commit record and resume checkpoint before ending the session or handing off. Record the original SHA, disposition, rebuild commit/specification, checks, review/merge status, and exact next action. Resume from this record after context compaction or in a new session.
+
+Keep implementation and Git changes in D:\vaso\Running\IPS\IPS.Middleware. The original D:\vaso\Running\IPS\IPS.MiidleWear is a read-only reference. Continue on explicitly recorded stacked branches when approved work proceeds before merges; record the base and keep merge authorization separate from authorization to continue.
 
 ## Verification
 
