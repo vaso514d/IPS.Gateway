@@ -12,6 +12,7 @@
     </PackageReference>
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>

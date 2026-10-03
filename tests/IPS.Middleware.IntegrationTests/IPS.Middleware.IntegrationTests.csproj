@@ -12,5 +12,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

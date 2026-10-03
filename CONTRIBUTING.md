@@ -15,14 +15,21 @@ The first branch, `codex/foundation`, contains only the foundation described in 
 ## Verification
 
 ```powershell
+dotnet tool restore
 dotnet restore IPS.Middleware.slnx
 dotnet build IPS.Middleware.slnx --configuration Release --no-restore
+sqllocaldb start MSSQLLocalDB
 dotnet test IPS.Middleware.slnx --configuration Release --no-build
 dotnet format IPS.Middleware.slnx --verify-no-changes --no-restore --exclude src/IPS.MiidleWear.Contracts
+dotnet ef migrations has-pending-model-changes --project src/IPS.Middleware.Infrastructure --configuration Release --no-build
 git diff --check
 ```
 
-Build warnings are errors. GitHub Actions repeats restore, Release build, tests, and formatting on Windows. It uploads test results and requires no live services for this milestone. Branch protection will be configured when a remote is introduced.
+Build warnings are errors. GitHub Actions repeats restore, Release build, tests, and formatting on Windows. It uploads test results and uses the runner's SQL Server LocalDB for isolated database tests. SQL tests create and delete only their own generated databases; they do not use application configuration. Branch protection will be configured when a remote is introduced.
+
+## Migrations
+
+Generate migrations with the repository-local EF tool in Infrastructure, using TransactionDbContext and output directory Transactions/Migrations. The design-time factory supplies model metadata without contacting a database. Review generated Up/Down and snapshot changes, then run the SQL integration tests. The Api host does not auto-migrate or connect to this database yet.
 
 ## Implementation conventions
 

@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  foundation:
-    runs-on: windows-latest
+  verify:
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -19,10 +19,16 @@ jobs:
           global-json-file: global.json
       - name: Restore
         run: dotnet restore IPS.Middleware.slnx
+      - name: Restore EF tooling
+        run: dotnet tool restore
       - name: Build
         run: dotnet build IPS.Middleware.slnx --configuration Release --no-restore
-      - name: Test
+      - name: Start SQL Server LocalDB
+        run: sqllocaldb start MSSQLLocalDB
+      - name: Run tests
         run: dotnet test IPS.Middleware.slnx --configuration Release --no-build --logger trx --results-directory TestResults
+      - name: Check migration matches model
+        run: dotnet ef migrations has-pending-model-changes --project src/IPS.Middleware.Infrastructure --configuration Release --no-build
       - name: Check formatting
         run: dotnet format IPS.Middleware.slnx --verify-no-changes --no-restore --exclude src/IPS.MiidleWear.Contracts
       - name: Upload test results

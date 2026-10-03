@@ -22,8 +22,8 @@ flowchart TD
 | IPS.Middleware.Application | Domain | Internal commands/results, feature workflows, external dependency interfaces |
 | IPS.Middleware.Infrastructure | Application, Domain, Contracts | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
 | IPS.Middleware.Api | Application, Infrastructure, Contracts | HTTP mapping, configuration, dependency registration |
-| IPS.Middleware.Tests | Domain, Contracts; Api as a build dependency only | Domain behavior, compatibility, and evaluated dependency tests |
-| IPS.Middleware.IntegrationTests | Api | Host and adapter tests; later independent protocol simulators |
+| IPS.Middleware.Tests | Application, Domain, Contracts; Api as a build dependency only | Domain/application behavior, compatibility, and evaluated dependency tests |
+| IPS.Middleware.IntegrationTests | Api, Infrastructure, Application, Domain | Host and SQL persistence tests; later independent protocol simulators |
 
 Contracts and Domain use only the base class library. Application also has no external packages in the foundation. A future pure-library dependency needs a reviewed rule change; ASP.NET, EF Core, HTTP clients, hosting, signing, and telemetry implementations remain outside Application.
 
@@ -51,4 +51,4 @@ Implement the first capability directly. Add a shared module when multiple imple
 - [Single executable host](adr/0001-single-host.md)
 - [Preserved external contracts](adr/0002-contract-compatibility.md)
 
-Infrastructure is an empty library at this milestone. SQL Server and EF Core remain the selected persistence stack, introduced with the durable-storage capability and newly generated migrations.
+Infrastructure owns SQL Server persistence and generated EF Core migrations for transaction intake and history. Its records remain separate from Domain. Application owns intake and the storage interface; the Api host will register storage when payment endpoints arrive. Worker claims and pending-work discovery remain the next increment.
