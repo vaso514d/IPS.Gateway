@@ -10,8 +10,8 @@ Execution follows the [commit-by-commit workflow](../CONTRIBUTING.md#commit-by-c
 - These are stacked branches; no merges have occurred. The owner said the work looks okay and authorized continuing, then clarified commit-by-commit execution. Exact merge approval has not been recorded.
 - Latest implementation verification: 78 passing tests, including real SQL cases; build, formatting, migration consistency, and independent reviews passed. A documentation-only workflow update does not constitute a fresh test run.
 - Recovery/pending-work capability 1c is paused before implementation. Initial source inspection happened; no 1c implementation or branch was created.
-- Next action: inventory the original history up to the pinned reference and map the existing foundation, lifecycle, and storage work to individual original commits. Record coverage with evidence; then identify and explain the first uncovered commit before implementing its changes.
-- No original commit is yet certified fully accounted for by that mapping. The selected source commits in the existing specifications are evidence, not a completed sequential audit.
+- Next action: complete the file-by-file behavior and coverage review of original commit e448c9715bc8b06966ae2df251765f02014e8a04 (Add project files), then prepare its first focused implementation slice. Explain and record every exclusion or deferral before advancing. Existing lifecycle/storage work must be mapped when relevant; it does not certify this original commit as covered.
+- History inventory: 84 commits reachable through the pinned reference, with no merge commits. Traverse oldest to newest using git log --reverse --topo-order at the pinned reference. The selected later commits in existing specifications remain evidence, not a completed sequential audit.
 
 ### Original commit audit
 
@@ -19,7 +19,8 @@ Populate this table from the history inventory. Keep partially covered commits o
 
 | Original SHA | Introduced behavior and evidence | Disposition / remaining work | Rebuild commit or specification | Verification and review / merge status |
 |---|---|---|---|---|
-| Not yet inventoried | Existing specifications cite selected commits only | Establish traversal and map completed work first | Foundation, 1a, and 1b below | Sequential coverage not yet verified |
+| 95eaf601fb93e7bacba6987d20d3427e2432cff8 | Git ignore and attribute configuration only; inspected initial diff/stat and copy configuration | Covered in purpose by clean foundation; retain the tailored ignore rules and Contracts byte-preservation rule rather than copying the generic template | Foundation 705eeb3; root .gitignore and .gitattributes | Configuration inspected; no runtime change; foundation merge still pending |
+| e448c9715bc8b06966ae2df251765f02014e8a04 | Add project files: 44 files, two library projects, message/domain and ISO models, pacs.008 mapping, HTTP/STP client, four background services, documentation and helper tools | OPEN: scaffolding covered; transport, workers, and protocol behavior not migrated. Documentation tools excluded by approved scope. Complete detailed mapping before selecting implementation slice | Existing foundation and lifecycle/storage specifications provide only partial overlap | Inspected full file inventory, HTTP client, inbound processor, DI, and solution; no new implementation/tests; owner explanation delivered |
 
 ## Reference
 
