@@ -2,25 +2,16 @@
 
 ## Resume checkpoint — 2026-10-03
 
-Execution follows the [commit-by-commit workflow](../CONTRIBUTING.md#commit-by-commit-rebuild-workflow). Read this checkpoint on a new session, after compaction, or before continuing implementation.
+Read this checkpoint after compaction, in a new session, or before continuing implementation. Follow the [capability-by-capability workflow](../CONTRIBUTING.md#capability-by-capability-rebuild-workflow).
 
-- Owner correction: inspect and account for original commits in order; do not substitute capability order.
-- Copy repository: D:\vaso\Running\IPS\IPS.Middleware. Original reference: D:\vaso\Running\IPS\IPS.MiidleWear, pinned at d498de6c4638aa71cdb20189d13642b41abab5f1.
-- Existing implementation anchors: foundation 705eeb3; lifecycle d2ed3ac; durable intake/storage 1e1e924. Current working branch at this checkpoint: codex/durable-intake. Verify live Git state before continuing.
-- These are stacked branches; no merges have occurred. The owner said the work looks okay and authorized continuing, then clarified commit-by-commit execution. Exact merge approval has not been recorded.
-- Latest implementation verification: 78 passing tests, including real SQL cases; build, formatting, migration consistency, and independent reviews passed. A documentation-only workflow update does not constitute a fresh test run.
-- Recovery/pending-work capability 1c is paused before implementation. Initial source inspection happened; no 1c implementation or branch was created.
-- Next action: complete the file-by-file behavior and coverage review of original commit e448c9715bc8b06966ae2df251765f02014e8a04 (Add project files), then prepare its first focused implementation slice. Explain and record every exclusion or deferral before advancing. Existing lifecycle/storage work must be mapped when relevant; it does not certify this original commit as covered.
-- History inventory: 84 commits reachable through the pinned reference, with no merge commits. Traverse oldest to newest using git log --reverse --topo-order at the pinned reference. The selected later commits in existing specifications remain evidence, not a completed sequential audit.
-
-### Original commit audit
-
-Populate this table from the history inventory. Keep partially covered commits open and give every deferral a follow-up.
-
-| Original SHA | Introduced behavior and evidence | Disposition / remaining work | Rebuild commit or specification | Verification and review / merge status |
-|---|---|---|---|---|
-| 95eaf601fb93e7bacba6987d20d3427e2432cff8 | Git ignore and attribute configuration only; inspected initial diff/stat and copy configuration | Covered in purpose by clean foundation; retain the tailored ignore rules and Contracts byte-preservation rule rather than copying the generic template | Foundation 705eeb3; root .gitignore and .gitattributes | Configuration inspected; no runtime change; foundation merge still pending |
-| e448c9715bc8b06966ae2df251765f02014e8a04 | Add project files: 44 files, two library projects, message/domain and ISO models, pacs.008 mapping, HTTP/STP client, four background services, documentation and helper tools | OPEN: scaffolding covered; transport, workers, and protocol behavior not migrated. Documentation tools excluded by approved scope. Complete detailed mapping before selecting implementation slice | Existing foundation and lifecycle/storage specifications provide only partial overlap | Inspected full file inventory, HTTP client, inbound processor, DI, and solution; no new implementation/tests; owner explanation delivered |
+- Purpose: preserve the original capability-led rebuild as an alternative to the commit-by-commit process. This branch is codex/capability-rebuild, created from codex/durable-intake at 4639ce6. Its descendant review branches follow the same process unless the owner changes it.
+- Copy repository: D:\vaso\Running\IPS\IPS.Middleware. Read-only source: D:\vaso\Running\IPS\IPS.MiidleWear, pinned at d498de6c4638aa71cdb20189d13642b41abab5f1.
+- Completed implementation anchors: foundation 705eeb3; lifecycle/state/history d2ed3ac; durable outgoing intake and atomic SQL updates 1e1e924. Reuse this code. No merges have occurred; exact owner merge approval is still unrecorded.
+- Latest implementation verification: 78 passing tests, including real SQL tests; build, formatting, migration consistency, and independent reviews passed. This branch setup changes documentation only and is not a new test run.
+- Next implementation slice, when the owner resumes this alternative: 1c, pending-work discovery, safe claims, and restart recovery foundations. First establish its behavior specification from the pinned dispatcher/recovery code and tests. No 1c production changes exist yet.
+- Keep payment sending, investigation/resends, and protocol-specific behavior in their later capabilities. Introduce workers and typed clients with concrete capability needs. The empty-worker/client request from the commit-by-commit discussion was interrupted before any edits and is not the next action on this alternative branch.
+- The source-history audit remains on codex/durable-intake. It identified 84 original commits with e448c97 as the first open substantive commit; that audit does not dictate execution order on this branch.
+- Branch creation alone preserves this option. No capability implementation, merge, remote creation, publication, or cutover is requested by this setup.
 
 ## Reference
 
@@ -42,7 +33,7 @@ The foundation starts with empty internal libraries. Capability 1a adds transact
 
 | ID | Capability | Source evidence | Acceptance scenarios | Status | Approved behavior differences |
 |---|---|---|---|---|---|
-| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | 1a and 1b implemented; merges pending; 1c paused for commit audit | None |
+| 1 | Transaction lifecycle and durable storage | `Domain/Entities/Transactions/PaymentTransaction.cs`; `Persistence/Transactions/PaymentTransactionStore.cs`; tests `Domain/PaymentTransactionTests.cs`, `Domain/WriteReliabilityTests.cs`, `Domain/InboundMessageIdempotencyTests.cs` | Durable intake before success; status/history consistency; repeated references across message types; concurrent insert/claim; restart with pending work; real SQL concurrency | 1a and 1b implemented; merges pending; 1c is next when this workflow resumes | None |
 | 2 | Outgoing pacs.008 | `API/Controllers/GatewayController.cs`; `API/Transactions/OutgoingTransactionIntake.cs`, `Pacs008TransactionSender.cs`; tests `Api/Pacs008InstantPaymentTests.cs`, `OutgoingTransactionFlowTests.cs`, `IpsV1FieldProfileTests.cs` | Valid/invalid HTTP inputs; 202 Processing after storage; generated identifiers; correct XML/signature/headers; accept/reject outcomes; status query and existing delivery acknowledgement semantics | Planned | None |
 | 3 | Outgoing reliability and status delivery | `API/Transactions/TransactionRecovery.cs`, `Pacs008StatusInvestigator.cs`; `Gateway/Services/TransactionStatusDelivery.cs`; tests `Api/TransactionRecoveryTests.cs`, `MockIpsEndToEndTests.cs`, `Gateway/TransactionStatusDeliveryTests.cs` | Connection failed before send versus lost reply after processing; pacs.028 investigation; duplicate-safe resends; deadlines; restart recovery; status callback retry and idempotency; manual review | Planned | None |
 | 4 | Incoming payment handling | `Application/BackgroundServices/IpsInboundReceiverService.cs`; `Gateway/Services/CoreApiInboundMessageHandler.cs`, `InboundCoreReconciliation.cs`; tests `Gateway/InboundAckOrderingTests.cs`, `InboundReadProcessingSplitTests.cs`, `InboundCoreReconciliationTests.cs`, `IncomingStatusReportApplierTests.cs` | Store receipt before acknowledgement; duplicate delivery; core callback result; pacs.008 reply versus MessageAck ordering; lost core response; incoming status application; restart and lease loss | Planned | None |
@@ -53,7 +44,7 @@ The foundation starts with empty internal libraries. Capability 1a adds transact
 
 For source paths, replace the initial `Domain/`, `Application/`, `Persistence/`, `API/`, or `Gateway/` with `IPS.MiidleWear.<name>/`. Test paths are under `IPS.MiidleWear.Tests/`.
 
-These rows track capability scope. The commit-by-commit workflow above determines execution order. Split coherent increments and record their commits, specification, checks, review findings, and approval here. Essential persistence, diagnostics, and failure handling ship with the capability that needs them.
+These rows determine capability execution order on this branch. Split coherent increments and record their commits, specification, checks, review findings, and approval here. Essential persistence, diagnostics, and failure handling ship with the capability that needs them.
 
 ## Review 1a: transaction state and history
 

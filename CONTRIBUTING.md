@@ -1,17 +1,19 @@
 # Contribution and review
 
-## Commit-by-commit rebuild workflow
+## Capability-by-capability rebuild workflow
 
-The owner's instruction on 2026-10-03 sets the execution order: walk the original repository history commit by commit. The capability backlog is a scope checklist, not permission to skip ahead.
+This branch preserves the capability-led process requested by the owner on 2026-10-03. Apply it on codex/capability-rebuild and review branches intentionally created from it. Source commits are behavior evidence; chronological commit coverage is not the execution order here. The separate codex/durable-intake branch retains the commit-by-commit process.
 
-1. Read the migration ledger's resume checkpoint and inspect the original history through pinned commit d498de6c4638aa71cdb20189d13642b41abab5f1. Establish and record the ordered history traversal before marking commits covered; account for side-branch changes and merge commits explicitly.
-2. Take the next uncovered original commit. Explain what it introduced and why, using its diff, tests, and relevant documentation.
-3. Compare it with the clean repository. Record each relevant change as already covered (with evidence), to implement, excluded (with a scope reason), or deferred (with a reason and a named follow-up). A commit is accounted for only when every relevant change has a disposition.
-4. Write a short behavior specification covering acceptance scenarios, compatibility, persistence, and failure/retry behavior. Reimplement the required behavior in a focused codex/<change> review branch with the cleaner architecture and allowed dependencies. Historical commits provide evidence; do not mechanically cherry-pick them. Preserve external behavior and obtain an owner decision for proposed differences.
-5. Test through meaningful interfaces, using real SQL Server for database concurrency guarantees. Run the verification commands below and review functional correctness, unnecessary indirection, duplication, oversized workflows, naming, comments, and coupling. Present source references, test results, exclusions/deferrals, and remaining concerns. Wait for explicit owner approval before merging into the copy repository's main.
-6. Update the ledger's commit record and resume checkpoint before ending the session or handing off. Record the original SHA, disposition, rebuild commit/specification, checks, review/merge status, and exact next action. Resume from this record after context compaction or in a new session.
+1. Read the migration ledger checkpoint and architecture. Select the next incomplete capability slice; resume at 1c (pending-work discovery, safe claims, and restart recovery foundations).
+2. Inspect relevant code, tests, documentation, and history at original reference d498de6c4638aa71cdb20189d13642b41abab5f1. Write a short behavior specification with acceptance scenarios, compatibility constraints, durability, and failure/retry behavior. Record contradictions explicitly; obtain the owner's decision before changing external behavior.
+3. Reuse completed foundation, lifecycle, and durable intake/storage work. Implement one coherent slice within the allowed dependencies on a codex/<capability> review branch. Introduce endpoints, workers, typed clients, and XML mapping when that slice needs their implemented behavior.
+4. Test through meaningful interfaces; use SQL Server for database concurrency and transaction guarantees. Run the verification commands below. Review correctness, unnecessary indirection, duplicated rules, oversized workflows, naming, comments, and coupling.
+5. Present the diff, test results, source references, and remaining concerns. Wait for owner approval before merging. Local branches and reviewed diffs are the PR equivalent until a remote exists.
+6. Update the ledger checkpoint before ending work or handing off: implemented slice, branch/base, checks, unresolved decisions, approval status, and exact next action. Read it again after compaction or in a new session.
 
-Keep implementation and Git changes in D:\vaso\Running\IPS\IPS.Middleware. The original D:\vaso\Running\IPS\IPS.MiidleWear is a read-only reference. Continue on explicitly recorded stacked branches when approved work proceeds before merges; record the base and keep merge authorization separate from authorization to continue.
+Capability order: finish transaction/storage foundations (1c), outgoing pacs.008, outgoing reliability, incoming payments, pacs.009/pacs.004, recalls/payment initiation, proxy management, operational completion. Include essential reliability and diagnostics with each capability.
+
+All development and Git operations belong to D:\vaso\Running\IPS\IPS.Middleware. The original D:\vaso\Running\IPS\IPS.MiidleWear remains a read-only reference. Record stacked branch bases explicitly; authorization to continue is separate from merge approval. This branch preserves an alternative workflow for later use and does not authorize implementation merely by being created.
 
 ## Verification
 
