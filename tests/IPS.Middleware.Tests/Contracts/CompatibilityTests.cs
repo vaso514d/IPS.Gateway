@@ -19,7 +19,7 @@ public sealed class CompatibilityTests
     [Fact]
     public void Public_types_members_and_route_metadata_match_the_original_assembly()
     {
-        var expected = File.ReadAllText(BaselinePath("public-api.json")).TrimEnd();
+        var expected = File.ReadAllText(BaselinePath("public-api.json")).TrimEnd().ReplaceLineEndings("\n");
         Assert.Equal(expected, ContractSnapshot.Create(Contracts));
     }
 

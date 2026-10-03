@@ -20,7 +20,7 @@ internal static class ContractSnapshot
             attributes = Attributes(type.GetCustomAttributesData()),
             members = Members(type, nullability).Order(StringComparer.Ordinal).ToArray()
         });
-        return JsonSerializer.Serialize(types, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(types, new JsonSerializerOptions { WriteIndented = true }).ReplaceLineEndings("\n");
     }
 
     private static IEnumerable<string> Members(Type type, NullabilityInfoContext nullability)
