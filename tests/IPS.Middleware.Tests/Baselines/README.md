@@ -10,7 +10,7 @@ The source Contracts files were exported from their raw Git blobs and built inde
 - `public-api.json`: exported types, constructors, members, constants, nullability, and attributes, including route metadata and enum values.
 - `wire-cases.json`: representative JSON inputs with exact output captured from the original assembly using web serialization and null omission, matching the reference HTTP serializer configuration.
 
-The 15 wire cases exercise nested models, optional fields, property casing, dates/times, identifiers, status enums, callbacks, and proxy operations. They characterize serialization; they are not payment-validation or protocol-compliance tests.
+The 15 wire cases exercise nested models, optional fields, property casing, dates/times, identifiers, status enums, callbacks, and proxy operations. Fixture deserialization rejects unknown fields so misspelled samples cannot silently lose coverage. This checks fixture quality; it does not change the production HTTP policy. The cases characterize serialization, not payment validation or protocol compliance.
 
 `ContractSnapshot.cs` computes the actual public surface in tests. There is intentionally no automatic baseline refresh step. A Contracts or baseline change requires an approved compatibility decision with independently established expectations.
 

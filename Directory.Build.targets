@@ -1,10 +1,13 @@
 <Project>
   <Target Name="WriteArchitectureManifest" AfterTargets="Build" Condition="'$(IsTestProject)' != 'true'">
     <ItemGroup>
+      <_ExternalAssemblyReference Include="@(ReferencePath)"
+          Condition="'%(ReferencePath.FrameworkReferenceName)' == '' and '%(ReferencePath.ReferenceSourceTarget)' != 'ProjectReference'" />
       <_ArchitectureLine Include="project=$(MSBuildProjectName)" />
       <_ArchitectureLine Include="@(ProjectReference->'projectReference=%(Filename)')" />
       <_ArchitectureLine Include="@(PackageReference->'packageReference=%(Identity)')" />
       <_ArchitectureLine Include="@(FrameworkReference->'frameworkReference=%(Identity)')" />
+      <_ArchitectureLine Include="@(_ExternalAssemblyReference->'assemblyReference=%(Filename)')" />
     </ItemGroup>
     <WriteLinesToFile File="$(TargetDir)$(MSBuildProjectName).dependencies.txt"
                       Lines="@(_ArchitectureLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />

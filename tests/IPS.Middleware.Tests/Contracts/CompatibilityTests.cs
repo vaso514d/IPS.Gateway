@@ -13,7 +13,8 @@ public sealed class CompatibilityTests
     private static readonly Assembly Contracts = typeof(IGatewayApi).Assembly;
     private static readonly JsonSerializerOptions WireOptions = new(JsonSerializerDefaults.Web)
     {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
 
     [Fact]

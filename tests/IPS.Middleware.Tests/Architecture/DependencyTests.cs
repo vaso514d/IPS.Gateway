@@ -38,6 +38,7 @@ public sealed class DependencyTests
     {
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", project + ".dependencies.txt"));
         Assert.Empty(Values(lines, "packageReference"));
+        Assert.Empty(Values(lines, "assemblyReference"));
         Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
     }
 

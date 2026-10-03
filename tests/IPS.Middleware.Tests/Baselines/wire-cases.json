@@ -52,9 +52,9 @@
       "status": "ACCP",
       "reasonCode": null,
       "description": "Posted",
-      "ProcessedAtUtc": "2026-10-03T08:00:00\u002B00:00"
+      "ProcessedAtUtc": "2026-10-03T12:00:00\u002B04:00"
     },
-    "expected": "{\u0022Status\u0022:\u0022ACCP\u0022,\u0022Accepted\u0022:true,\u0022Description\u0022:\u0022Posted\u0022,\u0022ProcessedAtUtc\u0022:\u00222026-10-03T08:00:00\u002B00:00\u0022}"
+    "expected": "{\u0022Status\u0022:\u0022ACCP\u0022,\u0022Accepted\u0022:true,\u0022Description\u0022:\u0022Posted\u0022,\u0022ProcessedAtUtc\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022}"
   },
   {
     "name": "pacs009 dates times and uppercase property names",
@@ -84,14 +84,21 @@
     "input": {
       "ClientReference": "CBS-004",
       "Id": "RETURN-004",
-      "OriginalMessageId": "MSG-008",
-      "OriginalEndToEndId": "E2E-008",
       "Currency": "GEL",
       "Amount": 125.5,
       "ValueDate": "2026-10-03",
-      "ReasonCode": "AC04"
+      "ReturnReasonCode": "AC04",
+      "Original": {
+        "OriginalMessageId": "MSG-008",
+        "OriginalMessageNameId": "pacs.008.001.12",
+        "EndToEndId": "E2E-008",
+        "TransactionId": "TX-008",
+        "ValueDate": "2026-10-03",
+        "Amount": 125.5,
+        "Currency": "GEL"
+      }
     },
-    "expected": "{\u0022ClientReference\u0022:\u0022CBS-004\u0022,\u0022Id\u0022:\u0022RETURN-004\u0022,\u0022Amount\u0022:125.5,\u0022Currency\u0022:\u0022GEL\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022}"
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-004\u0022,\u0022Id\u0022:\u0022RETURN-004\u0022,\u0022Amount\u0022:125.5,\u0022Currency\u0022:\u0022GEL\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022,\u0022ReturnReasonCode\u0022:\u0022AC04\u0022,\u0022Original\u0022:{\u0022TransactionId\u0022:\u0022TX-008\u0022,\u0022EndToEndId\u0022:\u0022E2E-008\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022,\u0022OriginalMessageId\u0022:\u0022MSG-008\u0022,\u0022OriginalMessageNameId\u0022:\u0022pacs.008.001.12\u0022,\u0022Amount\u0022:125.5,\u0022Currency\u0022:\u0022GEL\u0022}}"
   },
   {
     "name": "camt056 recall",
