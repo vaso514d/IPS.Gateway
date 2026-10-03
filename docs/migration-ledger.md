@@ -45,7 +45,7 @@ Verification: Release build passes with zero warnings/errors; 58 tests pass (30 
 
 Remaining in capability 1b: atomic intake with request payload, duplicate handling across message types, SQL schema/migrations, transactional status/history updates, concurrent inserts and claims, pending-work queries, and restart recovery foundations. Database behavior must be proven against SQL Server; these guarantees are not established by 1a.
 
-Approved external behavior differences: none. Source gaps and internal improvements are recorded in the specification. Independent review and owner approval remain pending.
+Approved external behavior differences: none. Source gaps and internal improvements are recorded in the specification. Independent Standards and Spec reviews have no remaining findings. Formatting and diff whitespace checks pass. [Review evidence](reviews/001a-transaction-lifecycle.md) is ready; owner approval remains pending.
 
 ## Gaps to resolve before implementation
 

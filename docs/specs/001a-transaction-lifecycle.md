@@ -1,6 +1,6 @@
 # Capability 1a: transaction state and history
 
-Status: Implementation in progress; owner merge approval pending.
+Status: Ready for owner review; independent Standards and Spec reviews have no remaining findings. Owner merge approval pending.
 
 This is the first review within [capability 1](../migration-ledger.md). It establishes the domain model before capability 1b introduces atomic intake, SQL persistence, concurrency, and restart recovery. It adds no HTTP endpoint, background worker, storage adapter, or contract mapping.
 

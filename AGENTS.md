@@ -1,5 +1,7 @@
 # Working in this repository
 
+Keep development and Git operations in this rebuilt repository. The original repository is a read-only behavior reference; switching over requires an explicit owner request.
+
 - Before changing production code or project references, read [the architecture](docs/architecture.md).
 - Before implementing a capability, read [the migration ledger](docs/migration-ledger.md) and establish its behavior specification from the pinned source evidence.
 - Use [the contribution process](CONTRIBUTING.md) for verification and review. Present the diff, test evidence, and unresolved findings; wait for the owner's approval before merging.
