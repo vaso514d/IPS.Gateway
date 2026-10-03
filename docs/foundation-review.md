@@ -19,11 +19,22 @@ Contracts were imported from raw blobs at `d498de6c4638aa71cdb20189d13642b41abab
 - Formatting: verified, excluding imported Contracts.
 - Real Kestrel host: startup, `/health/live`, and development OpenAPI verified.
 - Local package inspection: original Contracts package/version, net8.0 assembly, and no package dependencies verified. Nothing was published.
-- Fresh-checkout verification and the standards/specification reviews are recorded below once complete.
+- Fresh checkout: restore, Release build, all 29 tests, and formatting pass.
+- Dependency guard probe: an intentionally added Infrastructure DLL reference in a temporary Domain project causes exactly the expected architecture-test failure. The real repository was not modified by the probe.
 
 These checks prove the foundation and compatibility declarations. They do not certify payment behavior that has not been rebuilt.
 
-## Review
+## Standards
+
+No remaining findings. The initial advisory identified a direct-DLL reference gap; resolved non-framework references are now recorded and rejected in core projects, and the negative probe verifies this enforcement. No current dependency violation or actionable code smell remains.
+
+## Spec
+
+No remaining findings. The initial finding identified an incomplete pacs.004 JSON sample; it now captures the actual nested original-payment reference and return reason from the independently built original assembly. All sample inputs reject unknown fields to prevent silently lost coverage.
+
+Total remaining findings: Standards 0; Spec 0.
+
+## Owner review
 
 The full review diff is `git diff main...codex/foundation`. The architecture rules are in [architecture.md](architecture.md), and later capabilities are in [migration-ledger.md](migration-ledger.md).
 
