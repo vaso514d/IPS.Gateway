@@ -1,6 +1,6 @@
 # Capability 1b: durable outgoing intake and transaction updates
 
-Status: Implementation and SQL verification in progress; owner review pending.
+Status: Ready for owner review; SQL verification and independent reviews completed. Owner merge approval pending.
 
 Branch: `codex/durable-intake`, based on lifecycle commit `d2ed3ac`. Earlier branches remain unmerged. All changes and Git operations belong to the rebuilt repository.
 

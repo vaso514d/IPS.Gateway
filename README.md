@@ -35,6 +35,7 @@ The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally kee
 - [Transaction lifecycle specification](docs/specs/001a-transaction-lifecycle.md)
 - [Transaction lifecycle review](docs/reviews/001a-transaction-lifecycle.md)
 - [Durable intake specification and source commits](docs/specs/001b-durable-intake.md)
+- [Durable intake review](docs/reviews/001b-durable-intake.md)
 - [Transaction terminology](CONTEXT.md)
 - [Foundation review and verification](docs/foundation-review.md)
 - [Contract baseline provenance](tests/IPS.Middleware.Tests/Baselines/README.md)

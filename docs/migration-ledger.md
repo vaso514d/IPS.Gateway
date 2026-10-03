@@ -55,7 +55,7 @@ Branch: codex/durable-intake. Base: lifecycle d2ed3ac. The branch is stacked for
 
 Implemented: Application intake; transaction-specific storage interface; SQL Server persistence of requests/current state/history; client-reference uniqueness across message types; explicit update outcomes; coherent reads; atomic status/history writes; generated initial EF migration and repository-local EF tooling.
 
-Verification: 78 tests pass (57 unit/architecture/compatibility; 21 integration, including 14 real SQL cases). Generated migration apply/rollback/reapply and model consistency pass. Test databases are isolated LocalDB databases created and removed by the fixtures. Independent review is pending.
+Verification: 78 tests pass (57 unit/architecture/compatibility; 21 integration, including 14 real SQL cases). Generated migration apply/rollback/reapply and model consistency pass. Test databases are isolated LocalDB databases created and removed by the fixtures. Fresh-checkout verification and formatting pass. Standards and Spec reviews have no remaining findings after the read-consistency and design-time configuration fixes. [Review evidence](reviews/001b-durable-intake.md) includes the rebuild commits and migration command. Owner merge approval is pending.
 
 Remaining: 1c must establish pending-work selection, claims/leases, and restart recovery. Host registration and HTTP intake arrive with outgoing payment endpoints. Deployment collation and performance under long histories require later validation. No external behavior difference is approved.
 
