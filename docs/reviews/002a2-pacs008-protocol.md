@@ -1,6 +1,6 @@
 # 2a.2 review: validation, typed XML and signing
 
-Branch codex/pacs008-protocol, base c1674e6c4c06532bab6b57fdb7fe6a3fba514633. Owner approved merging the current code on 2026-10-04 into codex/capability-rebuild. Specification: [002a2](../specs/002a2-pacs008-protocol.md). See the ledger for the resulting commit checkpoint.
+Branch codex/pacs008-protocol, base c1674e6c4c06532bab6b57fdb7fe6a3fba514633. Owner approved the merge on 2026-10-04. Feature commit eac12af243cab69543903870a9b2cf266e39aaa4 was fast-forwarded into codex/capability-rebuild. Specification: [002a2](../specs/002a2-pacs008-protocol.md). See the ledger for the resulting commit checkpoint.
 
 ## Diff guide
 
