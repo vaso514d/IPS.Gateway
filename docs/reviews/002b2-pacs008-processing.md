@@ -50,3 +50,7 @@ Latest verification: Release build succeeds without warnings/errors; 203 unit/ar
 ## Limits
 
 Investigation (pacs.028), resending and manual review remain the reliability capability; Uncertain payments are left due for it. Certificate-source configuration, HTTP transport, workers, deadlines on callers and callbacks remain Stage 2c. Reply certificate trust is byte identity with supplied certificates; no chain, revocation or validity checks. The verifier supports only the IPS signature profile without xml:* attributes. Pacs.008 rows created through the generic foundation intake have no snapshot and are NotSent (or Uncertain after a marker) if processed.
+
+## Merge checkpoint
+
+Owner-approved commit 8beaf53 was fast-forwarded into codex/capability-rebuild on 2026-10-04. The review branch remains preserved. Current SQL verification remains blocked as recorded above; next is the Stage 2c specification.
