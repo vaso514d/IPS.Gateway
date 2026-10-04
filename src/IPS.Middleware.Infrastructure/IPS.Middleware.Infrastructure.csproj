@@ -3,10 +3,12 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <ProjectReference Include="../IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
     <ProjectReference Include="../IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Payments/Pacs008/Schemas/*.xsd" /></ItemGroup>
 </Project>

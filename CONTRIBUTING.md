@@ -17,6 +17,8 @@ All development and Git operations belong to D:\vaso\Running\IPS\IPS.Middleware.
 
 ## Verification
 
+Install JDK17 or newer and set JAVA_HOME (or put java on PATH). Signing integration tests use the independent JSR105 verifier; Java is test-only and is provisioned explicitly in CI. Tests generate ephemeral certificates and do not use machine certificate stores or application secrets.
+
 ```powershell
 dotnet tool restore
 dotnet restore IPS.Middleware.slnx

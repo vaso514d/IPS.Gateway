@@ -53,3 +53,9 @@ The behavior reference is [IPS.MiidleWear at d498de6](https://github.com/vaso514
 All development and Git operations happen in this rebuilt repository. The original repository serves as a read-only behavior reference, and the owner decides when to switch over. This repository has independent Git history. Foundation work stays on `codex/foundation`; it will be merged only after the owner's approval. The lifecycle branch is temporarily based on the unmerged foundation; its review compares against that branch. Durable intake is stacked on the lifecycle branch. Each merge needs explicit owner approval. There is no remote yet.
 
 Reporting, standalone generator/mock hosts, and document tools are outside the rebuild scope. Protocol simulators will be introduced inside the integration tests when their capability needs them.
+
+## Signing preparation
+
+`Payments:Signing:AllowUnsignedInDevelopment` defaults to false. Only an explicitly enabled value in the Development environment allows missing-certificate unsigned preparation. Enabling it in any other environment prevents startup. A supplied unusable certificate always fails; it never triggers unsigned fallback. The signer currently accepts a caller-owned certificate; certificate-source loading/rotation and workflow integration are separate upcoming work. No payment endpoint or sender is exposed yet.
+
+Signing integration tests require JDK17+ (`JAVA_HOME` or `java` on PATH) for independent XMLDSig verification. Java is not used by the production host. Test certificates are ephemeral; no real certificates are required.

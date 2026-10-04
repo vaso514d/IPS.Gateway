@@ -33,11 +33,11 @@ public sealed class DependencyTests
     [Theory]
     [InlineData("IPS.MiidleWear.Contracts")]
     [InlineData("IPS.Middleware.Application")]
-    public void Contracts_and_Application_declare_no_external_packages(string project)
+    public void Contracts_remains_isolated_and_Application_allows_only_FluentValidation(string project)
     {
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", project + ".dependencies.txt"));
-        Assert.Empty(Values(lines, "packageReference"));
-        Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "Stateless" } : [], Values(lines, "assemblyReference"));
+        Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "FluentValidation" } : [], Values(lines, "packageReference"));
+        Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "FluentValidation", "Stateless" } : [], Values(lines, "assemblyReference").Order(StringComparer.Ordinal));
         Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
     }
 

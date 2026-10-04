@@ -10,3 +10,4 @@ artifacts/
 *.p12
 .env
 appsettings.*.local.json
+.scratch/

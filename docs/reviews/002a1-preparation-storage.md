@@ -1,6 +1,6 @@
 # 2a.1 review: stable identifiers and immutable preparation storage
 
-Status: implemented and verified; owner review/merge approval pending. Changes are uncommitted on codex/pacs008-preparation, based on b18938b. Stage 1 was merged into codex/capability-rebuild with owner approval on 2026-10-04. main and the original repository are unchanged.
+Status: committed as c1674e6 and merged into codex/capability-rebuild with owner authorization on 2026-10-04. The sections below retain the review history.
 
 Specification and source evidence: [002a1-preparation-storage](../specs/002a1-preparation-storage.md).
 Review scope: git diff b18938b plus every untracked file from git ls-files --others --exclude-standard. Inspect new files as well as the tracked diff.
@@ -62,3 +62,4 @@ ValidatedIntakeRequest is privately constructed with read-only properties. Its f
 Current verification: 216 passing tests (158 unit/application/architecture/Contracts; 58 integration including 51 SQL and 7 host), Release build zero warnings/errors, formatting clean, no EF model changes, diff whitespace check clean. The earlier fresh-export run above predates this Application revision.
 
 Re-review results: Standards 0 findings; Spec 0 functional findings. The Spec reviewer requested correction of the older inline-guard claims; the result and historical labels above now distinguish the superseded implementation from the current revision. Reviewers inspected code/tests read-only and did not rerun SQL. All changes remain uncommitted on codex/pacs008-preparation.
+Completion update: owner authorized commit and continuation; c1674e6 contains all reviewed revisions and was merged into codex/capability-rebuild. Active work continues on codex/pacs008-protocol.
