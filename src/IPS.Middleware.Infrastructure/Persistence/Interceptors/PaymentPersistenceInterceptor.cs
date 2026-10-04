@@ -10,6 +10,7 @@ namespace IPS.Middleware.Infrastructure.Persistence.Interceptors;
 internal sealed class PaymentPersistenceInterceptor : SaveRuleInterceptor
 {
     internal static readonly PaymentPersistenceInterceptor Instance = new();
+    private static readonly string[] Artifacts = [UnsignedXml, SignedXml, SubmissionJson, SubmissionResponseJson];
 
     protected override void Apply(TransactionDbContext db)
     {
@@ -41,15 +42,15 @@ internal sealed class PaymentPersistenceInterceptor : SaveRuleInterceptor
 
     private static void CheckArtifacts(TransactionDbContext db, EntityEntry<OutgoingPayment> entry)
     {
-        foreach (var column in new[] { UnsignedXml, SignedXml })
+        foreach (var column in Artifacts)
         {
             var artifact = entry.TextOf(column);
             var invalid = entry.State == EntityState.Added
                 ? artifact.CurrentValue is not null
                 : artifact.IsModified && (artifact.OriginalValue is not null ||
-                    !db.AuthorizedPreparation.TryGetValue((entry.Entity.Id, column), out var authorized) ||
-                    !string.Equals(artifact.CurrentValue, authorized, StringComparison.Ordinal));
-            if (invalid) throw new InvalidOperationException("Preparation artifacts require an authorized first write.");
+                    !db.AuthorizedArtifacts.TryGetValue((entry.Entity.Id, column), out var authorized) ||
+                    artifact.CurrentValue != authorized);
+            if (invalid) throw new InvalidOperationException("Payment artifacts require an authorized first write.");
         }
     }
 

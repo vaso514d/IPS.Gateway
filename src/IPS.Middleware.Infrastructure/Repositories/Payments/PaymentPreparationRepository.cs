@@ -1,5 +1,4 @@
 using IPS.Middleware.Application.Abstractions.Payments;
-using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -31,28 +30,12 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
 
     private void Stage(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now, string column)
     {
-        db.RequireUsable();
         ArgumentException.ThrowIfNullOrWhiteSpace(xml);
-        ArgumentNullException.ThrowIfNull(claim);
-        var entry = db.Entry(payment);
-        if (entry.State is EntityState.Added or EntityState.Detached ||
-            payment.MessageType != Pacs008 || payment.CurrentStatus != TransactionStatus.Sending ||
-            entry.TextOf(MessageId).CurrentValue is null)
-            throw new InvalidOperationException("Preparation requires a persisted pacs.008 in Sending with stored identifiers.");
-        if (!entry.HasLiveClaim(claim, now))
-            throw new PersistenceConcurrencyException("Preparation requires the current unexpired claim.");
+        var entry = db.OwnedPacs008(payment, claim, now);
         if (column == SignedXml && entry.TextOf(UnsignedXml).OriginalValue is null)
             throw new InvalidOperationException("Commit unsigned XML before staging its signed message.");
-
-        var slot = entry.TextOf(column);
-        if (slot.CurrentValue is { } existing)
-        {
-            if (!string.Equals(existing, xml, StringComparison.Ordinal))
-                throw new InvalidOperationException("Stored preparation artifacts cannot be replaced.");
-            return;
-        }
-        slot.CurrentValue = xml;
-        db.AuthorizedOwnership.Add(payment.Id);
-        db.AuthorizedPreparation.Add((payment.Id, column), xml);
+        if (entry.TextOf(column).CurrentValue is null && entry.TextOf(SubmissionJson).CurrentValue is not null)
+            throw new InvalidOperationException("Preparation cannot change after submission starts.");
+        db.WriteOnce(entry, column, xml);
     }
 }

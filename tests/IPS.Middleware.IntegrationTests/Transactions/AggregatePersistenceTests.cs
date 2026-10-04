@@ -19,11 +19,11 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var db = database.Context();
-        Assert.Equal(4, (await db.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync());
         Assert.False(db.Database.HasPendingModelChanges());
         await db.GetService<IMigrator>().MigrateAsync("0");
         await db.Database.MigrateAsync();
-        Assert.Equal(4, (await db.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(db.Database.GetMigrations(), await db.Database.GetAppliedMigrationsAsync());
     }
 
     [Fact]
