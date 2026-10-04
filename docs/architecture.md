@@ -23,7 +23,7 @@ flowchart TD
 | IPS.Middleware.Infrastructure | Application, Domain, Contracts | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
 | IPS.Middleware.Api | Application, Infrastructure, Contracts | HTTP mapping, configuration, dependency registration |
 | IPS.Middleware.Tests | Application, Domain, Contracts; Api as a build dependency only | Domain/application behavior, compatibility, and evaluated dependency tests |
-| IPS.Middleware.IntegrationTests | Api, Infrastructure, Application, Domain | Host and SQL persistence tests; later independent protocol simulators |
+| IPS.Middleware.IntegrationTests | Api, Infrastructure, Application, Domain, Contracts | Host and SQL persistence tests; later independent protocol simulators |
 
 Contracts uses only the base class library. Domain additionally allows the centrally pinned Stateless 5.20.1; its types remain private to transition implementation. Application allows centrally pinned FluentValidation 12.1.1 for explicitly invoked, composed input validation and resolves Stateless transitively through Domain. No ASP.NET validation integration is used. Any further pure-library dependency needs a reviewed rule change; ASP.NET, EF Core, HTTP clients, hosting, signing, and telemetry implementations remain outside Application.
 

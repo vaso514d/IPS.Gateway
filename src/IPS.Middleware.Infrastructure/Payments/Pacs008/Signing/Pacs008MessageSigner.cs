@@ -7,9 +7,15 @@ namespace IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvider clock)
 {
-    public Pacs008SigningResult Prepare(string unsignedXml, X509Certificate2? certificate)
+    public Pacs008SigningResult Prepare(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, Pacs008Schema.Validate);
+
+    public Pacs008SigningResult PrepareReply(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, xml => Pacs008Schema.ValidateReply(xml));
+
+    private Pacs008SigningResult Sign(string unsignedXml, X509Certificate2? certificate, Action<string> validate)
     {
-        var document = ReadUnsignedMessage(unsignedXml);
+        var document = ReadUnsignedMessage(unsignedXml, validate);
         if (certificate is null)
         {
             if (!policy.AllowUnsignedWithoutCertificate)
@@ -36,13 +42,13 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         IpsSignatureXml.SetSignatureValue(signature, signatureBytes);
 
         var signedXml = document.OuterXml;
-        Pacs008Schema.Validate(signedXml);
+        validate(signedXml);
         return new(signedXml, IsSigned: true);
     }
 
-    private static XmlDocument ReadUnsignedMessage(string xml)
+    private static XmlDocument ReadUnsignedMessage(string xml, Action<string> validate)
     {
-        Pacs008Schema.Validate(xml);
+        validate(xml);
         using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
         var document = new XmlDocument { PreserveWhitespace = true, XmlResolver = null };
         document.Load(reader);
