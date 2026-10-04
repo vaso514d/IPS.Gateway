@@ -55,6 +55,19 @@ Infrastructure directly maps OutgoingPayment current state and stores full versi
 
 ## Shared persistence
 
-Application/Abstractions/Persistence owns IUnitOfWork and general concurrency/uniqueness exceptions. Application/Repositories/Payments owns repository interfaces; workflow models remain with Transactions. Infrastructure/Repositories/Payments implements those interfaces. Infrastructure/UnitOfWork saves every tracked change through one scoped context and acknowledges AggregateRoot events after commit. DomainEventsInterceptor validates sequences and prepares event records; PaymentPersistenceInterceptor enforces ownership and immutable payment storage rules. Intake interprets duplicate references.
+Application/Abstractions/Persistence owns IUnitOfWork and general concurrency/uniqueness exceptions. Application/Abstractions/Payments owns repository interfaces; workflow models remain with Transactions. Infrastructure/Repositories/Payments implements those interfaces. Infrastructure/UnitOfWork saves every tracked change through one scoped context and acknowledges AggregateRoot events after commit. DomainEventsInterceptor validates sequences and prepares event records; PaymentPersistenceInterceptor enforces ownership and immutable payment storage rules. Intake interprets duplicate references.
 
 Mappings and interceptors live under Infrastructure/Persistence. TransactionDbContext retains its historical CLR identity so existing generated migrations are still discovered. It is the shared database context; ordinary tracked entities save through the same unit of work. Historical migration paths and the schema remain unchanged. See [the revision specification](specs/001e-shared-unit-of-work.md).
+
+
+## Outgoing preparation storage
+
+Stage 2a.1 keeps generated protocol identifiers and two immutable XML slots in Infrastructure shadow metadata on Transactions. The existing rowversion fences artifact writes without a second concurrency mechanism. IPaymentPreparationRepository reads detached snapshots and stages exact content under the current claim; IUnitOfWork still owns commit. Metadata-only saves do not invent business events; changes to Domain properties continue to require pending events.
+
+This small first capability stores XML alongside the parent, so tracked aggregate loads include those values. Separate artifact tables/projections can be considered with measured access patterns; no generic document subsystem is introduced. XML validation and cryptographic verification belong to the following protocol-preparation slice.
+
+## Validation ownership
+
+Api deserializes external contracts and maps Application input. Application validates once at entry; intake and processing receive validated input. Domain methods still enforce aggregate invariants/transitions. Infrastructure enforces persistence, schema and cryptographic constraints. Do not duplicate request-field validation in workflows or restore inline intake guards.
+
+The current ValidatedIntakeRequest factory validates the foundation envelope only: required values, storage identifier lengths and normalization. It cannot be constructed or changed directly. Payment-specific validation will precede its creation as each capability is implemented; this is not yet a complete pacs.008 validator. Cancellation is propagated to dependencies, with test doubles honoring the same contract.

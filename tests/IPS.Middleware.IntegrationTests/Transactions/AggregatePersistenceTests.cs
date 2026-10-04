@@ -19,11 +19,11 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var db = database.Context();
-        Assert.Equal(3, (await db.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(4, (await db.Database.GetAppliedMigrationsAsync()).Count());
         Assert.False(db.Database.HasPendingModelChanges());
         await db.GetService<IMigrator>().MigrateAsync("0");
         await db.Database.MigrateAsync();
-        Assert.Equal(3, (await db.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(4, (await db.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public sealed class AggregatePersistenceTests
         Guid id;
         await using (var session = database.Session())
         {
-            var result = await session.Intake(Now).AcceptAsync("pacs.008", " reference ", "{\"name\":\"საქართველო\"}", default);
+            var result = await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", " reference ", "{\"name\":\"საქართველო\"}").Request!, default);
             id = result.Payment.Id;
             result.Payment.BeginSending(Now.AddSeconds(1));
             result.Payment.RecordRejection(StatusSource.Ips, Now.AddSeconds(2), new(" ac01 ", 123, " invalid account "));
@@ -78,7 +78,7 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
-        var payment = (await session.Intake(Now).AcceptAsync("pacs.008", "multiple", "{}", default)).Payment;
+        var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "multiple", "{}").Request!, default)).Payment;
         payment.BeginSending(Now);
         Assert.True(await session.Unit.SaveAsync(default) > 0);
         payment.RecordAcceptance(StatusSource.Ips, Now.AddSeconds(1), new(null, 10, "accepted"));
@@ -103,13 +103,13 @@ public sealed class AggregatePersistenceTests
         var attempts = Enumerable.Range(0, 8).Select(async _ =>
         {
             await using var session = database.Session();
-            return await session.Intake(Now).AcceptAsync("pacs.008", "same-reference", "{\"original\":true}", default);
+            return await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "same-reference", "{\"original\":true}").Request!, default);
         });
         var results = await Task.WhenAll(attempts);
         Assert.Single(results.Where(r => r.Created));
         Assert.Single(results.Select(r => r.Payment.Id).Distinct());
         await using var duplicate = database.Session();
-        var result = await duplicate.Intake(Now).AcceptAsync("pacs.009", " same-reference ", "{\"replace\":true}", default);
+        var result = await duplicate.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", " same-reference ", "{\"replace\":true}").Request!, default);
         Assert.False(result.Created);
         Assert.Equal("pacs.008", result.Payment.MessageType);
         Assert.Equal("{\"original\":true}", await duplicate.Payments.ReadRequestAsync(result.Payment.Id, default));
@@ -121,7 +121,7 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var original = database.Session();
-        var payment = (await original.Intake(Now).AcceptAsync("pacs.008", "original", "{}", default)).Payment;
+        var payment = (await original.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "original", "{}").Request!, default)).Payment;
         await using var collision = database.Session();
         var other = OutgoingPayment.Receive(payment.Id, "pacs.008", "different", Now);
         collision.Payments.Add(other, "{}");
@@ -135,7 +135,7 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
-        var payment = (await session.Intake(Now).AcceptAsync("pacs.008", "rollback", "{}", default)).Payment;
+        var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "rollback", "{}").Request!, default)).Payment;
         await session.Context.Database.ExecuteSqlRawAsync(
             "ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_OnlyIntake CHECK (Sequence = 1)");
         payment.BeginSending(Now);
@@ -155,7 +155,7 @@ public sealed class AggregatePersistenceTests
         await using var database = await SqlTestDatabase.CreateAsync();
         Guid id;
         await using (var intake = database.Session())
-            id = (await intake.Intake(Now).AcceptAsync("pacs.008", "cancel", "{}", default)).Payment.Id;
+            id = (await intake.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "cancel", "{}").Request!, default)).Payment.Id;
         using var cancellation = new CancellationTokenSource();
         await using var session = database.Session(new CancelAfterParent(cancellation));
         var payment = Assert.IsType<OutgoingPayment>(await session.Payments.FindAsync(id, default));
@@ -177,7 +177,7 @@ public sealed class AggregatePersistenceTests
         await using var database = await SqlTestDatabase.CreateAsync();
         Guid id;
         await using (var intake = database.Session())
-            id = (await intake.Intake(Now).AcceptAsync("pacs.008", "immutable", "{}", default)).Payment.Id;
+            id = (await intake.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "immutable", "{}").Request!, default)).Payment.Id;
         await using (var direct = database.Session())
         {
             var payment = Assert.IsType<OutgoingPayment>(await direct.Payments.FindAsync(id, default));
@@ -212,7 +212,7 @@ public sealed class AggregatePersistenceTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var start = database.Session();
-        var payment = (await start.Intake(Now).AcceptAsync("pacs.008", "claim-rollback", "{}", default)).Payment;
+        var payment = (await start.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "claim-rollback", "{}").Request!, default)).Payment;
         await start.Context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_OnlyIntake CHECK (Sequence = 1)");
         Assert.NotNull(start.Work.StageClaim(payment, Now, TimeSpan.FromSeconds(45)));
         payment.BeginSending(Now);

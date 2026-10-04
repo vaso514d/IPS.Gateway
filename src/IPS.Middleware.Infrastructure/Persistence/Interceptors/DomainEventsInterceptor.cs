@@ -39,6 +39,9 @@ internal sealed class DomainEventsInterceptor : SaveChangesInterceptor
             foreach (var entry in db.ChangeTracker.Entries<AggregateRoot>().Where(e => e.State is EntityState.Added or EntityState.Modified))
             {
                 var pending = entry.Entity.PendingEvents;
+                // Protocol/ownership metadata may advance without a business transition or observation.
+                if (entry.State == EntityState.Modified && pending.Count == 0 &&
+                    entry.Properties.All(p => !p.IsModified || p.Metadata.IsShadowProperty())) continue;
                 var previous = entry.State == EntityState.Added ? 0 : entry.Property(p => p.EventSequence).OriginalValue;
                 if (pending.Count == 0 || pending.Select(e => e.Sequence).Where((sequence, index) => sequence != previous + index + 1).Any() ||
                     pending[^1].Sequence != entry.Entity.EventSequence)

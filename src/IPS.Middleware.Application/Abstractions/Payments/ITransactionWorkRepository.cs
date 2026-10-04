@@ -1,7 +1,7 @@
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 
-namespace IPS.Middleware.Application.Repositories.Payments;
+namespace IPS.Middleware.Application.Abstractions.Payments;
 
 public interface ITransactionWorkRepository
 {

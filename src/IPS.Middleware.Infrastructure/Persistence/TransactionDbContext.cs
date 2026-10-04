@@ -14,6 +14,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal SavePhase Phase { get; set; }
     internal bool Failed { get; set; }
     internal HashSet<Guid> AuthorizedOwnership { get; } = [];
+    internal Dictionary<(Guid PaymentId, string Property), string> AuthorizedPreparation { get; } = [];
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.AddInterceptors(PaymentPersistenceInterceptor.Instance, DomainEventsInterceptor.Instance);
@@ -24,7 +25,11 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());
     }
 
-    internal void CompleteSave() => AuthorizedOwnership.Clear();
+    internal void CompleteSave()
+    {
+        AuthorizedOwnership.Clear();
+        AuthorizedPreparation.Clear();
+    }
 
     internal void RequireUsable()
     {

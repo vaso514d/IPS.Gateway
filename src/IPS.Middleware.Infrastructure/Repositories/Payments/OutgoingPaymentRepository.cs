@@ -1,4 +1,4 @@
-using IPS.Middleware.Application.Repositories.Payments;
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Transactions;
@@ -26,6 +26,11 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
         var entry = db.Payments.Add(payment);
         entry.Property<string>("RequestJson").CurrentValue = requestJson;
         entry.Property<TransactionDirection>("Direction").CurrentValue = TransactionDirection.Outgoing;
+        if (payment.MessageType == "pacs.008")
+        {
+            entry.Property<string?>("MessageId").CurrentValue = Guid.NewGuid().ToString("N");
+            entry.Property<string?>("ProtocolTransactionId").CurrentValue = Guid.NewGuid().ToString("N");
+        }
     }
 
     public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) =>

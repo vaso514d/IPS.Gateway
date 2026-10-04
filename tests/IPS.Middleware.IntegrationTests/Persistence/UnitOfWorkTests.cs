@@ -1,5 +1,5 @@
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Repositories.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence;
@@ -79,7 +79,7 @@ public sealed class UnitOfWorkTests
         var repository = new OutgoingPaymentRepository(stale);
         var unit = new UnitOfWork(stale);
         var payment = (await new OutgoingTransactionIntake(repository, unit, TimeProvider.System)
-            .AcceptAsync("pacs.008", "stale-shared-save", "{}", default)).Payment;
+            .AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "stale-shared-save", "{}").Request!, default)).Payment;
         await using (var winner = Context(database))
         {
             var current = await winner.Set<OutgoingPayment>().SingleAsync();
@@ -123,14 +123,19 @@ public sealed class UnitOfWorkTests
         var payments = scope.ServiceProvider.GetRequiredService<IOutgoingPaymentRepository>();
         var work = scope.ServiceProvider.GetRequiredService<ITransactionWorkRepository>();
         var unit = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var preparation = scope.ServiceProvider.GetRequiredService<IPaymentPreparationRepository>();
         var payment = (await new OutgoingTransactionIntake(payments, unit, TimeProvider.System)
-            .AcceptAsync("pacs.008", "registered", "{}", default)).Payment;
+            .AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "registered", "{}").Request!, default)).Payment;
         var loaded = await payments.FindAsync(payment.Id, default);
         Assert.Same(payment, loaded);
-        Assert.NotNull(await new OutgoingTransactionWork(payments, work, unit, TimeProvider.System)
-            .TryStartAsync(payment.Id, TimeSpan.FromSeconds(45), default));
+        var claim = await new OutgoingTransactionWork(payments, work, unit, TimeProvider.System)
+            .TryStartAsync(payment.Id, TimeSpan.FromSeconds(45), default);
+        Assert.NotNull(claim);
+        preparation.StageUnsignedXml(payment, claim, "<registered/>", TimeProvider.System.GetUtcNow());
+        await unit.SaveAsync();
         await using var read = database.Session();
         Assert.Equal(TransactionStatus.Sending, (await read.Payments.FindAsync(payment.Id, default))!.CurrentStatus);
+        Assert.Equal("<registered/>", (await new PaymentPreparationRepository(read.Context).ReadAsync(payment.Id, default))!.UnsignedXml);
     }
 
     private static SharedTestContext Context(SqlTestDatabase database)

@@ -1,5 +1,5 @@
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Repositories.Payments;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +14,7 @@ public static class PersistenceRegistration
         services.AddDbContext<TransactionDbContext>(options => options.UseSqlServer(connectionString));
         services.AddScoped<IOutgoingPaymentRepository, OutgoingPaymentRepository>();
         services.AddScoped<ITransactionWorkRepository, TransactionWorkRepository>();
+        services.AddScoped<IPaymentPreparationRepository, PaymentPreparationRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
         return services;
     }

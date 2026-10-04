@@ -1,5 +1,5 @@
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Repositories.Payments;
 using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Transactions;
@@ -8,14 +8,14 @@ public sealed class OutgoingTransactionIntake(
     IOutgoingPaymentRepository repository, IUnitOfWork unitOfWork, TimeProvider timeProvider)
 {
     public async Task<TransactionIntakeResult> AcceptAsync(
-        string messageType, string clientReference, string requestJson, CancellationToken cancellationToken)
+        ValidatedIntakeRequest request, CancellationToken cancellationToken)
     {
-        var reference = clientReference.Trim();
+        var reference = request.ClientReference;
         var existing = await repository.FindByClientReferenceAsync(reference, cancellationToken);
         if (existing is not null) return new(existing, false);
 
-        var payment = OutgoingPayment.Receive(Guid.NewGuid(), messageType, reference, timeProvider.GetUtcNow());
-        repository.Add(payment, requestJson);
+        var payment = OutgoingPayment.Receive(Guid.NewGuid(), request.MessageType, reference, timeProvider.GetUtcNow());
+        repository.Add(payment, request.RequestJson);
         try
         {
             await unitOfWork.SaveAsync(cancellationToken);

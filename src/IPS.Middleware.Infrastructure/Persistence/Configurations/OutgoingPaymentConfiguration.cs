@@ -21,6 +21,16 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         payment.Ignore(p => p.Current);
         payment.Ignore(p => p.IsFinal);
         payment.Property<string>("RequestJson").IsRequired();
+        payment.Property<string>("MessageId").HasMaxLength(35);
+        payment.Property<string>("ProtocolTransactionId").HasMaxLength(35);
+        payment.Property<string>("UnsignedXml");
+        payment.Property<string>("SignedXml");
+        payment.HasIndex("MessageId").IsUnique().HasFilter("[MessageId] IS NOT NULL");
+        payment.HasIndex("ProtocolTransactionId").IsUnique().HasFilter("[ProtocolTransactionId] IS NOT NULL");
+        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Preparation",
+            "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL AND [SignedXml] IS NULL) OR " +
+            "([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL " +
+            "AND ([SignedXml] IS NULL OR [UnsignedXml] IS NOT NULL))"));
         payment.Property<TransactionDirection>("Direction");
         payment.Property<Guid?>("ClaimToken");
         payment.Property<DateTimeOffset?>("ClaimExpiresAtUtc");

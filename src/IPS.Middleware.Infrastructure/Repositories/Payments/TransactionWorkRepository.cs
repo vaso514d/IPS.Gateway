@@ -1,6 +1,7 @@
-using IPS.Middleware.Application.Repositories.Payments;
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -47,8 +48,7 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         ArgumentNullException.ThrowIfNull(claim);
         if (claim.Token == Guid.Empty) throw new ArgumentException("A claim token is required.", nameof(claim));
         var entry = Tracked(payment);
-        if (claim.TransactionId != payment.Id || entry.Property<Guid?>("ClaimToken").CurrentValue != claim.Token ||
-            entry.Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue is not { } expiry || expiry <= now) return false;
+        if (!PaymentOwnership.HasLiveClaim(entry, claim, now)) return false;
         Release(entry, nextActionAtUtc);
         return true;
     }

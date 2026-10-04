@@ -1,5 +1,5 @@
+using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Repositories.Payments;
 using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Transactions;

@@ -261,6 +261,6 @@ public sealed class AggregateOwnershipTests
     private static async Task<Guid> Intake(SqlTestDatabase database, string reference, string type = "pacs.008")
     {
         await using var session = database.Session();
-        return (await session.Intake(Now).AcceptAsync(type, reference, "{}", default)).Payment.Id;
+        return (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate(type, reference, "{}").Request!, default)).Payment.Id;
     }
 }

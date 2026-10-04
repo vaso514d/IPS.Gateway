@@ -69,8 +69,8 @@ public sealed class OutgoingPayment : AggregateRoot
     {
         if (!Enum.IsDefined(source)) throw new ArgumentOutOfRangeException(nameof(source));
         // Operator resolution is an explicit correction; ordinary final replies are observations.
-        if (IsFinal && operation != PaymentOperation.ResolveManually ||
-            CurrentStatus == TransactionStatus.ManuallyResolved && operation == PaymentOperation.ResolveManually)
+        if ((IsFinal && operation != PaymentOperation.ResolveManually) ||
+            (CurrentStatus == TransactionStatus.ManuallyResolved && operation == PaymentOperation.ResolveManually))
         {
             Raise((eventId, sequence) => new PaymentOutcomeObserved(eventId, Id, sequence, at.ToUniversalTime(),
                 CurrentStatus, reported, CurrentStatus != reported, source, details ?? new()));

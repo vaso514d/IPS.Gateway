@@ -10,6 +10,10 @@ Refactor e24c28d into directly EF-mapped aggregates and atomic event history. Se
 
 Inspect pinned source d498de6 before writing the capability specification. Implement request validation, stable identifiers, XML generation, existing-schema validation, signing, and immutable artifact storage. Persist identifiers once and reuse them on retries. Verify XML with independent fixtures; a simulator must not reproduce production mapping logic.
 
+Stage 2a is split for focused review:
+- 2a.1: durable identifiers and immutable unsigned/signed artifact storage; see specs/002a1-preparation-storage.md.
+- 2a.2: validation, protocol mapping/XML, schema checks, signing, and preparation using that storage.
+
 ## Stage 2b: durable workflow
 
 Persist checkpoints and required artifacts:

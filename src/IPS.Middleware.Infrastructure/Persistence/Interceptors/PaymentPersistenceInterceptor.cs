@@ -31,6 +31,25 @@ internal sealed class PaymentPersistenceInterceptor : SaveChangesInterceptor
             if (entry.State == EntityState.Deleted)
                 throw new InvalidOperationException("Payments cannot be deleted.");
             if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
+            foreach (var name in new[] { "MessageId", "ProtocolTransactionId" })
+            {
+                var identifier = entry.Property<string?>(name);
+                if (entry.State == EntityState.Added && entry.Entity.MessageType == "pacs.008" &&
+                    (identifier.CurrentValue is not { Length: 32 } value || !value.All(char.IsAsciiHexDigit)))
+                    throw new InvalidOperationException("New pacs.008 intake requires generated protocol identifiers.");
+                if (entry.State == EntityState.Modified && identifier.IsModified)
+                    throw new InvalidOperationException("Protocol identifiers are immutable after intake.");
+            }
+            foreach (var name in new[] { "UnsignedXml", "SignedXml" })
+            {
+                var artifact = entry.Property<string?>(name);
+                if (entry.State == EntityState.Added && artifact.CurrentValue is not null ||
+                    entry.State == EntityState.Modified && artifact.IsModified &&
+                    (artifact.OriginalValue is not null ||
+                     !db.AuthorizedPreparation.TryGetValue((entry.Entity.Id, name), out var authorized) ||
+                     !string.Equals(artifact.CurrentValue, authorized, StringComparison.Ordinal)))
+                    throw new InvalidOperationException("Preparation artifacts require an authorized first write.");
+            }
             if ((entry.Property<Guid?>("ClaimToken").OriginalValue is not null ||
                  entry.Property<Guid?>("ClaimToken").CurrentValue is not null) && !db.AuthorizedOwnership.Contains(entry.Entity.Id))
                 throw new PersistenceConcurrencyException("A claimed payment requires an authorized ownership operation.");
