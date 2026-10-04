@@ -104,3 +104,7 @@ Implemented on codex/capability-rebuild, based on cdd52f9. [Specification](specs
 Implemented on codex/aggregate-events from verified base e24c28d. Commits 3bc9b3d and 5a53658 replace callback storage/history replay with guarded aggregates and atomic full event history. [Specification](specs/001d-aggregate-events.md); [review and verification](reviews/001d-aggregate-events.md). All 178 tests pass, fresh checkout and actual host checks pass, independent reviews have no remaining findings. Owner merge approval pending. Stage 2a is the next separately specified capability.
 
 Stage 1 approval update: owner approved merge on 2026-10-04; the reviewed implementation is b18938b, now on codex/capability-rebuild. Earlier review entries above are historical records.
+
+## Protocol merge approval — 2026-10-04
+
+Owner approved merging reviewed incoming protocol commit ab6c4f8 into codex/capability-rebuild. The fast-forward is complete. This supersedes earlier pending-approval entries for 004b.1. Verification remains 416 passing tests including real SQL, zero-warning Release build, formatting/model checks and independent Standards/Spec reviews with no remaining findings. No production code changed during merge. Continue on codex/incoming-processing with its 004b.2 specification; first implementation slice is incoming identity, aggregate and persistence. The next slice is not merged by this approval.

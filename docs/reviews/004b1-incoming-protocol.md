@@ -1,6 +1,6 @@
 # Incoming pacs.008 protocol preparation review
 
-Branch codex/incoming-pacs008, base 41bb72f. Owner authorized the commit on 2026-10-04; merge approval remains pending. [Specification, source evidence and remaining workflow decisions](../specs/004b-incoming-pacs008.md). The owner authorized continuation and accepted holding malformed/untrusted/uncorrelated input versus FF01 rejection for trusted, correlated single-payment violations.
+Branch codex/incoming-pacs008, base 41bb72f. Owner authorized commit and merge on 2026-10-04. Commit ab6c4f8 was fast-forwarded into codex/capability-rebuild; the review branch is preserved. [Specification, source evidence and remaining workflow decisions](../specs/004b-incoming-pacs008.md). The owner authorized continuation and accepted holding malformed/untrusted/uncorrelated input versus FF01 rejection for trusted, correlated single-payment violations.
 
 ## Result and diff guide
 
@@ -35,6 +35,6 @@ Behavior-preserving, no test changed. The reader matches the envelope with one l
 
 This is protocol preparation only. Hold/Reject are return values, not new persisted journal states. There are no CBS calls, IncomingPayment aggregate, persistence changes, acknowledgements, response delivery, polling or hosted workers. Supplied trusted IPS certificates use the existing byte-identity/profile verification; chain/revocation policy and certificate configuration are not expanded.
 
-The owner approved the payment identity/conflict rule, reserved deadline budgets and acceptance-only reversal semantics on 2026-10-04. Prepare the next durable-processing specification on a stacked branch; merge this slice only after owner approval. The approved unknown-CBS policy remains RJCT/MS03 at the IPS deadline plus durable reconciliation, with CBS uncertainty kept separate from the reply decision.
+The owner approved the payment identity/conflict rule, reserved deadline budgets and acceptance-only reversal semantics on 2026-10-04. Prepare the next durable-processing specification on a stacked branch; owner subsequently approved the merge, now completed into codex/capability-rebuild. The approved unknown-CBS policy remains RJCT/MS03 at the IPS deadline plus durable reconciliation, with CBS uncertainty kept separate from the reply decision.
 
 Cleanup recheck: independent Standards and Spec reviewers both reported zero findings against the live owner edits. The complete verification above was rerun successfully before the authorized commit.
