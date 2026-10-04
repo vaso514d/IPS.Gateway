@@ -1,3 +1,4 @@
+using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence.Configurations;
 using IPS.Middleware.Infrastructure.Persistence.Events;
@@ -11,8 +12,11 @@ namespace IPS.Middleware.Infrastructure.Transactions;
 public class TransactionDbContext(DbContextOptions<TransactionDbContext> options) : DbContext(options)
 {
     internal DbSet<InboundJournalEntry> InboundJournal => Set<InboundJournalEntry>();
+    internal DbSet<IncomingPayment> IncomingPayments => Set<IncomingPayment>();
     internal HashSet<Guid> AuthorizedInboundWork { get; } = [];
+    internal HashSet<Guid> AuthorizedIncomingPaymentWork { get; } = [];
     internal DbSet<OutgoingPayment> Payments => Set<OutgoingPayment>();
+    internal DbSet<AggregateIdentity> AggregateIdentities => Set<AggregateIdentity>();
     internal DbSet<TransactionEventRow> Events => Set<TransactionEventRow>();
     internal SavePhase Phase { get; set; }
     internal bool Failed { get; set; }
@@ -20,11 +24,13 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal Dictionary<(Guid PaymentId, string Property), string> AuthorizedArtifacts { get; } = [];
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.AddInterceptors(PaymentPersistenceInterceptor.Instance, InboundJournalInterceptor.Instance, DomainEventsInterceptor.Instance);
+        optionsBuilder.AddInterceptors(PaymentPersistenceInterceptor.Instance, InboundPersistenceInterceptor.Instance, DomainEventsInterceptor.Instance);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new InboundJournalConfiguration());
+        modelBuilder.ApplyConfiguration(new IncomingPaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new AggregateIdentityConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());
     }
@@ -32,6 +38,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal void CompleteSave()
     {
         AuthorizedInboundWork.Clear();
+        AuthorizedIncomingPaymentWork.Clear();
         AuthorizedOwnership.Clear();
         AuthorizedArtifacts.Clear();
     }

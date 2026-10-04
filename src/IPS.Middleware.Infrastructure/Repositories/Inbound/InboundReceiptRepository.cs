@@ -1,5 +1,7 @@
 using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +39,14 @@ public sealed class InboundReceiptRepository(TransactionDbContext db) : IInbound
         };
         db.InboundJournal.Add(entry);
         return new(entry.Id, true, entry.Status);
+    }
+
+    public async Task<IncomingPacs008Reference?> ReadOriginalReferencesAsync(Guid journalId, CancellationToken cancellationToken)
+    {
+        db.RequireUsable();
+        var json = await db.InboundJournal.AsNoTracking().Where(e => e.Id == journalId)
+            .Select(e => e.OriginalJson).SingleOrDefaultAsync(cancellationToken);
+        return json is null ? null : IncomingPaymentJson.Read<IncomingPacs008Reference>(json);
     }
 
     public async Task<StoredInboundReceipt?> ReadAsync(Guid journalId, CancellationToken cancellationToken)

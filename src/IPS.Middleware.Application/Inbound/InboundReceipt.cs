@@ -32,5 +32,6 @@ public sealed class InboundReceipt
 
 public sealed record InboundRegistration(Guid JournalId, bool Created, InboundProcessingStatus Status);
 public sealed record InboundClaim(Guid JournalId, Guid Token, DateTimeOffset ExpiresAtUtc);
+public sealed record OwnedInboundReceipt(Guid JournalId, string ParticipantBic);
 public sealed record StoredInboundReceipt(Guid JournalId, InboundReceipt Receipt, InboundProcessingStatus Status,
     string? HoldReason, DateTimeOffset? NextActionAtUtc, long DuplicateCount, DateTimeOffset? LastDuplicateAtUtc);

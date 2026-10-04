@@ -14,8 +14,11 @@ public static class InboundServices
         services.AddSingleton<InboundProcessingChannel>();
         services.AddSingleton<InboundReceiptRegistration>();
         services.AddSingleton<InboundWorkDiscovery>();
+        services.AddSingleton<IncomingPaymentRegistration>();
         services.AddScoped<InboundReceiptIntake>();
         services.AddScoped<InboundWork>();
+        services.AddScoped<IncomingPaymentIntake>();
+        services.AddScoped<IncomingPaymentWork>();
         return services;
     }
 }

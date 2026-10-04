@@ -1,6 +1,6 @@
 # Incoming pacs.008 durable processing
 
-Draft for the next review on codex/incoming-processing, stacked on protocol commit ab6c4f8. The owner approved the protocol merge; ab6c4f8 is now in codex/capability-rebuild, recorded by checkpoint 7bb0452. This document prepares the next implementation; it does not enable live clients, workers or endpoints.
+Specification for codex/incoming-processing, stacked on protocol commit ab6c4f8. 004b.2a is implemented and awaiting review (see [Implemented: 004b.2a](#implemented-004b2a)). The owner approved the protocol merge; ab6c4f8 is now in codex/capability-rebuild, recorded by checkpoint 7bb0452. This document prepares the next implementation; it does not enable live clients, workers or endpoints.
 
 ## Decisions and evidence
 
@@ -40,6 +40,8 @@ Application repository interfaces belong under Abstractions/Inbound; implementat
 
 ### Event history constraint
 
+Superseded by the owner's 004b.2a plan: events reference the shared AggregateIdentities table through typed foreign keys. See [Implemented: 004b.2a](#implemented-004b2a). Original draft for the record:
+
 Current TransactionEvents.TransactionId references OutgoingPayment specifically. The interceptor can observe AggregateRoot, but its SQL mapping does not yet support incoming aggregates. Preserve the one append-only TransactionEvents table and existing event registry/sequence rules. The schema change must represent exactly one valid outgoing or incoming owner and retain database-enforced referential integrity; do not simply drop the outgoing foreign key and leave events unowned. A proposed implementation is separate nullable outgoing/incoming owner foreign keys with a check that exactly one matches TransactionId. Review generated migration and full model against both aggregates before accepting this design. Domain event public interfaces must remain independent of that SQL representation.
 
 Generate the migration with the official EF CLI. Preserve historical migrations and verify the complete chain against a fresh SQL database; no production conversion or data migration is promised.
@@ -75,4 +77,37 @@ For 004b.2a, verify directly against SQL Server:
 
 Later slices add process termination at every checkpoint, a simulator that credits before losing the reply, no blind resubmission, injected-time deadline boundaries, immutable signed-response replay, and accepted-but-unconfirmed reversal recovery.
 
-Each implementation review must include build, formatting, architecture/Contracts, generated model/migration consistency, full SQL tests and independent Standards/Spec reviews. Merge only after owner approval. Current verification of ab6c4f8 is 416 passing tests; this draft has no implementation or additional runtime verification claim.
+Each implementation review must include build, formatting, architecture/Contracts, generated model/migration consistency, full SQL tests and independent Standards/Spec reviews. Merge only after owner approval. The ab6c4f8 protocol slice was verified with 416 passing tests. 004b.2a verification is recorded in its [review evidence](../reviews/004b2a-incoming-identity.md).
+
+## Implemented: 004b.2a
+
+Owner instruction on 2026-10-04: implement identity, aggregate and persistence from 9f9af8b, adding only registration-related aggregate behavior. [Review evidence](../reviews/004b2a-incoming-identity.md).
+
+- **Aggregate.** IncomingPayment.Register trims and uppercases the participant BIC, keeps EndToEndId exactly as read, converts the time to UTC and raises one IncomingPaymentRegistered event (schema version 1, name incoming-payment.registered). There are no CBS, reply or reconciliation states yet.
+- **Snapshot and comparison (format version 1).** RequestJson stores `{version: 1, value: Pacs008Request}`. Restoration freezes nested lists into read-only lists with ordered value equality and never runs outgoing validation. IncomingPacs008.HasSameContents compares the frozen requests with record equality:
+  - strings compare ordinally;
+  - decimals compare numerically;
+  - DateTimeOffset values compare by UTC instant;
+  - lists compare by ordered contents, and null differs from empty.
+
+  Transport sequence, signature and envelope identifiers are not part of the request, so they never affect the comparison.
+- **Registration.** IncomingPaymentIntake.RegisterAsync(claim, incoming) looks up the payment from the live owner's receipt participant and the EndToEndId.
+  - No payment exists: create one, attach the receipt and return Created.
+  - Equal contents: attach the receipt to the canonical payment and return Existing. Its event history, schedule and ownership are untouched.
+  - Different contents: save its trusted original references and hold the receipt with ConflictReason atomically, without attaching it; return Conflict with the canonical payment ID.
+  - The claim is no longer live: return LostOwnership without staging anything.
+
+  Trusted original references are staged under receipt ownership before the registration decision is committed. They are stored independently of payment attachment; identical repeats are allowed and replacements throw. ReadOriginalReferencesAsync returns them for held or attached receipts. Attachment requires saved references, never marks a receipt processed, and cannot be moved to another payment.
+- **Races.** Uniqueness and rowversion failures propagate and fail their scope. IncomingPaymentRegistration retries up to eight times in fresh scopes through the FreshScopeRetry helper shared with receipt registration. A later attempt reuses only a committed winner whose contents match.
+- **Journal.** IncomingPaymentId and OriginalJson are write-once and need journal ownership; references may exist without an attachment, but an attachment requires non-null valid reference JSON. Any non-null reference JSON must be valid. HoldReason is also write-once under ownership. CK_InboundJournal_Sequence now permits Held for any sequence and still requires a positive sequence for Pending or Processed. InboundWork.HoldAsync holds protocol failures. Held rows have no claim or schedule.
+- **Payment ownership.** Claim token, expiry, next action and rowversion are shadow metadata. A new payment is due at its registration time. AcquireAsync commits before it returns a claim and uses the caller's duration, normally the 45-second scheduling default. ReleaseAsync needs the exact live token and reschedules. A stale loaded row fails at commit and returns false. FindDueAsync orders by next action, registration time and ID, takes at most the requested number, and excludes live claims. No worker or channel is registered.
+- **Shared identity and events.** AggregateIdentities (Id, Kind) uses kinds outgoing-payment and incoming-payment.
+  - Transactions and IncomingPayments each carry a persisted computed kind column and reference the identity through a composite foreign key.
+  - TransactionEvents stores AggregateKind and references the identity through a composite foreign key that replaces the old foreign key to Transactions.
+  - CK_TransactionEvents_Kind requires `payment.*` names for outgoing aggregates and `incoming-payment.*` names for incoming ones.
+  - The interceptor adds identity rows for new aggregates in the entity phase. Identity and event rows are append-only and cannot be staged directly.
+- **SQL identity.** The unique index is on (ParticipantBic, EndToEndId, EndToEndIdBytes): both text columns use Latin1_General_100_BIN2 and EndToEndIdBytes is the persisted DATALENGTH. SQL Server pads trailing spaces even in binary collations, and pads trailing zero bytes when comparing varbinary, so a plain binary key is not exact. Adding the byte length makes uniqueness match ordinal comparison, including case and trailing characters. Lookup filters in SQL, then chooses the ordinal match.
+- **Integrity limits.** SQL guarantees that every event and state row belongs to an identity of its own kind. It does not guarantee that an identity has a state row: only the interceptor writes the two together, and a raw SQL insert can leave an identity without state. Conflict-held receipts have no attachment but retain their write-once trusted original references. No reply or acknowledgement is enabled by this storage change.
+- **Migration.** 20261004154416_IncomingPaymentIdentity was generated by the repository EF CLI. Only line endings and BOMs were normalized to match the repository conventions. It supports fresh databases only and converts no data.
+- **Correlation correction.** 20261004162057_InboundReceiptReferences was generated with EF CLI 10.0.12. It only replaces CK_InboundJournal_Attachment; prior migrations are preserved. The new SQL check explicitly rejects null references on an attached receipt, avoiding SQL CHECK acceptance of UNKNOWN.
+- **Out of scope.** CBS calls, FF01 reply artifacts, reconciliation, workers, endpoints and Contracts are unchanged.

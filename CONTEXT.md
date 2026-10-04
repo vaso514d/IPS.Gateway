@@ -18,4 +18,6 @@ The middleware records transactions exchanged between the core banking system an
 
 **Manual review**: An unresolved outcome that requires operator attention. It is not a final status.
 
-**Aggregate**: An outgoing payment with directly persisted current state and pending immutable events. Events form audit history alongside state; loading does not replay them. Incoming payments get their own aggregate when implemented.
+**Aggregate**: An outgoing or incoming payment with directly persisted current state and pending immutable events. Events form audit history alongside state; loading does not replay them. Both kinds share one persistence identity, so every event belongs to exactly one aggregate of a matching kind.
+
+**Incoming payment identity**: The receiving participant BIC plus the exact EndToEndId. Several receipts may deliver the same payment; identical contents reuse it, and different contents are held as a conflict.

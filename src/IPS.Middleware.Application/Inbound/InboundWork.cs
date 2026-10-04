@@ -17,6 +17,11 @@ public sealed class InboundWork(IInboundWorkRepository repository, IUnitOfWork u
     public Task<bool> ReleaseAsync(InboundClaim claim, DateTimeOffset nextActionAtUtc, CancellationToken cancellationToken) =>
         FinishAsync(claim, nextActionAtUtc, cancellationToken);
 
+    /// <summary>Hold the receipt for investigation; it is no longer scheduled or processed.</summary>
+    public async Task<bool> HoldAsync(InboundClaim claim, string reason, CancellationToken cancellationToken) =>
+        await repository.StageHoldAsync(claim, timeProvider.GetUtcNow(), reason, cancellationToken) &&
+        await TryCommitAsync(cancellationToken);
+
     private async Task<bool> FinishAsync(InboundClaim claim, DateTimeOffset? nextActionAtUtc, CancellationToken cancellationToken) =>
         await repository.StageFinishAsync(claim, timeProvider.GetUtcNow(), nextActionAtUtc, cancellationToken) &&
         await TryCommitAsync(cancellationToken);

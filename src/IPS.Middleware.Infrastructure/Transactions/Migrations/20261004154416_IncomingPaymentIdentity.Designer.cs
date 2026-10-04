@@ -4,6 +4,7 @@ using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 {
     [DbContext(typeof(TransactionDbContext))]
-    partial class TransactionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004154416_IncomingPaymentIdentity")]
+    partial class IncomingPaymentIdentity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -366,7 +369,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.ToTable("InboundMessageJournal", null, t =>
                         {
-                            t.HasCheckConstraint("CK_InboundJournal_Attachment", "([IncomingPaymentId] IS NULL AND [OriginalJson] IS NULL) OR ([OriginalJson] IS NOT NULL AND ISJSON([OriginalJson]) = 1)");
+                            t.HasCheckConstraint("CK_InboundJournal_Attachment", "([IncomingPaymentId] IS NULL AND [OriginalJson] IS NULL) OR ([IncomingPaymentId] IS NOT NULL AND ISJSON([OriginalJson]) = 1)");
 
                             t.HasCheckConstraint("CK_InboundJournal_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
 

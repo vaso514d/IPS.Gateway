@@ -4,6 +4,8 @@ namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
 
 internal sealed class InboundJournalEntry
 {
+    internal const int HoldReasonLimit = 100;
+
     public Guid Id { get; set; }
     public string ParticipantBic { get; set; } = string.Empty;
     public long? Sequence { get; set; }
@@ -18,7 +20,13 @@ internal sealed class InboundJournalEntry
     public DateTimeOffset? ClaimExpiresAtUtc { get; set; }
     public long DuplicateCount { get; set; }
     public DateTimeOffset? LastDuplicateAtUtc { get; set; }
+    public Guid? IncomingPaymentId { get; set; }
+    public string? OriginalJson { get; set; }
     public byte[] Version { get; set; } = [];
+
+    /// <summary>Only the live owner of a pending receipt may change it.</summary>
+    public bool IsOwnedBy(InboundClaim claim, DateTimeOffset now) =>
+        Status == InboundProcessingStatus.Pending && ClaimToken == claim.Token && ClaimExpiresAtUtc > now;
 
     public StoredInboundReceipt Snapshot() => new(Id,
         new(ParticipantBic, Sequence, MessageType, RawXml, PossibleDuplicate, ReceivedAtUtc),

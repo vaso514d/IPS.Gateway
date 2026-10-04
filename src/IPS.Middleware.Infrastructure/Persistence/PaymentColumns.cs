@@ -4,10 +4,11 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace IPS.Middleware.Infrastructure.Persistence;
 
-/// <summary>Infrastructure-only shadow columns on Transactions and typed access to them.</summary>
+/// <summary>Infrastructure-only shadow column names, typed access to outgoing ones, and the shared binary identity collation.</summary>
 internal static class PaymentColumns
 {
     internal const string Pacs008 = "pacs.008";
+    internal const string BinaryCollation = "Latin1_General_100_BIN2";
 
     internal const string RequestJson = nameof(RequestJson);
     internal const string AcceptedJson = nameof(AcceptedJson);

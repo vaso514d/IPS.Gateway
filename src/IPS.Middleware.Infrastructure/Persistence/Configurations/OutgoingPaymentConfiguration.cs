@@ -1,6 +1,7 @@
 using IPS.Middleware.Domain.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using static IPS.Middleware.Infrastructure.Persistence.Events.EventRegistry;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Configurations;
@@ -12,6 +13,7 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         payment.ToTable("Transactions");
         payment.HasKey(p => p.Id);
         payment.Property(p => p.Id).ValueGeneratedNever();
+        payment.HasAggregateIdentity(OutgoingPaymentKind);
         payment.Property(p => p.MessageType).HasMaxLength(16);
         payment.Property(p => p.ClientReference).HasMaxLength(35);
         payment.HasIndex(p => p.ClientReference).IsUnique();

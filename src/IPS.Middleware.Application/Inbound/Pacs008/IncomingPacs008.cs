@@ -1,11 +1,25 @@
+using System.Collections.ObjectModel;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Application.Inbound.Pacs008;
 
 public sealed class IncomingPacs008(Pacs008Request payment, IncomingPacs008Reference original)
 {
-    // Callers may keep the mutable lists they passed in; the snapshot holds read-only copies.
-    public Pacs008Request Payment { get; } = payment with
+    public Pacs008Request Payment { get; } = Freeze(payment);
+
+    public IncomingPacs008Reference Original { get; } = original;
+
+    /// <summary>
+    /// Same frozen contents: ordinal strings, numeric amounts, timestamp instants, ordered lists; null differs from empty.
+    /// The argument is frozen too, so the comparison stays structural whatever list types the caller supplies.
+    /// </summary>
+    public bool HasSameContents(Pacs008Request stored) => Payment == Freeze(stored);
+
+    /// <summary>
+    /// Callers may keep the mutable lists they passed in. The copy holds read-only lists compared by ordered contents,
+    /// so record equality of the whole request is structural.
+    /// </summary>
+    public static Pacs008Request Freeze(Pacs008Request payment) => payment with
     {
         PaymentInitiation = payment.PaymentInitiation is { } initiation ? initiation with { Geolocation = Copy(initiation.Geolocation) } : null,
         InitiationChannelInstrument = payment.InitiationChannelInstrument is { } channel
@@ -13,9 +27,19 @@ public sealed class IncomingPacs008(Pacs008Request payment, IncomingPacs008Refer
         Remittance = payment.Remittance is { } remittance ? remittance with { Structured = Copy(remittance.Structured) } : null
     };
 
-    public IncomingPacs008Reference Original { get; } = original;
+    private static ValueList<T>? Copy<T>(IReadOnlyList<T>? values) => values is null ? null : new(values.ToArray());
 
-    private static IReadOnlyList<T>? Copy<T>(IReadOnlyList<T>? values) => values is null ? null : Array.AsReadOnly(values.ToArray());
+    private sealed class ValueList<T>(T[] values) : ReadOnlyCollection<T>(values)
+    {
+        public override bool Equals(object? obj) => obj is ValueList<T> other && this.SequenceEqual(other);
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            foreach (var value in this) hash.Add(value);
+            return hash.ToHashCode();
+        }
+    }
 }
 
 public sealed record IncomingPacs008Reference(string BusinessMessageId, string GroupMessageId, string EndToEndId,
