@@ -1,0 +1,116 @@
+using System.Net;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Infrastructure.Inbound.Pacs008;
+using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
+
+namespace IPS.Middleware.Infrastructure.Inbound.Transport;
+
+public static class IncomingHttpRegistration
+{
+    internal const string IpsReceive = "incoming-ips-receive";
+    internal const string IpsReply = "incoming-ips-reply";
+    internal const string Cbs = "incoming-cbs";
+
+    public static IServiceCollection AddIncomingHttpClients(this IServiceCollection services)
+    {
+        services.AddSingleton<IncomingTransportCertificates>();
+        services.AddSingleton<ISigningCertificateSource>(sp => sp.GetRequiredService<IncomingTransportCertificates>());
+        services.AddTransient<IncomingIpsClient>();
+        services.AddTransient<IIncomingReceiveClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
+        services.AddTransient<IIncomingReplyClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
+        services.AddTransient<IncomingCbsClient>();
+        services.AddTransient<IIncomingCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
+        services.AddTransient<IIncomingReversalClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
+        services.AddTransient<IIncomingReplyProtocol>(sp => new IncomingReplyProtocol(
+            sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<ISigningCertificateSource>(),
+            sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
+        AddClient(services, IpsReceive, ips: true, receive: true);
+        AddClient(services, IpsReply, ips: true, receive: false);
+        AddClient(services, Cbs, ips: false, receive: false);
+        return services;
+    }
+
+    public static void ValidateIncomingHttpClients(this IServiceProvider services)
+    {
+        var factory = services.GetRequiredService<IHttpClientFactory>();
+        foreach (var name in new[] { IpsReceive, IpsReply, Cbs })
+        {
+            using var client = factory.CreateClient(name);
+        }
+    }
+
+    internal static void RequireParticipant(IncomingTransportSettings settings, string participant)
+    {
+        if (!settings.Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
+        if (!string.Equals(participant, settings.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Payment participant does not match the configured transport participant.");
+    }
+
+    private static void AddClient(IServiceCollection services, string name, bool ips, bool receive)
+    {
+        HttpEndpointSettings Endpoint(IServiceProvider sp)
+        {
+            var settings = sp.GetRequiredService<IncomingTransportSettings>();
+            return ips ? settings.Ips : settings.Cbs;
+        }
+        var client = services.AddHttpClient(name, (sp, http) =>
+        {
+            if (!sp.GetRequiredService<IncomingTransportSettings>().Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
+            http.BaseAddress = new Uri(Endpoint(sp).BaseUrl.TrimEnd('/') + '/');
+            http.Timeout = Timeout.InfiniteTimeSpan;
+        }).ConfigurePrimaryHttpMessageHandler(sp =>
+        {
+            var endpoint = Endpoint(sp);
+            // IPS keeps one connection for receive and the rest for replies; CBS shares its whole pool.
+            var connections = receive ? 1 : ips ? endpoint.ConnectionLimit - 1 : endpoint.ConnectionLimit;
+            return new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+                AutomaticDecompression = DecompressionMethods.GZip,
+                MaxConnectionsPerServer = connections,
+                ConnectTimeout = endpoint.ConnectTimeout,
+                PooledConnectionLifetime = endpoint.PooledConnectionLifetime,
+                PooledConnectionIdleTimeout = endpoint.PooledConnectionIdleTimeout,
+                SslOptions = sp.GetRequiredService<IncomingTransportCertificates>().Tls(ips, endpoint.CheckCertificateRevocation)
+            };
+        }).SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+        client.AddResilienceHandler("single-attempt", (pipeline, context) =>
+        {
+            var endpoint = Endpoint(context.ServiceProvider);
+            var breaker = endpoint.CircuitBreaker;
+            pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                FailureRatio = breaker.FailureRatio,
+                MinimumThroughput = breaker.MinimumThroughput,
+                SamplingDuration = breaker.SamplingDuration,
+                BreakDuration = breaker.BreakDuration
+            }).AddTimeout(new HttpTimeoutStrategyOptions
+            {
+                Timeout = receive ? context.ServiceProvider.GetRequiredService<IncomingTransportSettings>().ReceiveTimeout : endpoint.RequestTimeout
+            });
+        });
+        // Buffer inside resilience so its timeout and circuit breaker include response-body failures.
+        client.AddHttpMessageHandler(() => new ResponseBodyHandler());
+    }
+
+    private sealed class ResponseBodyHandler : DelegatingHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = await base.SendAsync(request, cancellationToken);
+            try
+            {
+                await response.Content.LoadIntoBufferAsync(cancellationToken);
+                return response;
+            }
+            catch { response.Dispose(); throw; }
+        }
+    }
+}

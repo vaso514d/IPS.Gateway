@@ -40,3 +40,9 @@ The saved late-reply policy is provisional. Verify the IPS replay-retention wind
 Final independent cleanup re-review: Standards zero actionable findings; Spec zero actionable findings. The consolidation preserves ownership/write-once rules, atomic completion, attempt accounting and per-receipt correlation.
 
 Owner authorized commit after review. No merge is authorized or performed for this slice. Restore LocalDB and rerun the complete suite before claiming current SQL verification.
+
+## Prerequisite verification rerun — 2026-10-05
+
+Before starting the owner-requested live-integration milestone, LocalDB started successfully and the unchanged af9b090 implementation was rebuilt and fully tested. Release build: zero warnings/errors. All 637 tests pass (249 unit/architecture/Contracts, 388 integration including LocalDB and Java signatures). The earlier SQL-startup blocker above is resolved. Owner merge approval was requested explicitly per the new plan; no merge has yet occurred.
+
+Owner approved the merge and Review 1 start on 2026-10-05. af9b090 is now on codex/capability-rebuild; codex/incoming-clients branches from it. This supersedes the prior pending merge entry.

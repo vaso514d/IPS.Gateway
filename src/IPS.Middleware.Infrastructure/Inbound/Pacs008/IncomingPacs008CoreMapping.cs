@@ -6,9 +6,10 @@ namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
 public static class IncomingPacs008CoreMapping
 {
-    public static Pacs008InstantPaymentRequestDto ToContract(IncomingPacs008 incoming)
+    public static Pacs008InstantPaymentRequestDto ToContract(IncomingPacs008 incoming) => ToContract(incoming.Payment);
+
+    public static Pacs008InstantPaymentRequestDto ToContract(Pacs008Request payment)
     {
-        var payment = incoming.Payment;
         return new()
         {
             InstructionId = payment.InstructionId,

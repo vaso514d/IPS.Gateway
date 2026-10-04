@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddPaymentSettings();
+builder.Services.AddIncomingTransportConfiguration();
 builder.Services.AddSingleton(services => new Pacs008SigningPolicy(
     services.GetRequiredService<IConfiguration>().GetValue<bool>(Pacs008SigningPolicy.AllowUnsignedConfigurationKey),
     services.GetRequiredService<IHostEnvironment>().IsDevelopment()));
@@ -15,6 +16,7 @@ var app = builder.Build();
 app.Services.ValidatePaymentSettings();
 // Validate the signing policy after all host configuration providers have been applied.
 _ = app.Services.GetRequiredService<Pacs008SigningPolicy>();
+app.Services.ValidateIncomingTransport();
 
 if (app.Environment.IsDevelopment())
 {
