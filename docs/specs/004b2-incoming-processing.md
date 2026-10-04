@@ -1,6 +1,6 @@
 # Incoming pacs.008 durable processing
 
-Draft for the next review on codex/incoming-processing, stacked on protocol commit ab6c4f8. The protocol branch remains unmerged pending owner approval. This document prepares the next implementation; it does not enable live clients, workers or endpoints.
+Draft for the next review on codex/incoming-processing, stacked on protocol commit ab6c4f8. The owner approved the protocol merge; ab6c4f8 is now in codex/capability-rebuild, recorded by checkpoint 7bb0452. This document prepares the next implementation; it does not enable live clients, workers or endpoints.
 
 ## Decisions and evidence
 
