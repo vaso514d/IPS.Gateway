@@ -7,6 +7,7 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 | Payments:Outgoing:Pacs008 | Pacs008Options | Submission window, ownership, preparation retry delay |
 | Payments:Incoming:Processing | IncomingProcessingOptions | Payment window, inline status/reply budgets, ownership, response persistence budget, first follow-up delay |
 | Payments:Incoming:Reconciliation | IncomingReconciliationOptions | CBS call timeout, response persistence budget, ownership, reconciliation window, discovery batch, retry delays, repeat interval |
+| Payments:Incoming:Replies | IncomingReplyOptions | Total delivery attempts, retry delay, call/persistence/ownership budgets, preparation retry delay |
 | Payments:Incoming:Scheduling | InboundSchedulingOptions | Channel capacity, discovery batch/interval, receipt claim duration, registration conflict retry limit |
 | Payments:Signing | Pacs008SigningPolicy | AllowUnsignedInDevelopment, rejected outside Development |
 
@@ -21,3 +22,5 @@ Validation rejects nonpositive budgets/counts, queue discovery batches larger th
 There are currently no live HttpClient adapters, transport base URLs, connection pools or HTTP resilience handlers in the rebuilt host. Its remote-call seams already use the configured Application timeouts; production transport settings will be added when those clients are implemented. No polling worker or payment endpoint is enabled by binding settings. Signing remains explicitly opt-in for unsigned Development messages.
 
 Frozen intake deadlines, request data, stored notifications and IPS decisions do not change when configuration changes. The reconciliation cutoff is frozen atomically with the first IPS decision and follow-up obligation. A changed Window applies only to new obligations; it never extends or shortens existing work. Pending due times remain persisted, and subsequent scheduling uses the new retry policy. Keep the default business time limits unless an operational/protocol change is intended.
+
+Reply delivery defaults to two total sends, 200 ms apart after an unresolved response, with a 20 s call timeout, 2 s response-persistence budget, 45 s ownership and 5 s preparation retry. MaxAttempts is frozen with each reply and cannot be replenished by restart or configuration changes. Certificate deferral spends no send attempt. Microsoft HTTP resilience integration is deferred to the live adapter; it must not introduce sends outside the SQL attempt budget.

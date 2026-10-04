@@ -22,6 +22,7 @@ internal sealed class InboundJournalEntry
     public DateTimeOffset? LastDuplicateAtUtc { get; set; }
     public Guid? IncomingPaymentId { get; set; }
     public string? OriginalJson { get; set; }
+    public Guid ReplyCheckpoint { get; set; }
     public byte[] Version { get; set; } = [];
 
     /// <summary>Only the live owner of a pending receipt may change it.</summary>

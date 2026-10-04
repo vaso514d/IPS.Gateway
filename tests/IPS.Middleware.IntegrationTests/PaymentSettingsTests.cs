@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound;
 using Microsoft.AspNetCore.Hosting;
@@ -20,6 +21,8 @@ public sealed class PaymentSettingsTests
     {
         using var factory = new SettingsFactory(new()
         {
+            ["Payments:Incoming:Replies:MaxAttempts"] = "3",
+            ["Payments:Incoming:Replies:RetryDelay"] = "00:00:00.500",
             ["Payments:Outgoing:Pacs008:SubmissionWindow"] = "00:00:12",
             ["Payments:Outgoing:Pacs008:Ownership"] = "00:00:35",
             ["Payments:Outgoing:Pacs008:PreparationRetryDelay"] = "00:00:04",
@@ -43,6 +46,9 @@ public sealed class PaymentSettingsTests
             ["Payments:Incoming:Scheduling:RegistrationMaxAttempts"] = "3"
         });
         var services = factory.Services;
+        var replies = services.GetRequiredService<IncomingReplyOptions>();
+        Assert.Equal(3, replies.MaxAttempts);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), replies.RetryDelay);
         var outgoing = services.GetRequiredService<Pacs008Options>();
         Assert.Equal((12d, 35d, 4d), (outgoing.SubmissionWindow.TotalSeconds, outgoing.Ownership.TotalSeconds, outgoing.PreparationRetryDelay.TotalSeconds));
         var processing = services.GetRequiredService<IncomingProcessingOptions>();
@@ -73,6 +79,9 @@ public sealed class PaymentSettingsTests
     [InlineData("Payments:Incoming:Reconciliation:RepeatInterval", "-00:00:01")]
     [InlineData("Payments:Incoming:Reconciliation:Window", "00:00:00")]
     [InlineData("Payments:Incoming:Reconciliation:DiscoveryBatch", "0")]
+    [InlineData("Payments:Incoming:Replies:MaxAttempts", "0")]
+    [InlineData("Payments:Incoming:Replies:RetryDelay", "00:00:00")]
+    [InlineData("Payments:Incoming:Replies:Ownership", "00:00:22")]
     [InlineData("Payments:Incoming:Scheduling:Capacity", "1")]
     [InlineData("Payments:Incoming:Scheduling:RegistrationMaxAttempts", "0")]
     [InlineData("Payments:Incoming:Scheduling:ClaimDuration", "invalid")]

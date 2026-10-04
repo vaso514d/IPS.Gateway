@@ -11,6 +11,9 @@ namespace IPS.Middleware.Infrastructure.Transactions;
 // Keep the CLR identity used by historical EF migrations; this context owns all persistence.
 public class TransactionDbContext(DbContextOptions<TransactionDbContext> options) : DbContext(options)
 {
+    internal DbSet<IncomingReplyRow> IncomingReplies => Set<IncomingReplyRow>();
+    internal DbSet<IncomingReplyAttemptRow> IncomingReplyAttempts => Set<IncomingReplyAttemptRow>();
+    internal HashSet<Guid> AuthorizedReplies { get; } = [];
     internal DbSet<IncomingCoreCallRow> IncomingCoreCalls => Set<IncomingCoreCallRow>();
     internal HashSet<Guid> AuthorizedIncomingCalls { get; } = [];
     internal HashSet<Guid> AuthorizedIncomingProcessing { get; } = [];
@@ -32,6 +35,8 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfiguration(new InboundJournalConfiguration());
+        modelBuilder.ApplyConfiguration(new IncomingReplyConfiguration());
+        modelBuilder.ApplyConfiguration(new IncomingReplyAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingCoreCallConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new AggregateIdentityConfiguration());
@@ -41,6 +46,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
 
     internal void CompleteSave()
     {
+        AuthorizedReplies.Clear();
         AuthorizedIncomingCalls.Clear();
         AuthorizedIncomingProcessing.Clear();
         AuthorizedInboundWork.Clear();

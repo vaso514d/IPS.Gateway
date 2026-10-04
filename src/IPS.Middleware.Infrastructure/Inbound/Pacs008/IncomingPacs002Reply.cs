@@ -10,7 +10,7 @@ namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
 public sealed class IncomingPacs002Reply(Pacs008ProtocolProfile profile, Pacs008MessageSigner signer)
 {
-    private const string MessageDefinition = "pacs.002.001.14";
+    internal const string MessageDefinition = "pacs.002.001.14";
     private const string BusinessService = "RTP";
     private const string DefaultRejectionReason = "MS03";
     private const int SourceDescriptionLimit = 35;

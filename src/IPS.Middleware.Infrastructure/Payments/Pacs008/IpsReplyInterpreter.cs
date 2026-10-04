@@ -16,7 +16,7 @@ namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
 /// </summary>
 public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIpsReplyInterpreter
 {
-    private const string RequestStatusHeader = "X-MONTRAN-IPS-ReqSts";
+    internal const string RequestStatusHeader = "X-MONTRAN-IPS-ReqSts";
     private static readonly XNamespace P = Pacs008Schema.ReplyNamespace;
     private static readonly string[] AcceptedStatuses = ["ACCP", "ACTC", "ACSC"];
     private const string Rejected = "RJCT";

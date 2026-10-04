@@ -25,3 +25,9 @@ The owner approved replacing initial outgoing 202 with final 200 (including busi
 ## Approved incoming reconciliation behavior (2026-10-05)
 
 A CBS reconciliation 404 remains unknown rather than proving that no credit occurred. Retry until the fixed window expires, then require manual review. A CBS rejection-notification success means reversal request acceptance, not reversal completion. Send at most one automatic reversal request; accepted, unsuccessful or uncertain delivery requires manual review until authoritative completion/idempotency guarantees are established. Preserve the existing TransactionStatusDto callback shape and route, with incoming direction, original EndToEndId as CoreReference, canonical payment ID and frozen IPS rejection details. No Contracts or baseline changes. See [004b.2c.1](../specs/004b2c-incoming-reconciliation.md).
+
+## Incoming reply delivery decisions (2026-10-05)
+
+The owner approved two total reply sends with a 200 ms delay and durable manual review on exhaustion, plus keeping completed duplicate receipts completed without another CBS call or reply send. The owner provisionally agreed to send the same frozen reply after the original processing deadline; IPS retention/late-acceptance behavior remains an explicit future verification question before production activation. Preserve the original decision and exact saved XML throughout recovery.
+
+The new interpreter follows Annex D rather than the source receiver's unchecked successful-return shortcut: require HTTP 200, documented request status and a trusted, correlated pacs.002 final outcome. A final report opposite to the stored decision requires review; missing/invalid evidence remains unresolved. No Contracts types, routes or baseline changes are needed, and live interoperability is not yet claimed. See [the specification](../specs/004b2c2-incoming-replies.md).

@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound;
 
@@ -10,6 +11,7 @@ internal static class PaymentSettings
     internal static IServiceCollection AddPaymentSettings(this IServiceCollection services)
     {
         services.AddSingleton(sp => Read(sp, "Payments:Outgoing:Pacs008", () => new Pacs008Options()));
+        services.AddSingleton(sp => Read(sp, "Payments:Incoming:Replies", () => new IncomingReplyOptions()));
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Processing", () => new IncomingProcessingOptions()));
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Reconciliation", () => new ReconciliationSettings()).ToOptions());
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Scheduling", () => new InboundSchedulingOptions()));
@@ -21,6 +23,7 @@ internal static class PaymentSettings
     {
         _ = services.GetRequiredService<Pacs008Options>();
         _ = services.GetRequiredService<IncomingProcessingOptions>();
+        _ = services.GetRequiredService<IncomingReplyOptions>();
         _ = services.GetRequiredService<IncomingReconciliationOptions>();
         _ = services.GetRequiredService<InboundSchedulingOptions>();
     }
