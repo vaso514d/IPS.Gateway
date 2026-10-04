@@ -93,3 +93,7 @@ Reviewed the owner's pending cleanup against 0bc010c. Independent Standards and 
 Current verification: Release build passed with zero warnings/errors; 239 unit/architecture/Contracts tests and all 27 reply-interpreter cases passed. Formatting, whitespace and EF pending-model checks passed. The full-suite attempt was stopped after repeated LocalDB startup failures (error 50 / 0x89c5010a); a direct startup retry also failed. SQL verification is blocked for this review, so the earlier 534-test result above is historical evidence, not a fresh result. The initial focused build overlapped the failing SQL run and hit locked test output; rerunning after stopping that run succeeded.
 
 Cleanup and review edits remain uncommitted, with merge approval pending. Next action: restore LocalDB availability and rerun the full suite before treating current SQL verification as complete.
+
+## Merge approval — 2026-10-05
+
+Owner approved committing and merging the reviewed cleanup with the LocalDB limitation recorded. Cleanup commit 2c7b04e and implementation 0bc010c are now on codex/capability-rebuild after a successful fast-forward from codex/incoming-processing. The working branch is checked out and the review branch remains preserved. This supersedes the pending/uncommitted status above; no production changes were made during merge.
