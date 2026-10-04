@@ -34,19 +34,10 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
             db.CompleteSave();
             return written;
         }
-        catch (DbUpdateConcurrencyException exception)
+        catch (Exception exception)
         {
             db.Failed = true;
-            throw new PersistenceConcurrencyException("Tracked changes conflict with a concurrent writer.", exception);
-        }
-        catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
-        {
-            db.Failed = true;
-            throw new UniqueConstraintException("Tracked changes violate a unique database constraint.", exception);
-        }
-        catch
-        {
-            db.Failed = true;
+            if (Translate(exception) is { } persistence) throw persistence;
             throw;
         }
         finally
@@ -54,4 +45,12 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
             db.Phase = SavePhase.Idle;
         }
     }
+
+    private static Exception? Translate(Exception exception) => exception switch
+    {
+        DbUpdateConcurrencyException => new PersistenceConcurrencyException("Tracked changes conflict with a concurrent writer.", exception),
+        DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 } } =>
+            new UniqueConstraintException("Tracked changes violate a unique database constraint.", exception),
+        _ => null
+    };
 }

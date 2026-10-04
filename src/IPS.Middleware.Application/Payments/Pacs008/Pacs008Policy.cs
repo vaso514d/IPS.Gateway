@@ -5,7 +5,7 @@ public sealed class Pacs008Policy
     public Pacs008Policy(string participantBic, string? treasuryBic, IEnumerable<PaymentCurrency> currencies,
         IEnumerable<string>? indirectParticipants = null)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(participantBic, @"^[A-Z0-9]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$"))
+        if (!System.Text.RegularExpressions.Regex.IsMatch(participantBic, Pacs008Text.Bic))
             throw new ArgumentException("A participant BIC is required.", nameof(participantBic));
         ParticipantBic = participantBic;
         TreasuryBic = string.IsNullOrWhiteSpace(treasuryBic) ? null : treasuryBic.Trim();

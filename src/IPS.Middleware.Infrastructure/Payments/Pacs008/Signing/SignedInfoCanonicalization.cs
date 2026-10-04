@@ -31,8 +31,13 @@ internal static class SignedInfoCanonicalization
             if (prefix == "xml") continue;
             root.SetAttribute(prefix.Length == 0 ? "xmlns" : "xmlns:" + prefix, uri);
         }
+        return CanonicalizeInclusive10WithoutComments(isolated);
+    }
+
+    internal static byte[] CanonicalizeInclusive10WithoutComments(XmlDocument document)
+    {
         var transform = new XmlDsigC14NTransform(includeComments: false);
-        transform.LoadInput(isolated);
+        transform.LoadInput(document);
         using var output = (Stream)transform.GetOutput(typeof(Stream));
         using var bytes = new MemoryStream();
         output.CopyTo(bytes);

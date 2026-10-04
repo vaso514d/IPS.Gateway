@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
+using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
@@ -24,17 +25,17 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1 || payment.CurrentStatus != TransactionStatus.Received)
             throw new ArgumentException("Intake requires a new Received payment.", nameof(payment));
         var entry = db.Payments.Add(payment);
-        entry.Property<string>("RequestJson").CurrentValue = requestJson;
-        entry.Property<TransactionDirection>("Direction").CurrentValue = TransactionDirection.Outgoing;
-        if (payment.MessageType == "pacs.008")
+        entry.Property<string>(RequestJson).CurrentValue = requestJson;
+        entry.Property<TransactionDirection>(Direction).CurrentValue = TransactionDirection.Outgoing;
+        if (payment.MessageType == Pacs008)
         {
-            entry.Property<string?>("MessageId").CurrentValue = Guid.NewGuid().ToString("N");
-            entry.Property<string?>("ProtocolTransactionId").CurrentValue = Guid.NewGuid().ToString("N");
+            entry.TextOf(MessageId).CurrentValue = Guid.NewGuid().ToString("N");
+            entry.TextOf(ProtocolTransactionId).CurrentValue = Guid.NewGuid().ToString("N");
         }
     }
 
     public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) =>
-        db.Payments.AsNoTracking().Where(p => p.Id == id).Select(p => EF.Property<string>(p, "RequestJson"))
+        db.Payments.AsNoTracking().Where(p => p.Id == id).Select(p => EF.Property<string>(p, RequestJson))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<StoredPaymentEvent>> ReadEventsAsync(Guid id, CancellationToken cancellationToken) =>

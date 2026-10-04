@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -5,6 +6,7 @@ using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
@@ -16,30 +18,25 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         ValidateTake(take);
         if (status is not (TransactionStatus.Received or TransactionStatus.Uncertain))
             throw new ArgumentOutOfRangeException(nameof(status));
-        return await PrioritizeAsync(db.Payments.AsNoTracking().Where(p => p.CurrentStatus == status &&
-            EF.Property<Guid?>(p, "ClaimToken") == null &&
-            (EF.Property<DateTimeOffset?>(p, "NextActionAtUtc") == null || EF.Property<DateTimeOffset?>(p, "NextActionAtUtc") <= now)),
+        return await PrioritizeAsync(p => p.CurrentStatus == status && EF.Property<Guid?>(p, ClaimToken) == null &&
+            (EF.Property<DateTimeOffset?>(p, NextActionAtUtc) == null || EF.Property<DateTimeOffset?>(p, NextActionAtUtc) <= now),
             take, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Guid>> FindExpiredAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
         ValidateTake(take);
-        return await PrioritizeAsync(db.Payments.AsNoTracking().Where(p => EF.Property<Guid?>(p, "ClaimToken") != null &&
-            EF.Property<DateTimeOffset?>(p, "ClaimExpiresAtUtc") <= now), take, cancellationToken);
+        return await PrioritizeAsync(p => EF.Property<Guid?>(p, ClaimToken) != null &&
+            EF.Property<DateTimeOffset?>(p, ClaimExpiresAtUtc) <= now, take, cancellationToken);
     }
 
     public TransactionClaim? StageClaim(OutgoingPayment payment, DateTimeOffset now, TimeSpan duration)
     {
         if (duration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
         var entry = Tracked(payment);
-        if (entry.Property<Guid?>("ClaimToken").CurrentValue is not null ||
-            entry.Property<DateTimeOffset?>("NextActionAtUtc").CurrentValue > now) return null;
+        if (entry.ClaimTokenOf().CurrentValue is not null || entry.NextActionOf().CurrentValue > now) return null;
         var claim = new TransactionClaim(payment.Id, Guid.NewGuid(), now.Add(duration).ToUniversalTime());
-        entry.Property<Guid?>("ClaimToken").CurrentValue = claim.Token;
-        entry.Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue = claim.ExpiresAtUtc;
-        entry.Property<DateTimeOffset?>("NextActionAtUtc").CurrentValue = null;
-        db.AuthorizedOwnership.Add(payment.Id);
+        Own(entry, claim.Token, claim.ExpiresAtUtc, nextAction: null);
         return claim;
     }
 
@@ -48,25 +45,24 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         ArgumentNullException.ThrowIfNull(claim);
         if (claim.Token == Guid.Empty) throw new ArgumentException("A claim token is required.", nameof(claim));
         var entry = Tracked(payment);
-        if (!PaymentOwnership.HasLiveClaim(entry, claim, now)) return false;
-        Release(entry, nextActionAtUtc);
+        if (!entry.HasLiveClaim(claim, now)) return false;
+        Own(entry, null, null, nextActionAtUtc?.ToUniversalTime());
         return true;
     }
 
     public bool StageRecovery(OutgoingPayment payment, DateTimeOffset now)
     {
         var entry = Tracked(payment);
-        if (entry.Property<Guid?>("ClaimToken").CurrentValue is null ||
-            entry.Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue is not { } expiry || expiry > now) return false;
-        Release(entry, now);
+        if (entry.ClaimTokenOf().CurrentValue is null || entry.ClaimExpiryOf().CurrentValue is not { } expiry || expiry > now) return false;
+        Own(entry, null, null, now.ToUniversalTime());
         return true;
     }
 
-    private void Release(EntityEntry<OutgoingPayment> entry, DateTimeOffset? nextAction)
+    private void Own(EntityEntry<OutgoingPayment> entry, Guid? token, DateTimeOffset? expiry, DateTimeOffset? nextAction)
     {
-        entry.Property<Guid?>("ClaimToken").CurrentValue = null;
-        entry.Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue = null;
-        entry.Property<DateTimeOffset?>("NextActionAtUtc").CurrentValue = nextAction?.ToUniversalTime();
+        entry.ClaimTokenOf().CurrentValue = token;
+        entry.ClaimExpiryOf().CurrentValue = expiry;
+        entry.NextActionOf().CurrentValue = nextAction;
         db.AuthorizedOwnership.Add(entry.Entity.Id);
     }
 
@@ -79,16 +75,12 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         return entry;
     }
 
-    private static async Task<IReadOnlyList<Guid>> PrioritizeAsync(
-        IQueryable<OutgoingPayment> matching, int take, CancellationToken cancellationToken)
-    {
-        var ids = await matching.Where(p => p.MessageType == "pacs.008")
-            .OrderBy(p => p.CurrentStatusAtUtc).ThenBy(p => p.Id).Select(p => p.Id).Take(take).ToListAsync(cancellationToken);
-        if (ids.Count < take)
-            ids.AddRange(await matching.Where(p => p.MessageType != "pacs.008").OrderBy(p => p.CurrentStatusAtUtc)
-                .ThenBy(p => p.Id).Select(p => p.Id).Take(take - ids.Count).ToListAsync(cancellationToken));
-        return ids;
-    }
+    // pacs.008 first, then oldest status change; Id breaks ties deterministically.
+    private async Task<IReadOnlyList<Guid>> PrioritizeAsync(
+        Expression<Func<OutgoingPayment, bool>> matching, int take, CancellationToken cancellationToken) =>
+        await db.Payments.AsNoTracking().Where(matching)
+            .OrderBy(p => p.MessageType == Pacs008 ? 0 : 1).ThenBy(p => p.CurrentStatusAtUtc).ThenBy(p => p.Id)
+            .Select(p => p.Id).Take(take).ToListAsync(cancellationToken);
 
     private static void ValidateTake(int take)
     {

@@ -8,9 +8,12 @@ public static class Pacs008Schema
 {
     private static readonly Lazy<XmlSchemaSet> Schemas = new(Load);
 
+    /// <summary>Reader settings for untrusted XML: no DTDs and no external resolution.</summary>
+    internal static XmlReaderSettings SafeReader => new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
+
     public static void Validate(string xml)
     {
-        using var reader = XmlReader.Create(new StringReader(xml), new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+        using var reader = XmlReader.Create(new StringReader(xml), SafeReader);
         var document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
         var root = document.Root;
         if (root?.Name != "Message" || root.Elements().Count() != 2 ||
@@ -28,7 +31,7 @@ public static class Pacs008Schema
         {
             using var stream = typeof(Pacs008Schema).Assembly.GetManifestResourceStream(
                 "IPS.Middleware.Infrastructure.Payments.Pacs008.Schemas." + file)!;
-            using var reader = XmlReader.Create(stream, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
+            using var reader = XmlReader.Create(stream, SafeReader);
             schemas.Add(null, reader);
         }
         schemas.Compile();

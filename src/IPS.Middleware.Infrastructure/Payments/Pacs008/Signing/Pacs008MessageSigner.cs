@@ -26,7 +26,8 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         var envelope = document.CreateElement(header.Prefix, "Sgntr", Pacs008Xml.HeaderNamespace);
         header.AppendChild(envelope);
 
-        var digest = SHA256.HashData(CanonicalizeContent(document));
+        // The new Sgntr is empty here: enveloped-signature removal leaves this exact document.
+        var digest = SHA256.HashData(SignedInfoCanonicalization.CanonicalizeInclusive10WithoutComments(document));
         var signature = IpsSignatureXml.Create(document, digest, certificate);
         envelope.AppendChild(signature);
         var signedInfo = (XmlElement)signature.FirstChild!;
@@ -42,11 +43,7 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
     private static XmlDocument ReadUnsignedMessage(string xml)
     {
         Pacs008Schema.Validate(xml);
-        using var reader = XmlReader.Create(new StringReader(xml), new XmlReaderSettings
-        {
-            DtdProcessing = DtdProcessing.Prohibit,
-            XmlResolver = null
-        });
+        using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
         var document = new XmlDocument { PreserveWhitespace = true, XmlResolver = null };
         document.Load(reader);
         if (document.GetElementsByTagName("Signature", SignedXml.XmlDsigNamespaceUrl).Count != 0 ||
@@ -66,17 +63,6 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         const X509KeyUsageFlags signingUsages = X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation;
         if (usage is not null && (usage.KeyUsages & signingUsages) == 0)
             throw new InvalidOperationException("The certificate does not permit digital signatures.");
-    }
-
-    private static byte[] CanonicalizeContent(XmlDocument document)
-    {
-        // The new Sgntr is empty here: enveloped-signature removal leaves this exact document.
-        var transform = new XmlDsigC14NTransform(includeComments: false);
-        transform.LoadInput(document);
-        using var output = (Stream)transform.GetOutput(typeof(Stream));
-        using var bytes = new MemoryStream();
-        output.CopyTo(bytes);
-        return bytes.ToArray();
     }
 }
 

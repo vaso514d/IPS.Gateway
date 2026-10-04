@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using System.Xml.Serialization;
 
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
 
@@ -33,10 +32,10 @@ public sealed class Pacs008ProtocolProfile
 
 public enum RemittanceDeliveryMethod
 {
-    [XmlEnum("FAXI")] Fax,
-    [XmlEnum("EDIC")] ElectronicDataInterchange,
-    [XmlEnum("URID")] Uri,
-    [XmlEnum("EMAL")] Email,
-    [XmlEnum("POST")] Post,
-    [XmlEnum("SMSM")] Sms
+    Fax,
+    ElectronicDataInterchange,
+    Uri,
+    Email,
+    Post,
+    Sms
 }
