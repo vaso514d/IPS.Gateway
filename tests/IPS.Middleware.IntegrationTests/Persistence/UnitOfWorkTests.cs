@@ -51,7 +51,7 @@ public sealed class UnitOfWorkTests
         var unit = new UnitOfWork(context);
         var repository = new OutgoingPaymentRepository(context);
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "shared-save", Now);
-        repository.Add(payment, "{}");
+        repository.Add(payment, "{}", accepted: null);
         context.Add(new Note { Id = Guid.NewGuid(), Text = "saved with payment" });
         if (failEvents)
         {
@@ -128,7 +128,7 @@ public sealed class UnitOfWorkTests
             .AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "registered", "{}").Request!, default)).Payment;
         var loaded = await payments.FindAsync(payment.Id, default);
         Assert.Same(payment, loaded);
-        var claim = await new OutgoingTransactionWork(payments, work, unit, TimeProvider.System)
+        var claim = await new OutgoingTransactionWork(payments, work, scope.ServiceProvider.GetRequiredService<IPaymentSubmissionRepository>(), unit, TimeProvider.System)
             .TryStartAsync(payment.Id, TimeSpan.FromSeconds(45), default);
         Assert.NotNull(claim);
         preparation.StageUnsignedXml(payment, claim, "<registered/>", TimeProvider.System.GetUtcNow());

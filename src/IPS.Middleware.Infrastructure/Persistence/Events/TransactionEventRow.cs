@@ -38,6 +38,7 @@ internal static class EventRegistry
     {
         PaymentReceived => "payment.received",
         PaymentProcessingObserved => "payment.processing-observed",
+        PaymentProcessingFailed => "payment.processing-failed",
         PaymentOutcomeObserved { Conflicting: true } => "payment.outcome-conflict-observed",
         PaymentOutcomeObserved => "payment.outcome-observed",
         PaymentStateChanged change => change.Operation switch

@@ -23,8 +23,8 @@ internal sealed class PaymentPersistenceInterceptor : SaveRuleInterceptor
             CheckIdentifiers(entry);
             CheckArtifacts(db, entry);
             CheckOwnership(db, entry);
-            if (entry.State == EntityState.Modified && entry.Property<string>(RequestJson).IsModified)
-                throw new InvalidOperationException("The original request is immutable.");
+            if (entry.State == EntityState.Modified && (entry.Property<string>(RequestJson).IsModified || entry.TextOf(AcceptedJson).IsModified))
+                throw new InvalidOperationException("The original request and accepted snapshot are immutable.");
         }
     }
 

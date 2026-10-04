@@ -11,6 +11,12 @@ internal static class Pacs008Message
     private static readonly XNamespace P = Pacs008Xml.DocumentNamespace;
     private const int AddressLineLength = 70;
     private const int RemittanceLineLength = 140;
+    internal const string MessageDefinition = "pacs.008.001.12";
+    private const string ClearingSystem = "IPS";
+    private const string LocalInstrument = "INST";
+    private const string IndirectClearingSystem = "GE";
+    private const string BillIdentificationScheme = "BILL";
+    private static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
 
     internal static XElement Build(ValidatedPacs008 payment, PaymentMessageContext context, Pacs008ProtocolProfile profile) =>
         new("Message",
@@ -27,7 +33,7 @@ internal static class Pacs008Message
             HeaderParty("Fr", payment.ParticipantBic),
             HeaderParty("To", profile.IpsBic),
             new XElement(H + "BizMsgIdr", context.MessageId),
-            new XElement(H + "MsgDefIdr", Pacs008ProtocolProfile.MessageDefinition),
+            new XElement(H + "MsgDefIdr", MessageDefinition),
             new XElement(H + "CreDt", Timestamp(context.EnvelopeCreatedAtUtc)));
 
     private static XElement HeaderParty(string name, string bic) =>
@@ -39,15 +45,15 @@ internal static class Pacs008Message
             new XElement(P + "CreDtTm", Timestamp(payment.CreationDateTime)),
             new XElement(P + "NbOfTxs", 1),
             Amount("TtlIntrBkSttlmAmt", payment),
-            new XElement(P + "IntrBkSttlmDt", payment.AcceptanceDateTime.ToOffset(Pacs008ProtocolProfile.SettlementOffset)
+            new XElement(P + "IntrBkSttlmDt", payment.AcceptanceDateTime.ToOffset(SettlementOffset)
                 .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
             new XElement(P + "SttlmInf",
                 new XElement(P + "SttlmMtd", "CLRG"),
-                Code("ClrSys", Pacs008ProtocolProfile.ClearingSystem)),
+                Code("ClrSys", ClearingSystem)),
             new XElement(P + "PmtTpInf",
                 new XElement(P + "InstrPrty", payment.Priority == PaymentPriority.High ? "HIGH" : "NORM"),
                 Code("SvcLvl", profile.ServiceLevelCode),
-                Code("LclInstrm", Pacs008ProtocolProfile.LocalInstrument),
+                Code("LclInstrm", LocalInstrument),
                 Code("CtgyPurp", payment.CategoryPurposeCode)),
             Agent("InstgAgt", new(payment.ParticipantBic, null)));
 
@@ -84,7 +90,7 @@ internal static class Pacs008Message
         {
             party.Identifier is { } id ? new XElement(P + "Othr", new XElement(P + "Id", id)) : null,
             party.BillIdentifier is { } bill ? new XElement(P + "Othr", new XElement(P + "Id", bill),
-                Code("SchmeNm", Pacs008ProtocolProfile.BillIdentificationScheme)) : null
+                Code("SchmeNm", BillIdentificationScheme)) : null
         }.OfType<XElement>().ToArray();
         if (identifiers.Length == 0) return null;
         return new(P + "Id", new XElement(P + (party.Kind == PaymentPartyKind.Organisation ? "OrgId" : "PrvtId"), identifiers));
@@ -117,7 +123,7 @@ internal static class Pacs008Message
             new XElement(P + "BICFI", agent.Bic),
             agent.IndirectParticipant is { } member
                 ? new XElement(P + "ClrSysMmbId",
-                    Code("ClrSysId", Pacs008ProtocolProfile.IndirectClearingSystem),
+                    Code("ClrSysId", IndirectClearingSystem),
                     new XElement(P + "MmbId", member))
                 : null));
 

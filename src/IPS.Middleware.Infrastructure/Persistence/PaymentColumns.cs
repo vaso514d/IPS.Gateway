@@ -10,6 +10,7 @@ internal static class PaymentColumns
     internal const string Pacs008 = "pacs.008";
 
     internal const string RequestJson = nameof(RequestJson);
+    internal const string AcceptedJson = nameof(AcceptedJson);
     internal const string Direction = nameof(Direction);
     internal const string MessageId = nameof(MessageId);
     internal const string ProtocolTransactionId = nameof(ProtocolTransactionId);

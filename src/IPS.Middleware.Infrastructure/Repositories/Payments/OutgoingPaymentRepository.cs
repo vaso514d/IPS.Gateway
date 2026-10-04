@@ -1,6 +1,8 @@
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
@@ -18,14 +20,17 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
     public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
         db.Payments.AsNoTracking().SingleOrDefaultAsync(p => p.ClientReference == reference, cancellationToken);
 
-    public void Add(OutgoingPayment payment, string requestJson)
+    public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
     {
         db.RequireUsable();
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1 || payment.CurrentStatus != TransactionStatus.Received)
             throw new ArgumentException("Intake requires a new Received payment.", nameof(payment));
+        if (accepted is not null && payment.MessageType != Pacs008)
+            throw new ArgumentException("Only pacs.008 payments carry an accepted snapshot.", nameof(accepted));
         var entry = db.Payments.Add(payment);
         entry.Property<string>(RequestJson).CurrentValue = requestJson;
+        if (accepted is not null) entry.TextOf(AcceptedJson).CurrentValue = PaymentJson.WriteAccepted(accepted);
         entry.Property<TransactionDirection>(Direction).CurrentValue = TransactionDirection.Outgoing;
         if (payment.MessageType == Pacs008)
         {

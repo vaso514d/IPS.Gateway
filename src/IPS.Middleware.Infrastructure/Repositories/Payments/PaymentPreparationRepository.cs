@@ -14,12 +14,19 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     public async Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         db.RequireUsable();
-        return await db.Payments.AsNoTracking()
+        var stored = await db.Payments.AsNoTracking()
             .Where(p => p.Id == paymentId && EF.Property<string?>(p, MessageId) != null)
-            .Select(p => new PreparedPaymentMessage(
-                EF.Property<string>(p, MessageId), EF.Property<string>(p, ProtocolTransactionId),
-                EF.Property<string?>(p, UnsignedXml), EF.Property<string?>(p, SignedXml)))
+            .Select(p => new
+            {
+                MessageId = EF.Property<string>(p, MessageId),
+                TransactionId = EF.Property<string>(p, ProtocolTransactionId),
+                Unsigned = EF.Property<string?>(p, UnsignedXml),
+                Signed = EF.Property<string?>(p, SignedXml),
+                Accepted = EF.Property<string?>(p, AcceptedJson)
+            })
             .SingleOrDefaultAsync(cancellationToken);
+        return stored is null ? null : new(stored.MessageId, stored.TransactionId, stored.Unsigned, stored.Signed,
+            PaymentJson.ReadAccepted(stored.Accepted));
     }
 
     public void StageUnsignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now) =>

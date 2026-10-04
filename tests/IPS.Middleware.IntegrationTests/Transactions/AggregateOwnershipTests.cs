@@ -120,7 +120,8 @@ public sealed class AggregateOwnershipTests
     public async Task Expiry_recovery_marks_unknown_and_stale_token_cannot_complete_a_new_attempt()
     {
         await using var database = await SqlTestDatabase.CreateAsync();
-        var id = await Intake(database, "expired");
+        // pacs.008 without a submission marker is retried instead; see Pacs008ProcessingTests.
+        var id = await Intake(database, "expired", "pacs.009");
         TransactionClaim claim;
         await using (var start = database.Session())
             claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));
@@ -180,7 +181,7 @@ public sealed class AggregateOwnershipTests
     public async Task Every_abandoned_inflight_state_recovers_to_uncertain(TransactionStatus state)
     {
         await using var database = await SqlTestDatabase.CreateAsync();
-        var id = await Intake(database, "recover-" + state);
+        var id = await Intake(database, "recover-" + state, "pacs.009");
         await using (var start = database.Session())
         {
             var claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));

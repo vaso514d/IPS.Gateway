@@ -124,7 +124,7 @@ public sealed class AggregatePersistenceTests
         var payment = (await original.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "original", "{}").Request!, default)).Payment;
         await using var collision = database.Session();
         var other = OutgoingPayment.Receive(payment.Id, "pacs.008", "different", Now);
-        collision.Payments.Add(other, "{}");
+        collision.Payments.Add(other, "{}", accepted: null);
         await Assert.ThrowsAsync<UniqueConstraintException>(() => collision.Unit.SaveAsync(default));
         Assert.Single(other.PendingEvents);
         await Assert.ThrowsAsync<InvalidOperationException>(() => collision.Unit.SaveAsync(default));
@@ -199,7 +199,7 @@ public sealed class AggregatePersistenceTests
         await using var session = database.Session();
         await session.Context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_NoIntake CHECK (Sequence > 1)");
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "failed-intake", Now);
-        session.Payments.Add(payment, "{\"mustNotPersist\":true}");
+        session.Payments.Add(payment, "{\"mustNotPersist\":true}", accepted: null);
         await Assert.ThrowsAsync<DbUpdateException>(() => session.Unit.SaveAsync(default));
         Assert.Single(payment.PendingEvents);
         await using var read = database.Session();
@@ -229,7 +229,7 @@ public sealed class AggregatePersistenceTests
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "payloads", Now);
-        session.Payments.Add(payment, "{}");
+        session.Payments.Add(payment, "{}", accepted: null);
         payment.BeginSending(Now);
         payment.RecordStep(ProcessingStep.Signed, Now.ToOffset(TimeSpan.FromHours(4)));
         payment.ScheduleConnectionRetry(Now, new("MS03", 10, "not connected"));

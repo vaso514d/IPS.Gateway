@@ -1,13 +1,14 @@
 using System.Text.RegularExpressions;
 
-namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
+namespace IPS.Middleware.Application.Payments.Pacs008;
 
+/// <summary>Configurable XML mapping settings; intake snapshots them with each accepted payment.</summary>
 public sealed class Pacs008ProtocolProfile
 {
     public Pacs008ProtocolProfile(string ipsBic, string serviceLevelCode = InstantServiceLevel,
         RemittanceDeliveryMethod remittanceMethod = RemittanceDeliveryMethod.Uri)
     {
-        if (ipsBic is null || !Regex.IsMatch(ipsBic, @"^[A-Z0-9]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        if (ipsBic is null || !Regex.IsMatch(ipsBic, Pacs008Text.Bic, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
             throw new ArgumentException("A valid IPS BIC is required.", nameof(ipsBic));
         if (serviceLevelCode is not { Length: >= 1 and <= 4 })
             throw new ArgumentException("Service level must contain between one and four characters.", nameof(serviceLevelCode));
@@ -22,12 +23,6 @@ public sealed class Pacs008ProtocolProfile
     public string ServiceLevelCode { get; }
     public RemittanceDeliveryMethod RemittanceMethod { get; }
     public const string InstantServiceLevel = "INST";
-    internal const string MessageDefinition = "pacs.008.001.12";
-    internal const string ClearingSystem = "IPS";
-    internal const string LocalInstrument = "INST";
-    internal const string IndirectClearingSystem = "GE";
-    internal const string BillIdentificationScheme = "BILL";
-    internal static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
 }
 
 public enum RemittanceDeliveryMethod

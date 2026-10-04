@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using Xunit;
@@ -99,7 +100,7 @@ public sealed class OutgoingTransactionIntakeTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(CommitCalls == 0 ? Existing : Winner);
         }
-        public void Add(OutgoingPayment payment, string requestJson) { Added = payment; Json = requestJson; }
+        public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted) { Added = payment; Json = requestJson; }
         public Task<int> SaveAsync(CancellationToken cancellationToken) { CommitCalls++; return Commit.Task.WaitAsync(cancellationToken); }
         public Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();

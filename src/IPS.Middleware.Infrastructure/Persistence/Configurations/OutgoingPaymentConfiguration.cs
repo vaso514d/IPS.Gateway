@@ -22,6 +22,9 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         payment.Ignore(p => p.Current);
         payment.Ignore(p => p.IsFinal);
         payment.Property<string>(RequestJson).IsRequired();
+        payment.Property<string>(AcceptedJson);
+        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Accepted",
+            "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)"));
         payment.Property<string>(MessageId).HasMaxLength(35);
         payment.Property<string>(ProtocolTransactionId).HasMaxLength(35);
         payment.Property<string>(UnsignedXml);

@@ -64,6 +64,15 @@ public sealed class OutgoingPayment : AggregateRoot
         Raise((eventId, sequence) => new PaymentProcessingObserved(eventId, Id, sequence, at.ToUniversalTime(), step, CurrentStatus));
     }
 
+    /// <summary>Record a technical failure that leaves the current state unchanged and retryable.</summary>
+    public void RecordProcessingFailure(ProcessingStep step, DateTimeOffset at, string description)
+    {
+        if (!Enum.IsDefined(step)) throw new ArgumentOutOfRangeException(nameof(step));
+        var details = new PaymentDetails(description: description);
+        if (details.Description is null) throw new ArgumentException("A failure description is required.", nameof(description));
+        Raise((eventId, sequence) => new PaymentProcessingFailed(eventId, Id, sequence, at.ToUniversalTime(), step, CurrentStatus, details.Description));
+    }
+
     private void RecordOutcome(
         PaymentOperation operation, TransactionStatus reported, StatusSource source, DateTimeOffset at, PaymentDetails? details)
     {

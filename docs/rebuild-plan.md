@@ -18,7 +18,7 @@ Stage 2a is split for focused review:
 
 Implement Stage 2b in focused reviews:
 - 2b.1: immutable initial-submission marker and raw response, shared ownership/concurrency and SQL verification; see [the specification](specs/002b1-submission-checkpoints.md).
-- 2b.2: Application processing and recovery using the stored artifacts/checkpoints, with explicit failure decisions and resume tests. Specify detailed workflow behavior before implementation.
+- 2b.2: Application processing and recovery using the stored artifacts/checkpoints, with explicit failure decisions and resume tests; see [the specification](specs/002b2-pacs008-processing.md).
 
 Persist checkpoints and required artifacts:
 

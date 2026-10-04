@@ -16,7 +16,8 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         TransactionStatus status, DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
         ValidateTake(take);
-        if (status is not (TransactionStatus.Received or TransactionStatus.Uncertain))
+        // Unowned Sending is preparation released for retry; recovery turns abandoned submissions into Uncertain.
+        if (status is not (TransactionStatus.Received or TransactionStatus.Sending or TransactionStatus.Uncertain))
             throw new ArgumentOutOfRangeException(nameof(status));
         return await PrioritizeAsync(p => p.CurrentStatus == status && EF.Property<Guid?>(p, ClaimToken) == null &&
             (EF.Property<DateTimeOffset?>(p, NextActionAtUtc) == null || EF.Property<DateTimeOffset?>(p, NextActionAtUtc) <= now),

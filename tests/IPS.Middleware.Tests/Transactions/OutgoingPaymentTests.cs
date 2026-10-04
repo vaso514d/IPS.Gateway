@@ -26,6 +26,20 @@ public sealed class OutgoingPaymentTests
     }
 
     [Fact]
+    public void Processing_failure_is_a_bounded_observation_that_keeps_state()
+    {
+        var payment = New();
+        payment.BeginSending(Now);
+        var before = payment.Current;
+        payment.RecordProcessingFailure(ProcessingStep.Signed, Now.AddSeconds(1), " " + new string('x', 2100) + " ");
+        var failure = Assert.IsType<PaymentProcessingFailed>(payment.PendingEvents[^1]);
+        Assert.Equal((ProcessingStep.Signed, TransactionStatus.Sending, 2000), (failure.Step, failure.Status, failure.Description.Length));
+        Assert.Equal(before, payment.Current);
+        Assert.Throws<ArgumentException>(() => payment.RecordProcessingFailure(ProcessingStep.Signed, Now, " "));
+        Assert.Throws<ArgumentOutOfRangeException>(() => payment.RecordProcessingFailure((ProcessingStep)99, Now, "failure"));
+    }
+
+    [Fact]
     public void Invalid_operation_does_not_change_state_or_events()
     {
         var payment = New();

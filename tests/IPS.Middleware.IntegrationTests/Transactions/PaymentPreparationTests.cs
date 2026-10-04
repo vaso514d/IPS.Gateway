@@ -134,7 +134,7 @@ public sealed class PaymentPreparationTests
         var otherClaim = (await session.Processing(Now).TryStartAsync(other.Id, TimeSpan.FromSeconds(45), default))!;
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(other, otherClaim, Xml, Now));
         var unsaved = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "unsaved", Now);
-        session.Payments.Add(unsaved, "{}");
+        session.Payments.Add(unsaved, "{}", accepted: null);
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(unsaved, claim, Xml, Now));
         var detached = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "detached", Now);
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(detached, claim, Xml, Now));

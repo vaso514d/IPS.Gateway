@@ -48,6 +48,11 @@ public sealed record PaymentProcessingObserved(
     ProcessingStep Step, TransactionStatus Status)
     : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
 
+public sealed record PaymentProcessingFailed(
+    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
+    ProcessingStep Step, TransactionStatus Status, string Description)
+    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+
 public sealed record PaymentOutcomeObserved(
     Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
     TransactionStatus CurrentStatus, TransactionStatus ReportedStatus, bool Conflicting,

@@ -13,13 +13,13 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         if (certificate is null)
         {
             if (!policy.AllowUnsignedWithoutCertificate)
-                throw new InvalidOperationException("A signing certificate is required.");
+                throw new SigningCertificateException("A signing certificate is required.");
             return new(unsignedXml, IsSigned: false);
         }
 
         ValidateCertificate(certificate);
         using var key = certificate.GetECDsaPrivateKey()
-            ?? throw new InvalidOperationException("Signing requires a certificate with an ECDSA private key.");
+            ?? throw new SigningCertificateException("Signing requires a certificate with an ECDSA private key.");
         var header = document.DocumentElement!.ChildNodes.OfType<XmlElement>()
             .Single(element => element.LocalName == "AppHdr" && element.NamespaceURI == Pacs008Xml.HeaderNamespace);
         SignedInfoCanonicalization.CheckAncestorAttributes(header);
@@ -56,14 +56,17 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
     {
         var now = clock.GetUtcNow();
         if (now < certificate.NotBefore.ToUniversalTime() || now > certificate.NotAfter.ToUniversalTime())
-            throw new InvalidOperationException("The signing certificate is outside its validity period.");
+            throw new SigningCertificateException("The signing certificate is outside its validity period.");
         if (!certificate.HasPrivateKey)
-            throw new InvalidOperationException("The signing certificate has no private key.");
+            throw new SigningCertificateException("The signing certificate has no private key.");
         var usage = certificate.Extensions.OfType<X509KeyUsageExtension>().SingleOrDefault();
         const X509KeyUsageFlags signingUsages = X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation;
         if (usage is not null && (usage.KeyUsages & signingUsages) == 0)
-            throw new InvalidOperationException("The certificate does not permit digital signatures.");
+            throw new SigningCertificateException("The certificate does not permit digital signatures.");
     }
 }
 
 public sealed record Pacs008SigningResult(string Xml, bool IsSigned);
+
+/// <summary>No usable signing certificate is available; replacing the certificate can resolve it.</summary>
+public sealed class SigningCertificateException(string message) : InvalidOperationException(message);

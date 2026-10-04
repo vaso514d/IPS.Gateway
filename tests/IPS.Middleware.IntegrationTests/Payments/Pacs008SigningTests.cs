@@ -87,9 +87,9 @@ public sealed class Pacs008SigningTests
     public void Missing_certificate_requires_explicit_development_permission()
     {
         var unsigned = Unsigned();
-        Assert.Throws<InvalidOperationException>(() => Signer().Prepare(unsigned, null));
+        Assert.Throws<SigningCertificateException>(() => Signer().Prepare(unsigned, null));
         Assert.Throws<InvalidOperationException>(() => new Pacs008SigningPolicy(true, false));
-        Assert.Throws<InvalidOperationException>(() => new Pacs008MessageSigner(new(false, false), new FixedClock()).Prepare(unsigned, null));
+        Assert.Throws<SigningCertificateException>(() => new Pacs008MessageSigner(new(false, false), new FixedClock()).Prepare(unsigned, null));
         var result = Signer(allowUnsigned: true).Prepare(unsigned, null);
         Assert.False(result.IsSigned);
         Assert.Equal(unsigned, result.Xml);
@@ -111,7 +111,7 @@ public sealed class Pacs008SigningTests
     public void Unusable_certificates_fail_even_when_development_bypass_is_enabled(string kind)
     {
         using var certificate = Certificate(kind);
-        Assert.Throws<InvalidOperationException>(() => Signer(allowUnsigned: true).Prepare(Unsigned(), certificate));
+        Assert.Throws<SigningCertificateException>(() => Signer(allowUnsigned: true).Prepare(Unsigned(), certificate));
     }
 
     [Theory]

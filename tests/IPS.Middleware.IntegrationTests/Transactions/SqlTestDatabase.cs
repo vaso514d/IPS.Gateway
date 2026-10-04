@@ -62,14 +62,16 @@ internal sealed class PaymentSession : IAsyncDisposable
         Context = context;
         Payments = new(context);
         Work = new(context);
+        Submissions = new(context);
         Unit = new(context);
     }
     public TransactionDbContext Context { get; }
     public OutgoingPaymentRepository Payments { get; }
     public TransactionWorkRepository Work { get; }
+    public PaymentSubmissionRepository Submissions { get; }
     public UnitOfWork Unit { get; }
     public OutgoingTransactionIntake Intake(DateTimeOffset now) => new(Payments, Unit, new FixedClock(now));
-    public OutgoingTransactionWork Processing(DateTimeOffset now) => new(Payments, Work, Unit, new FixedClock(now));
+    public OutgoingTransactionWork Processing(DateTimeOffset now) => new(Payments, Work, Submissions, Unit, new FixedClock(now));
     public ValueTask DisposeAsync() => Context.DisposeAsync();
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
 }

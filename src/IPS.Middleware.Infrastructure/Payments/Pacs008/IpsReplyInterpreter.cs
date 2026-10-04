@@ -1,0 +1,91 @@
+using System.Globalization;
+using System.Security.Cryptography.X509Certificates;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Schema;
+using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+
+namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
+
+/// <summary>
+/// A final outcome requires HTTP 200 with a schema-valid pacs.002 signed by a trusted IPS certificate that references
+/// the sent identifiers and reports agreeing final statuses. Everything else is unresolved and needs investigation.
+/// </summary>
+public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIpsReplyInterpreter
+{
+    private const string RequestStatusHeader = "X-MONTRAN-IPS-ReqSts";
+    private static readonly XNamespace P = Pacs008Schema.ReplyNamespace;
+    private static readonly string[] AcceptedStatuses = ["ACCP", "ACTC", "ACSC"];
+    private const string Rejected = "RJCT";
+
+    public IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent)
+    {
+        var headers = response.Headers.Where(header => string.Equals(header.Name, RequestStatusHeader, StringComparison.OrdinalIgnoreCase))
+            .Select(header => header.Value.Trim()).Distinct().ToArray();
+        if (headers.Length > 1) return Unresolved("IPS returned conflicting request statuses.");
+        var requestStatus = headers.SingleOrDefault();
+        if (response.HttpStatusCode != 200)
+            return Unresolved($"IPS returned HTTP {response.HttpStatusCode} without a pacs.002 outcome (request status: {requestStatus ?? "missing"}).");
+        // Annex D 6.3: a processed send returns a pacs.002 body; the header alone is not a final outcome.
+        if (string.IsNullOrWhiteSpace(response.Body))
+            return Unresolved($"IPS returned no pacs.002 body (request status: {requestStatus ?? "missing"}).");
+
+        XElement report;
+        try { report = Pacs008Schema.ValidateReply(response.Body).Root!.Element(P + "Document")!.Element(P + "FIToFIPmtStsRpt")!; }
+        catch (Exception exception) when (exception is XmlException or XmlSchemaException)
+        {
+            return Unresolved($"The IPS reply is not a valid pacs.002: {exception.Message}");
+        }
+        if (!IpsSignatureVerifier.IsTrusted(response.Body, trustedIpsCertificates))
+            return Unresolved("The IPS reply signature is missing, invalid or not from a trusted IPS certificate.");
+
+        var groups = report.Elements(P + "OrgnlGrpInfAndSts").ToArray();
+        var transactions = report.Elements(P + "TxInfAndSts").ToArray();
+        if (groups.Length != 1 || transactions.Length > 1)
+            return Unresolved("The IPS reply does not follow the single-payment pacs.002 profile.");
+        var group = groups[0];
+        var transaction = transactions.SingleOrDefault();
+        if (Value(group, "OrgnlMsgId") != sent.MessageId ||
+            !string.Equals(Value(group, "OrgnlMsgNmId"), Pacs008Message.MessageDefinition, StringComparison.Ordinal) ||
+            (transaction is not null && (Value(transaction, "OrgnlTxId") != sent.TransactionId ||
+                Value(transaction, "OrgnlEndToEndId") != sent.EndToEndId)))
+            return Unresolved("The IPS reply does not reference this payment.");
+
+        var statuses = new[] { Value(group, "GrpSts"), Value(transaction, "TxSts") }.OfType<string>().ToArray();
+        if (statuses.Length == 0) return Unresolved("The IPS reply contains no payment status.");
+        if (statuses.Any(status => Classify(status) is null))
+            return Unresolved($"IPS did not return a final pacs.008 status (status: {string.Join(", ", statuses)}).");
+        var outcome = Classify(statuses[0])!.Value;
+        if (statuses.Any(status => Classify(status) != outcome) ||
+            (requestStatus is not null && Classify(requestStatus.Split('/')[0]) != outcome))
+            return Unresolved($"IPS returned conflicting statuses (body: {string.Join(", ", statuses)}; request status: {requestStatus}).");
+
+        // Source mapping: the first reason code and additional information in document order.
+        var reasons = report.Descendants(P + "StsRsnInf").ToArray();
+        var description = reasons.Elements(P + "AddtlInf").Select(element => element.Value.Trim()).FirstOrDefault(text => text.Length > 0);
+        if (outcome == IpsReplyStatus.Accepted)
+            return new(outcome, new(description: description ?? "IPS accepted the pacs.008."));
+        var reason = reasons.Elements(P + "Rsn").Elements().Where(code => code.Name == P + "Cd" || code.Name == P + "Prtry")
+            .Select(code => code.Value.Trim()).FirstOrDefault(code => code.Length > 0);
+        return new(outcome, new(reason ?? "NARR", InternalCode(requestStatus), description ?? "IPS rejected the pacs.008."));
+    }
+
+    private static IpsReplyStatus? Classify(string status) => status.Trim().ToUpperInvariant() switch
+    {
+        var code when AcceptedStatuses.Contains(code) => IpsReplyStatus.Accepted,
+        Rejected => IpsReplyStatus.Rejected,
+        _ => null
+    };
+
+    // X-MONTRAN-IPS-ReqSts: RJCT/<IPS error code>.
+    private static int? InternalCode(string? requestStatus) =>
+        requestStatus?.Split('/') is [_, var code] && int.TryParse(code, NumberStyles.None, CultureInfo.InvariantCulture, out var value)
+            ? value : null;
+
+    private static string? Value(XElement? parent, string name) => parent?.Element(P + name)?.Value.Trim();
+
+    private static IpsReply Unresolved(string description) => new(IpsReplyStatus.Unresolved, new(description: description));
+}

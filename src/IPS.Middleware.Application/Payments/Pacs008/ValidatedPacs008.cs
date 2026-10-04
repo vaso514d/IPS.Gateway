@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using IPS.Middleware.Application.Payments.Pacs008.Validation;
 using IPS.Middleware.Application.Transactions;
@@ -6,31 +7,64 @@ namespace IPS.Middleware.Application.Payments.Pacs008;
 
 public sealed class ValidatedPacs008
 {
-    private ValidatedPacs008(Pacs008Request request, Pacs008Policy policy)
+    // Only validation creates new values; JSON restores an accepted snapshot without re-applying current policy.
+    [JsonConstructor]
+    private ValidatedPacs008(string clientReference, string instructionId, string endToEndId,
+        DateTimeOffset creationDateTime, DateTimeOffset acceptanceDateTime, decimal amount, string currency,
+        PaymentPriority priority, string? categoryPurposeCode, string participantBic, PaymentParty debtor, PaymentParty creditor,
+        PaymentAccount debtorAccount, PaymentAccount creditorAccount, PaymentAgent debtorAgent, PaymentAgent creditorAgent,
+        PaymentParty? ultimateDebtor, PaymentParty? ultimateCreditor, PaymentInitiation? paymentInitiation,
+        PaymentInitiationChannel? initiationChannel, PaymentRemittance? remittance)
     {
-        ClientReference = request.ClientReference!.Trim();
-        InstructionId = request.InstructionId!.Trim();
-        EndToEndId = request.EndToEndId!.Trim();
-        CreationDateTime = request.CreationDateTime!.Value.ToUniversalTime();
-        AcceptanceDateTime = request.AcceptanceDateTime!.Value.ToUniversalTime();
-        Amount = request.Amount!.Value;
-        Currency = request.Currency!.Trim();
-        Priority = request.InstructionPriority == "HIGH" ? PaymentPriority.High : PaymentPriority.Normal;
-        CategoryPurposeCode = Optional(request.CategoryPurposeCode)?.ToUpperInvariant();
-        ParticipantBic = policy.ParticipantBic;
+        ClientReference = clientReference;
+        InstructionId = instructionId;
+        EndToEndId = endToEndId;
+        CreationDateTime = creationDateTime;
+        AcceptanceDateTime = acceptanceDateTime;
+        Amount = amount;
+        Currency = currency;
+        Priority = priority;
+        CategoryPurposeCode = categoryPurposeCode;
+        ParticipantBic = participantBic;
+        Debtor = debtor;
+        Creditor = creditor;
+        DebtorAccount = debtorAccount;
+        CreditorAccount = creditorAccount;
+        DebtorAgent = debtorAgent;
+        CreditorAgent = creditorAgent;
+        UltimateDebtor = ultimateDebtor;
+        UltimateCreditor = ultimateCreditor;
+        PaymentInitiation = paymentInitiation is null ? null : paymentInitiation with { Geolocation = Snapshot(paymentInitiation.Geolocation) };
+        InitiationChannel = initiationChannel is null ? null : initiationChannel with { InstrumentCodes = Snapshot(initiationChannel.InstrumentCodes) };
+        Remittance = remittance is null ? null : remittance with { Structured = Snapshot(remittance.Structured) };
+    }
+
+    private static ValidatedPacs008 Normalize(Pacs008Request request, Pacs008Policy policy)
+    {
         var debtor = request.Debtor!;
         var creditor = request.Creditor!;
-        Debtor = NormalizeParty(debtor, debtor.BillIdentifier, debtor.Address);
-        Creditor = NormalizeParty(creditor, null, creditor.Address);
-        DebtorAccount = new(debtor.Account!.Trim(), PaymentAccountKind.Iban);
-        CreditorAccount = new(creditor.Account!.Trim(), policy.IsTreasury(creditor.ParticipantBic) ? PaymentAccountKind.Treasury : PaymentAccountKind.Iban);
-        DebtorAgent = new(policy.ParticipantBic, Optional(debtor.IndirectParticipantBic));
-        CreditorAgent = new(creditor.ParticipantBic!.Trim(), Optional(creditor.IndirectParticipantBic));
-        UltimateDebtor = request.UltimateDebtor is { } ultimateDebtor ? NormalizeParty(ultimateDebtor) : null;
-        UltimateCreditor = request.UltimateCreditor is { } ultimateCreditor ? NormalizeParty(ultimateCreditor) : null;
-        PaymentInitiation = NormalizeInitiation(request.PaymentInitiation);
-        InitiationChannel = NormalizeChannel(request.InitiationChannelInstrument);
-        Remittance = NormalizeRemittance(request.Remittance);
+        return new(
+            clientReference: request.ClientReference!.Trim(),
+            instructionId: request.InstructionId!.Trim(),
+            endToEndId: request.EndToEndId!.Trim(),
+            creationDateTime: request.CreationDateTime!.Value.ToUniversalTime(),
+            acceptanceDateTime: request.AcceptanceDateTime!.Value.ToUniversalTime(),
+            amount: request.Amount!.Value,
+            currency: request.Currency!.Trim(),
+            priority: request.InstructionPriority == "HIGH" ? PaymentPriority.High : PaymentPriority.Normal,
+            categoryPurposeCode: Optional(request.CategoryPurposeCode)?.ToUpperInvariant(),
+            participantBic: policy.ParticipantBic,
+            debtor: NormalizeParty(debtor, debtor.BillIdentifier, debtor.Address),
+            creditor: NormalizeParty(creditor, null, creditor.Address),
+            debtorAccount: new(debtor.Account!.Trim(), PaymentAccountKind.Iban),
+            creditorAccount: new(creditor.Account!.Trim(), policy.IsTreasury(creditor.ParticipantBic) ? PaymentAccountKind.Treasury : PaymentAccountKind.Iban),
+            debtorAgent: new(policy.ParticipantBic, Optional(debtor.IndirectParticipantBic)),
+            creditorAgent: new(creditor.ParticipantBic!.Trim(), Optional(creditor.IndirectParticipantBic)),
+            ultimateDebtor: request.UltimateDebtor is { } ultimateDebtor ? NormalizeParty(ultimateDebtor) : null,
+            ultimateCreditor: request.UltimateCreditor is { } ultimateCreditor ? NormalizeParty(ultimateCreditor) : null,
+            paymentInitiation: NormalizeInitiation(request.PaymentInitiation),
+            initiationChannel: NormalizeChannel(request.InitiationChannelInstrument),
+            remittance: NormalizeRemittance(request.Remittance));
     }
 
     public string ClientReference { get; }
@@ -59,7 +93,7 @@ public sealed class ValidatedPacs008
     {
         var result = new Pacs008Validator(policy).Validate(request);
         var errors = result.Errors.Select(error => new IntakeValidationError(ErrorPath(error.PropertyName), error.ErrorMessage)).ToArray();
-        return new(result.IsValid ? new(request, policy) : null, Array.AsReadOnly(errors));
+        return new(result.IsValid ? Normalize(request, policy) : null, Array.AsReadOnly(errors));
     }
 
     // Retain the existing camel-case, unindexed error paths at this boundary.
