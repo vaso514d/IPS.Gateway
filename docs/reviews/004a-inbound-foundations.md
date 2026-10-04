@@ -37,3 +37,7 @@ Behavior-preserving, no test changed. Discovery and acquisition share one due/un
 Ownership expiry is checked at staging, with rowversion checked at commit, matching existing ownership semantics. Duplicate metadata updates may invalidate a loaded owner's rowversion; discard and reload after a conflict. Never use scope recovery as permission to repeat remote effects. Registration retries at most eight uniqueness/concurrency conflicts in fresh scopes; exhaustion returns failure and publishes nothing. Channel contents and coalescing are process-local optimizations only.
 
 The journal does not prove business-payment deduplication across different IPS sequences. No incoming payment aggregate, live worker, parser, transport, CBS call, acknowledgement or response channel exists yet. Next, after review/merge approval, specify incoming pacs.008 processing, then live receive/processing/response-retry integration. Preserve CBS uncertainty and durable acknowledgement/reply rules in those later specifications.
+
+## Merge checkpoint
+
+Owner-approved commit a277635 was fast-forwarded into codex/capability-rebuild on 2026-10-04 after all 394 tests and build/format/model checks passed on the recorded cleanup. The next slice is the incoming pacs.008 specification.
