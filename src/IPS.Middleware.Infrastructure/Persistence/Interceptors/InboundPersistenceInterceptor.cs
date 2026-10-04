@@ -20,7 +20,7 @@ internal sealed class InboundPersistenceInterceptor : SaveRuleInterceptor
             nameof(InboundJournalEntry.ClaimToken), nameof(InboundJournalEntry.ClaimExpiresAtUtc)]);
 
     private static readonly Rules Payment = new("Incoming payment",
-        Immutable: [nameof(IncomingPayment.ParticipantBic), nameof(IncomingPayment.EndToEndId), nameof(IncomingPayment.RegisteredAtUtc), RequestJson],
+        Immutable: [nameof(IncomingPayment.ParticipantBic), nameof(IncomingPayment.EndToEndId), nameof(IncomingPayment.RegisteredAtUtc), RequestJson, IncomingProcessingColumns.ContextJson],
         WriteOnce: [],
         Owned: [ClaimToken, ClaimExpiresAtUtc, NextActionAtUtc]);
 
@@ -28,7 +28,26 @@ internal sealed class InboundPersistenceInterceptor : SaveRuleInterceptor
     {
         if (db.Phase != SavePhase.Entities) return;
         foreach (var entry in db.ChangeTracker.Entries<InboundJournalEntry>()) Receipt.Check(entry, entry.Entity.Id, db.AuthorizedInboundWork);
-        foreach (var entry in db.ChangeTracker.Entries<IncomingPayment>()) Payment.Check(entry, entry.Entity.Id, db.AuthorizedIncomingPaymentWork);
+        foreach (var entry in db.ChangeTracker.Entries<IncomingPayment>())
+        {
+            Payment.Check(entry, entry.Entity.Id, db.AuthorizedIncomingPaymentWork);
+            if (entry.State == EntityState.Modified && !db.AuthorizedIncomingProcessing.Contains(entry.Entity.Id) &&
+                entry.Properties.Any(p => p.IsModified && (!p.Metadata.IsShadowProperty() ||
+                    p.Metadata.Name is IncomingProcessingColumns.CheckpointVersion or IncomingProcessingColumns.FollowUpAtUtc)))
+                throw new InvalidOperationException("Incoming processing changes require payment ownership.");
+        }
+        foreach (var call in db.ChangeTracker.Entries<IncomingCoreCallRow>())
+        {
+            if (call.State == EntityState.Deleted) throw new InvalidOperationException("CBS call evidence cannot be deleted.");
+            if (call.State is not (EntityState.Added or EntityState.Modified)) continue;
+            if (!db.AuthorizedIncomingCalls.Contains(call.Entity.Id) || !db.AuthorizedIncomingProcessing.Contains(call.Entity.PaymentId))
+                throw new InvalidOperationException("CBS call evidence requires a fenced payment checkpoint.");
+            if (call.State == EntityState.Modified && call.Properties.Any(p => p.IsModified &&
+                (p.Metadata.Name is not (nameof(IncomingCoreCallRow.CompletionJson) or nameof(IncomingCoreCallRow.Consumed)) ||
+                 p.Metadata.Name == nameof(IncomingCoreCallRow.CompletionJson) && p.OriginalValue is not null ||
+                 p.Metadata.Name == nameof(IncomingCoreCallRow.Consumed) && Equals(p.OriginalValue, true))))
+                throw new InvalidOperationException("CBS call evidence is write-once.");
+        }
     }
 
     private sealed record Rules(string Name, string[] Immutable, string[] WriteOnce, string[] Owned)

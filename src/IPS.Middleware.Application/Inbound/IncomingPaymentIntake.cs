@@ -8,7 +8,7 @@ namespace IPS.Middleware.Application.Inbound;
 
 /// <summary>Registers the trusted, valid payment read from an owned receipt.</summary>
 public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, IInboundWorkRepository receipts,
-    IUnitOfWork unitOfWork, TimeProvider timeProvider)
+    IUnitOfWork unitOfWork, TimeProvider timeProvider, IncomingProcessingOptions? options = null)
 {
     public const string ConflictReason = "Payment identity conflict: contents differ from the registered payment.";
 
@@ -36,7 +36,9 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
         if (!await receipts.StageAttachmentAsync(claim, payment.Id, now, cancellationToken))
             return IncomingRegistration.LostOwnership;
         if (existing is not null) return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
-        payments.Add(payment, incoming.Payment);
+        payments.Add(payment, incoming.Payment, new(receipt.JournalId, receipt.ReceivedAtUtc,
+            (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + (options ?? new()).PaymentWindow,
+            incoming.Original));
         return await CommitAsync(IncomingRegistrationOutcome.Created, payment.Id, cancellationToken);
     }
 

@@ -22,6 +22,7 @@ public static class PersistenceRegistration
         services.AddScoped<IInboundWorkRepository, InboundWorkRepository>();
         services.AddScoped<IIncomingPaymentRepository, IncomingPaymentRepository>();
         services.AddScoped<IIncomingPaymentWorkRepository, IncomingPaymentWorkRepository>();
+        services.AddScoped<IIncomingProcessingRepository, IncomingProcessingRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
         return services;
     }

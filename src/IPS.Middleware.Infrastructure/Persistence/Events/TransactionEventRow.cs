@@ -51,6 +51,15 @@ internal static class EventRegistry
     internal static string Name(DomainEvent occurrence) => occurrence switch
     {
         IncomingPaymentRegistered => "incoming-payment.registered",
+        IncomingProcessingRecorded record => record.Operation switch
+        {
+            IncomingProcessingOperation.SubmissionStarted => "incoming-payment.submission-started",
+            IncomingProcessingOperation.CoreOutcomeRecorded => "incoming-payment.core-outcome-recorded",
+            IncomingProcessingOperation.IpsDecisionRecorded => "incoming-payment.ips-decision-recorded",
+            IncomingProcessingOperation.OutcomeConflictObserved => "incoming-payment.outcome-conflict-observed",
+            IncomingProcessingOperation.OutcomeObserved => "incoming-payment.outcome-observed",
+            _ => throw new InvalidOperationException("Unregistered incoming operation.")
+        },
         PaymentReceived => "payment.received",
         PaymentProcessingObserved => "payment.processing-observed",
         PaymentProcessingFailed => "payment.processing-failed",

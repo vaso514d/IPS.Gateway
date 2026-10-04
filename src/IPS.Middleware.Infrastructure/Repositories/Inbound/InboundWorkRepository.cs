@@ -41,7 +41,7 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
     }
 
     public async Task<OwnedInboundReceipt?> FindOwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken) =>
-        await OwnedAsync(claim, now, cancellationToken) is { } entry ? new(entry.Id, entry.ParticipantBic) : null;
+        await OwnedAsync(claim, now, cancellationToken) is { } entry ? new(entry.Id, entry.ParticipantBic, entry.ReceivedAtUtc) : null;
 
     public async Task<bool> StageHoldAsync(InboundClaim claim, DateTimeOffset now, string reason, CancellationToken cancellationToken)
     {

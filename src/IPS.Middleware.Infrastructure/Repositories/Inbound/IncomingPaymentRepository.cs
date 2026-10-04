@@ -24,7 +24,7 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
             : null;
     }
 
-    public void Add(IncomingPayment payment, Pacs008Request request)
+    public void Add(IncomingPayment payment, Pacs008Request request, IncomingProcessingContext context)
     {
         db.RequireUsable();
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1)
@@ -33,6 +33,7 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
             throw new ArgumentException("The request belongs to another payment.", nameof(request));
         var entry = db.IncomingPayments.Add(payment);
         entry.Property<string>(RequestJson).CurrentValue = IncomingPaymentJson.Write(request);
+        entry.Property<string>(IncomingProcessingColumns.ContextJson).CurrentValue = IncomingPaymentJson.Write(context);
         entry.Property<DateTimeOffset?>(NextActionAtUtc).CurrentValue = payment.RegisteredAtUtc;
     }
 }
