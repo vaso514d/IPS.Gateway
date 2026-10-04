@@ -50,6 +50,7 @@ internal static class EventRegistry
     // Event names start with their aggregate's prefix; SQL checks the prefix against the owning aggregate kind.
     internal static string Name(DomainEvent occurrence) => occurrence switch
     {
+        IncomingReconciliationRecorded => "incoming-payment.reconciliation-recorded",
         IncomingPaymentRegistered => "incoming-payment.registered",
         IncomingProcessingRecorded record => record.Operation switch
         {

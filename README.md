@@ -59,3 +59,5 @@ Reporting, standalone generator/mock hosts, and document tools are outside the r
 `Payments:Signing:AllowUnsignedInDevelopment` defaults to false. Only an explicitly enabled value in the Development environment allows missing-certificate unsigned preparation. Enabling it in any other environment prevents startup. A supplied unusable certificate always fails; it never triggers unsigned fallback. The signer currently accepts a caller-owned certificate; certificate-source loading/rotation and workflow integration are separate upcoming work. No payment endpoint or sender is exposed yet.
 
 Signing integration tests require JDK17+ (`JAVA_HOME` or `java` on PATH) for independent XMLDSig verification. Java is not used by the production host. Test certificates are ephemeral; no real certificates are required.
+
+Runtime settings and override examples: [configuration](docs/configuration.md).

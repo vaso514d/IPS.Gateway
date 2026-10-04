@@ -9,6 +9,6 @@ public sealed record IncomingProcessingContext(Guid JournalId, DateTimeOffset Re
     IncomingPacs008Reference Original);
 
 public sealed record IncomingProcessingSnapshot(IncomingPayment Payment, Pacs008Request Request,
-    IncomingProcessingContext Context, IReadOnlyList<IncomingCoreCall> Calls, DateTimeOffset? FollowUpAtUtc);
+    IncomingProcessingContext Context, IReadOnlyList<IncomingCoreCall> Calls, DateTimeOffset? FollowUpAtUtc, DateTimeOffset? ReconciliationDeadlineUtc);
 
 public sealed record IncomingProcessingResult(CoreOutcome CoreStatus, IncomingIpsDecision? IpsDecision, IncomingFollowUp FollowUp);

@@ -11,7 +11,8 @@ public static class InboundServices
     /// <summary>Registers foundations only. Persistence must also be registered; no hosted worker is started.</summary>
     public static IServiceCollection AddInboundFoundations(this IServiceCollection services, InboundSchedulingOptions? options = null)
     {
-        services.AddSingleton(options ?? new InboundSchedulingOptions());
+        if (options is not null) services.AddSingleton(options);
+        else services.TryAddSingleton(new InboundSchedulingOptions());
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(new IncomingProcessingOptions());
         services.AddSingleton<InboundProcessingChannel>();

@@ -10,6 +10,7 @@ internal static class IncomingPaymentColumns
 {
     internal const string ContextJson = nameof(ContextJson);
     internal const string CheckpointVersion = nameof(CheckpointVersion);
+    internal const string ReconciliationDeadlineUtc = nameof(ReconciliationDeadlineUtc);
     internal const string FollowUpAtUtc = nameof(FollowUpAtUtc);
 
     internal static bool HasLiveClaim(this EntityEntry<IncomingPayment> entry, IncomingPaymentClaim claim, DateTimeOffset now) =>

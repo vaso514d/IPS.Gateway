@@ -21,7 +21,7 @@ internal sealed class InboundPersistenceInterceptor : SaveRuleInterceptor
 
     private static readonly Rules Payment = new("Incoming payment",
         Immutable: [nameof(IncomingPayment.ParticipantBic), nameof(IncomingPayment.EndToEndId), nameof(IncomingPayment.RegisteredAtUtc), RequestJson, IncomingPaymentColumns.ContextJson],
-        WriteOnce: [],
+        WriteOnce: [IncomingPaymentColumns.ReconciliationDeadlineUtc],
         Owned: [ClaimToken, ClaimExpiresAtUtc, NextActionAtUtc]);
 
     protected override void Apply(TransactionDbContext db)
@@ -33,7 +33,7 @@ internal sealed class InboundPersistenceInterceptor : SaveRuleInterceptor
             Payment.Check(entry, entry.Entity.Id, db.AuthorizedIncomingPaymentWork);
             if (entry.State == EntityState.Modified && !db.AuthorizedIncomingProcessing.Contains(entry.Entity.Id) &&
                 entry.Properties.Any(p => p.IsModified && (!p.Metadata.IsShadowProperty() ||
-                    p.Metadata.Name is IncomingPaymentColumns.CheckpointVersion or IncomingPaymentColumns.FollowUpAtUtc)))
+                    p.Metadata.Name is IncomingPaymentColumns.CheckpointVersion or IncomingPaymentColumns.FollowUpAtUtc or IncomingPaymentColumns.ReconciliationDeadlineUtc)))
                 throw new InvalidOperationException("Incoming processing changes require payment ownership.");
         }
         foreach (var call in db.ChangeTracker.Entries<IncomingCoreCallRow>())

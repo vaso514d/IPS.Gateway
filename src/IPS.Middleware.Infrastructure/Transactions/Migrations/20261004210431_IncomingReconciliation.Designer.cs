@@ -4,6 +4,7 @@ using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 {
     [DbContext(typeof(TransactionDbContext))]
-    partial class TransactionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004210431_IncomingReconciliation")]
+    partial class IncomingReconciliation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -111,9 +114,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(11)")
                         .UseCollation("Latin1_General_100_BIN2");
 
-                    b.Property<DateTimeOffset?>("ReconciliationDeadlineUtc")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<DateTimeOffset>("RegisteredAtUtc")
                         .HasColumnType("datetimeoffset");
 
@@ -150,8 +150,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                             t.HasCheckConstraint("CK_IncomingPayments_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_IncomingPayments_Context", "ISJSON([ContextJson]) = 1");
-
-                            t.HasCheckConstraint("CK_IncomingPayments_FollowUpDeadline", "[FollowUpAtUtc] IS NULL OR ([ReconciliationDeadlineUtc] IS NOT NULL AND [FollowUpAtUtc] <= [ReconciliationDeadlineUtc])");
 
                             t.HasCheckConstraint("CK_IncomingPayments_Request", "ISJSON([RequestJson]) = 1");
                         });

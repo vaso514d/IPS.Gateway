@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Domain.Inbound;
 
@@ -7,7 +8,7 @@ namespace IPS.Middleware.Application.Inbound.Processing;
 /// <summary>Runs one owned initial CBS attempt, or resumes it from committed evidence. Never resubmits a marked payment.</summary>
 public sealed class IncomingPacs008Processing(IIncomingProcessingRepository processing, IIncomingPaymentWorkRepository work,
     IUnitOfWork unitOfWork, IIncomingCoreClient core, IIncomingCoreReplyInterpreter replies,
-    IncomingProcessingOptions options, TimeProvider timeProvider)
+    IncomingProcessingOptions options, IncomingReconciliationOptions reconciliationOptions, TimeProvider timeProvider)
 {
     public async Task<IncomingProcessingResult?> ProcessAsync(Guid paymentId, CancellationToken cancellationToken)
     {
@@ -63,23 +64,10 @@ public sealed class IncomingPacs008Processing(IIncomingProcessingRepository proc
         await InterpretAsync(run, claim, call with { Completion = completion });
     }
 
-    // A timed-out or failed call establishes nothing; service shutdown propagates and leaves the marker for recovery.
-    private async Task<CoreCallCompletion> DispatchAsync(Run run, CoreCallKind kind, TimeSpan budget)
-    {
-        using var timeout = new CancellationTokenSource(budget, timeProvider);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(run.Token, timeout.Token);
-        try
-        {
-            var response = await (kind == CoreCallKind.Submission
-                ? core.SubmitAsync(run.Payment.ParticipantBic, run.Snapshot.Request, linked.Token)
-                : core.QueryAsync(run.Payment.ParticipantBic, run.Payment.EndToEndId, linked.Token)).WaitAsync(linked.Token);
-            return new(response, null, Now);
-        }
-        catch (Exception error) when (!run.Token.IsCancellationRequested)
-        {
-            return new(null, $"{error.GetType().Name}: {error.Message}", Now);
-        }
-    }
+    private Task<CoreCallCompletion> DispatchAsync(Run run, CoreCallKind kind, TimeSpan budget) =>
+        CoreCallExecution.ExecuteAsync(token => kind == CoreCallKind.Submission
+            ? core.SubmitAsync(run.Payment.ParticipantBic, run.Snapshot.Request, token)
+            : core.QueryAsync(run.Payment.ParticipantBic, run.Payment.EndToEndId, token), budget, timeProvider, run.Token);
 
     private async Task InterpretAsync(Run run, IncomingPaymentClaim claim, IncomingCoreCall call)
     {
@@ -95,7 +83,10 @@ public sealed class IncomingPacs008Processing(IIncomingProcessingRepository proc
         if (run.Payment.CoreStatus == CoreOutcome.SubmissionStarted)
             run.Payment.RecordCoreResult(new(CoreOutcome.Unknown, Now), Now);
         run.Payment.DecideIps(run.Budget.WithinReplyWindow(Now), Now);
-        await processing.StageFinishAsync(claim, Now, run.Payment.FollowUp == IncomingFollowUp.None ? null : Now + options.FollowUpDelay, run.Token);
+        DateTimeOffset? deadline = run.Payment.FollowUp == IncomingFollowUp.None ? null : run.Payment.IpsDecidedAtUtc!.Value + reconciliationOptions.Window;
+        DateTimeOffset? due = deadline is null ? null : Now + options.FollowUpDelay;
+        if (due > deadline) due = deadline;
+        await processing.StageFinishAsync(claim, Now, due, deadline, run.Token);
         await run.CommitAsync(run.Token);
     }
 

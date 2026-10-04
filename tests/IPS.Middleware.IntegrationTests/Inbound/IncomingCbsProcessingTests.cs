@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
@@ -338,6 +339,24 @@ public sealed class IncomingCbsProcessingTests
         Assert.Equal(IncomingFollowUp.ReconciliationRequired, result.FollowUp);
     }
 
+    [Theory]
+    [InlineData(3, 30, 3)]
+    [InlineData(10, 5, 5)]
+    public async Task Initial_decision_freezes_configured_followup_window_and_clamps_first_due_time(int delay, int window, int due)
+    {
+        await using var test = await Harness.CreateAsync();
+        test.Options = new(followUpDelay: TimeSpan.FromSeconds(delay));
+        test.FollowUpOptions = new(window: TimeSpan.FromSeconds(window));
+        test.Cbs.Submit = _ => Task.FromResult(new CoreResponse(200, "{}"));
+        test.Cbs.Query = _ => Task.FromResult(new CoreResponse(200, "{}"));
+        var id = await test.RegisterAsync();
+        await test.ProcessAsync(id);
+        await using var read = test.Database.Context();
+        var stored = (await new IncomingProcessingRepository(read).ReadAsync(id, default))!;
+        Assert.Equal(Now.AddSeconds(window), stored.ReconciliationDeadlineUtc);
+        Assert.Equal(Now.AddSeconds(due), stored.FollowUpAtUtc);
+    }
+
     private sealed class OutsideTransaction(IIncomingCoreClient inner, TransactionDbContext db) : IIncomingCoreClient
     {
         public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request request, CancellationToken token)
@@ -358,6 +377,7 @@ public sealed class IncomingCbsProcessingTests
         public Clock Time { get; } = new();
         public CbsSimulator Cbs { get; } = new();
         public IncomingProcessingOptions Options { get; set; } = new();
+        public IncomingReconciliationOptions FollowUpOptions { get; set; } = new();
         public static async Task<Harness> CreateAsync() => new(await SqlTestDatabase.CreateAsync());
 
         public async Task<Guid> RegisterAsync(long sequence = 1, string reference = "E2E", DateTimeOffset? acceptance = null)
@@ -384,7 +404,7 @@ public sealed class IncomingCbsProcessingTests
         {
             await using var db = Database.Context(interceptors);
             var result = await new IncomingPacs008Processing(new IncomingProcessingRepository(db), new IncomingPaymentWorkRepository(db),
-                new UnitOfWork(db), new OutsideTransaction(Cbs, db), new IncomingCoreReplyInterpreter(), Options, Time).ProcessAsync(id, token);
+                new UnitOfWork(db), new OutsideTransaction(Cbs, db), new IncomingCoreReplyInterpreter(), Options, FollowUpOptions, Time).ProcessAsync(id, token);
             return result;
         }
         public ValueTask DisposeAsync() => Database.DisposeAsync();

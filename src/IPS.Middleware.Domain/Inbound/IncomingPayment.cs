@@ -98,6 +98,43 @@ public sealed class IncomingPayment : AggregateRoot
         _ => IncomingFollowUp.None
     };
 
+    public ReversalDelivery Reversal { get; private set; }
+    public DateTimeOffset? ReversalObservedAtUtc { get; private set; }
+    public string? ManualReviewReason { get; private set; }
+
+    public void BeginReversal(DateTimeOffset at)
+    {
+        if (IpsAccepted != false || CoreStatus != CoreOutcome.Accepted || FollowUp != IncomingFollowUp.ReversalRequired || Reversal != ReversalDelivery.None)
+            throw new InvalidOperationException("Only an unreversed credit rejected by IPS can start reversal.");
+        Reversal = ReversalDelivery.Started;
+        RecordFollowUp(at);
+    }
+
+    public void RecordReversalDelivery(ReversalDelivery delivery, DateTimeOffset at)
+    {
+        if (Reversal != ReversalDelivery.Started || delivery is not (ReversalDelivery.Accepted or ReversalDelivery.Unsuccessful or ReversalDelivery.Uncertain))
+            throw new InvalidOperationException("A marked reversal accepts one delivery observation, never a completion inference.");
+        Reversal = delivery;
+        ReversalObservedAtUtc = at.ToUniversalTime();
+        RequireManualReview(delivery == ReversalDelivery.Accepted
+            ? "CBS accepted the reversal request; completion requires authoritative evidence."
+            : "Reversal delivery is unsuccessful or uncertain; do not automatically repeat it.", at);
+    }
+
+    public void RequireManualReview(string reason, DateTimeOffset at)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (IpsAccepted != false || FollowUp == IncomingFollowUp.None)
+            throw new InvalidOperationException("Manual review requires an unresolved rejected incoming payment.");
+        FollowUp = IncomingFollowUp.ManualReviewRequired;
+        ManualReviewReason = reason;
+        RecordFollowUp(at);
+    }
+
+    private void RecordFollowUp(DateTimeOffset at) =>
+        Raise((id, sequence) => new IncomingReconciliationRecorded(id, Id, sequence, at.ToUniversalTime(),
+            CoreStatus, IpsDecision!, FollowUp, Reversal, ReversalObservedAtUtc, ManualReviewReason));
+
     private void Record(IncomingProcessingOperation operation, DateTimeOffset at, CorePaymentResult? observed = null) =>
         Raise((id, sequence) => new IncomingProcessingRecorded(id, Id, sequence, at.ToUniversalTime(),
             operation, CoreStatus, CoreResult, IpsDecision, FollowUp, observed));
