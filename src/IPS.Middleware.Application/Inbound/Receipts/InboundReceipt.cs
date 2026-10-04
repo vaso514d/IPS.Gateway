@@ -1,4 +1,4 @@
-namespace IPS.Middleware.Application.Inbound;
+namespace IPS.Middleware.Application.Inbound.Receipts;
 
 public enum InboundProcessingStatus { Pending, Processed, Held }
 

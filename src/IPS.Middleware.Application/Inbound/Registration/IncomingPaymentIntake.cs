@@ -1,14 +1,15 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 
-namespace IPS.Middleware.Application.Inbound;
+namespace IPS.Middleware.Application.Inbound.Registration;
 
 /// <summary>Registers the trusted, valid payment read from an owned receipt.</summary>
 public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, IInboundWorkRepository receipts,
-    IUnitOfWork unitOfWork, TimeProvider timeProvider, IncomingProcessingOptions? options = null)
+    IUnitOfWork unitOfWork, TimeProvider timeProvider, IncomingProcessingOptions options)
 {
     public const string ConflictReason = "Payment identity conflict: contents differ from the registered payment.";
 
@@ -37,7 +38,7 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
             return IncomingRegistration.LostOwnership;
         if (existing is not null) return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
         payments.Add(payment, incoming.Payment, new(receipt.JournalId, receipt.ReceivedAtUtc,
-            (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + (options ?? new()).PaymentWindow,
+            (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + options.PaymentWindow,
             incoming.Original));
         return await CommitAsync(IncomingRegistrationOutcome.Created, payment.Id, cancellationToken);
     }
@@ -48,13 +49,3 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
         return new(outcome, paymentId);
     }
 }
-
-public enum IncomingRegistrationOutcome { Created, Existing, Conflict, LostOwnership }
-
-/// <summary>For a conflict, PaymentId is the unchanged canonical payment.</summary>
-public sealed record IncomingRegistration(IncomingRegistrationOutcome Outcome, Guid? PaymentId)
-{
-    public static readonly IncomingRegistration LostOwnership = new(IncomingRegistrationOutcome.LostOwnership, null);
-}
-
-public sealed record RegisteredIncomingPayment(IncomingPayment Payment, Pacs008Request Request);

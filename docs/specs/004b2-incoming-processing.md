@@ -36,7 +36,7 @@ Multiple journal entries can reference one payment. Journal leases alone cannot 
 
 Extend the journal disposition constraint deliberately: missing/nonpositive sequence stays Held; trusted-read failures and identity conflicts can also become Held with a diagnostic reason. Held work stays excluded from scheduling. A trusted FF01 read result requires a durable receipt-scoped reply path without creating a fictitious valid payment; implement its artifact/delivery path in 004b.2c. Do not mark a receipt complete merely because another receipt references its payment.
 
-Application repository interfaces belong under Abstractions/Inbound; implementations under Infrastructure/Repositories/Inbound. Keep concrete feature workflows and a shared IUnitOfWork. Stage journal attachment/disposition, payment state, metadata and events in the same context and commit atomically. No generic repository or second unit of work.
+Application repository interfaces belong with their inbound feature (Receipts, Registration or Processing; superseded the original Abstractions/Inbound placement per [the 004b.2b cleanup](004b2b-cleanup.md)); implementations under Infrastructure/Repositories/Inbound. Keep concrete feature workflows and a shared IUnitOfWork. Stage journal attachment/disposition, payment state, metadata and events in the same context and commit atomically. No generic repository or second unit of work.
 
 ### Event history constraint
 

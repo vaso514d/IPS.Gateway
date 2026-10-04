@@ -1,4 +1,4 @@
-using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
 

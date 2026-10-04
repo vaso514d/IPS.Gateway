@@ -1,7 +1,6 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
 
-namespace IPS.Middleware.Application.Inbound;
+namespace IPS.Middleware.Application.Inbound.Receipts;
 
 public sealed class InboundReceiptIntake(IInboundReceiptRepository repository, IUnitOfWork unitOfWork)
 {

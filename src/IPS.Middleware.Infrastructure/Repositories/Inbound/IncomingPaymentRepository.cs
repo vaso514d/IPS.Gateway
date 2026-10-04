@@ -1,9 +1,10 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Persistence;
+using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
@@ -33,7 +34,7 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
             throw new ArgumentException("The request belongs to another payment.", nameof(request));
         var entry = db.IncomingPayments.Add(payment);
         entry.Property<string>(RequestJson).CurrentValue = IncomingPaymentJson.Write(request);
-        entry.Property<string>(IncomingProcessingColumns.ContextJson).CurrentValue = IncomingPaymentJson.Write(context);
+        entry.Property<string>(IncomingPaymentColumns.ContextJson).CurrentValue = IncomingPaymentJson.Write(context);
         entry.Property<DateTimeOffset?>(NextActionAtUtc).CurrentValue = payment.RegisteredAtUtc;
     }
 }

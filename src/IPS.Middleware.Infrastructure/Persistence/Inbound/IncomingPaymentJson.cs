@@ -1,4 +1,4 @@
-namespace IPS.Middleware.Infrastructure.Persistence;
+namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
 
 /// <summary>Versioned JSON for the frozen incoming request and each receipt's original references.</summary>
 internal static class IncomingPaymentJson

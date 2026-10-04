@@ -1,4 +1,4 @@
-namespace IPS.Middleware.Application.Inbound.Pacs008;
+namespace IPS.Middleware.Application.Inbound.Processing;
 
 public sealed class IncomingProcessingOptions
 {

@@ -1,6 +1,8 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.Infrastructure.Transactions;

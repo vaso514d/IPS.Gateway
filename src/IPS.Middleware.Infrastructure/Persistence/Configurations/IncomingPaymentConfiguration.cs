@@ -1,4 +1,5 @@
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using static IPS.Middleware.Infrastructure.Persistence.Events.EventRegistry;
@@ -30,9 +31,9 @@ internal sealed class IncomingPaymentConfiguration : IEntityTypeConfiguration<In
         payment.Ignore(p => p.PendingEvents);
         payment.Ignore(p => p.CoreResult);
         payment.Ignore(p => p.IpsDecision);
-        payment.Property<string>(IncomingProcessingColumns.ContextJson).IsRequired();
-        payment.Property<long>(IncomingProcessingColumns.CheckpointVersion);
-        payment.Property<DateTimeOffset?>(IncomingProcessingColumns.FollowUpAtUtc);
+        payment.Property<string>(IncomingPaymentColumns.ContextJson).IsRequired();
+        payment.Property<long>(IncomingPaymentColumns.CheckpointVersion);
+        payment.Property<DateTimeOffset?>(IncomingPaymentColumns.FollowUpAtUtc);
         payment.ToTable(table => table.HasCheckConstraint("CK_IncomingPayments_Context", "ISJSON([ContextJson]) = 1"));
         payment.Property<string>(RequestJson).IsRequired();
         payment.Property<Guid?>(ClaimToken);

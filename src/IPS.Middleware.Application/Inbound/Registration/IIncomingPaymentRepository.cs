@@ -1,9 +1,8 @@
-using IPS.Middleware.Application.Inbound;
-using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 
-namespace IPS.Middleware.Application.Abstractions.Inbound;
+namespace IPS.Middleware.Application.Inbound.Registration;
 
 public interface IIncomingPaymentRepository
 {

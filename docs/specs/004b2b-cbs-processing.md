@@ -1,6 +1,6 @@
 # 004b.2b — Incoming CBS processing and recovery
 
-Prepared from copy-repository commit 8cd2248 on codex/incoming-processing. Implemented on that branch; verification and independent reviews are recorded in [the review evidence](../reviews/004b2b-cbs-processing.md). Owner approval is still required before merging this slice. The owner approved merging 004b.2a on 2026-10-04; codex/capability-rebuild now contains 8cd2248. Preserve other branches and the read-only original repository.
+Prepared from copy-repository commit 8cd2248 on codex/incoming-processing. Implemented on that branch; verification and independent reviews are recorded in [the review evidence](../reviews/004b2b-cbs-processing.md). Owner approval is still required before merging this slice. The owner approved merging 004b.2a on 2026-10-04; codex/capability-rebuild now contains 8cd2248. Preserve other branches and the read-only original repository. An owner-requested, behavior-preserving cleanup of this slice is specified in [004b2b-cleanup.md](004b2b-cleanup.md).
 
 ## Approved behavior and evidence
 

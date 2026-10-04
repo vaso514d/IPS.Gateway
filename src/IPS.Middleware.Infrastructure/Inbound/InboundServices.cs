@@ -1,4 +1,6 @@
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Registration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -11,6 +13,7 @@ public static class InboundServices
     {
         services.AddSingleton(options ?? new InboundSchedulingOptions());
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton(new IncomingProcessingOptions());
         services.AddSingleton<InboundProcessingChannel>();
         services.AddSingleton<InboundReceiptRegistration>();
         services.AddSingleton<InboundWorkDiscovery>();

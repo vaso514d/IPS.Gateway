@@ -1,7 +1,6 @@
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
 
-namespace IPS.Middleware.Application.Abstractions.Inbound;
+namespace IPS.Middleware.Application.Inbound.Receipts;
 
 public interface IInboundWorkRepository
 {

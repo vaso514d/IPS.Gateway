@@ -1,4 +1,4 @@
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Receipts;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
 

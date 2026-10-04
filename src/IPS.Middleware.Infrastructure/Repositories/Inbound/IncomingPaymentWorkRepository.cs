@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
-using IPS.Middleware.Application.Abstractions.Inbound;
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
@@ -36,9 +36,7 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
         db.RequireUsable();
         if (await db.IncomingPayments.FindAsync([claim.PaymentId], cancellationToken) is not { } payment) return false;
         var entry = db.Entry(payment);
-        if (entry.Property<Guid?>(ClaimToken).CurrentValue != claim.Token ||
-            entry.Property<DateTimeOffset?>(ClaimExpiresAtUtc).CurrentValue is not { } expiry || expiry <= now)
-            return false;
+        if (!entry.HasLiveClaim(claim, now)) return false;
         entry.Property<DateTimeOffset?>(NextActionAtUtc).CurrentValue = nextActionAtUtc.ToUniversalTime();
         Own(payment, null, null);
         return true;
@@ -51,9 +49,7 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
 
     private void Own(IncomingPayment payment, Guid? token, DateTimeOffset? expiresAtUtc)
     {
-        var entry = db.Entry(payment);
-        entry.Property<Guid?>(ClaimToken).CurrentValue = token;
-        entry.Property<DateTimeOffset?>(ClaimExpiresAtUtc).CurrentValue = expiresAtUtc;
+        db.Entry(payment).SetClaim(token, expiresAtUtc);
         db.AuthorizedIncomingPaymentWork.Add(payment.Id);
     }
 }

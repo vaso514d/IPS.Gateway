@@ -1,7 +1,6 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
 
-namespace IPS.Middleware.Application.Inbound;
+namespace IPS.Middleware.Application.Inbound.Registration;
 
 /// <summary>Payment ownership, independent of receipt ownership: only the owner may process the payment.</summary>
 public sealed class IncomingPaymentWork(IIncomingPaymentWorkRepository repository, IUnitOfWork unitOfWork, TimeProvider timeProvider)

@@ -1,4 +1,4 @@
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Receipts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound;

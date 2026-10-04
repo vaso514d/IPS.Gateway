@@ -1,8 +1,7 @@
 using System.Data.Common;
 using System.Data.SqlTypes;
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Persistence;

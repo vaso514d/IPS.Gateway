@@ -1,6 +1,4 @@
-using IPS.Middleware.Application.Inbound;
-
-namespace IPS.Middleware.Application.Abstractions.Inbound;
+namespace IPS.Middleware.Application.Inbound.Registration;
 
 public interface IIncomingPaymentWorkRepository
 {

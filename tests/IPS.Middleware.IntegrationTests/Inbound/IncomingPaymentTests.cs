@@ -1,7 +1,9 @@
 using System.Data.SqlTypes;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound;
@@ -24,6 +26,16 @@ public sealed class IncomingPaymentTests
     private const string Participant = "BAGAGE22";
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 12, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan Lease = TimeSpan.FromSeconds(45);
+
+    [Fact]
+    public void Inbound_foundations_register_default_processing_options_without_replacing_a_host_choice()
+    {
+        var custom = new IncomingProcessingOptions(paymentWindow: TimeSpan.FromSeconds(30));
+        using var defaults = new ServiceCollection().AddInboundFoundations().BuildServiceProvider();
+        using var hosted = new ServiceCollection().AddSingleton(custom).AddInboundFoundations().BuildServiceProvider();
+        Assert.Equal(TimeSpan.FromSeconds(20), defaults.GetRequiredService<IncomingProcessingOptions>().PaymentWindow);
+        Assert.Same(custom, hosted.GetRequiredService<IncomingProcessingOptions>());
+    }
 
     [Fact]
     public async Task Identical_deliveries_on_different_sequences_share_one_payment_and_keep_their_own_references()
@@ -502,7 +514,7 @@ public sealed class IncomingPaymentTests
     }
 
     private static IncomingPaymentIntake Intake(TransactionDbContext db, DateTimeOffset now) =>
-        new(new IncomingPaymentRepository(db), new InboundWorkRepository(db), new UnitOfWork(db), new Clock { Now = now });
+        new(new IncomingPaymentRepository(db), new InboundWorkRepository(db), new UnitOfWork(db), new Clock { Now = now }, new IncomingProcessingOptions());
     private static IncomingPaymentWork Work(TransactionDbContext db, DateTimeOffset now) =>
         new(new IncomingPaymentWorkRepository(db), new UnitOfWork(db), new Clock { Now = now });
     private static Task<List<string>> Events(TransactionDbContext db, Guid id) =>

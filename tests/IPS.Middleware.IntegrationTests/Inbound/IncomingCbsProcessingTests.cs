@@ -1,8 +1,9 @@
 using System.Data.Common;
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;

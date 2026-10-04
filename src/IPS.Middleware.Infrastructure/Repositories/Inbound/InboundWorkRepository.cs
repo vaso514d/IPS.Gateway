@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
-using IPS.Middleware.Application.Abstractions.Inbound;
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;

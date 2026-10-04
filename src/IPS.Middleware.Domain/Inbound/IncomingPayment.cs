@@ -3,6 +3,8 @@ namespace IPS.Middleware.Domain.Inbound;
 /// <summary>A payment received from IPS, identified by receiving participant and exact EndToEndId.</summary>
 public sealed class IncomingPayment : AggregateRoot
 {
+    private const string NoFinalResult = "Core system did not return a final payment result within the reply window.";
+
     private IncomingPayment() { }
 
     private IncomingPayment(Guid id, string participantBic, string endToEndId, DateTimeOffset at) : base(id)
@@ -33,6 +35,7 @@ public sealed class IncomingPayment : AggregateRoot
     public string? IpsReasonCode { get; private set; }
     public string? IpsDescription { get; private set; }
     public IncomingFollowUp FollowUp { get; private set; }
+    public bool HasFinalCoreOutcome => CoreStatus is CoreOutcome.Accepted or CoreOutcome.Rejected;
     public CorePaymentResult? CoreResult => CoreProcessedAtUtc is { } at
         ? new(CoreStatus, at, CoreReference, CoreReasonCode, CoreInternalErrorCode, CoreDescription) : null;
     public IncomingIpsDecision? IpsDecision => IpsAccepted is { } accepted
@@ -50,11 +53,9 @@ public sealed class IncomingPayment : AggregateRoot
     {
         if (result.Status is not (CoreOutcome.Unknown or CoreOutcome.Accepted or CoreOutcome.Rejected) || CoreStatus == CoreOutcome.NotSubmitted)
             throw new InvalidOperationException("A CBS outcome requires a submission marker and a supported outcome.");
-        if (CoreStatus is CoreOutcome.Accepted or CoreOutcome.Rejected)
+        if (HasFinalCoreOutcome)
         {
-            var conflict = result.Status is CoreOutcome.Accepted or CoreOutcome.Rejected && result.Status != CoreStatus;
-            if (conflict) FollowUp = IncomingFollowUp.ManualReviewRequired;
-            Record(conflict ? IncomingProcessingOperation.OutcomeConflictObserved : IncomingProcessingOperation.OutcomeObserved, observedAt, result);
+            ObserveAgain(result, observedAt);
             return;
         }
         CoreStatus = result.Status;
@@ -70,27 +71,36 @@ public sealed class IncomingPayment : AggregateRoot
     public void DecideIps(bool withinReplyWindow, DateTimeOffset at)
     {
         if (IpsAccepted is not null) return;
-        IpsAccepted = withinReplyWindow && CoreStatus == CoreOutcome.Accepted;
+        // Only a final CBS outcome inside the reply window decides the reply; anything else is RJCT/MS03.
+        var final = withinReplyWindow && HasFinalCoreOutcome;
+        IpsAccepted = final && CoreStatus == CoreOutcome.Accepted;
         IpsDecidedAtUtc = at.ToUniversalTime();
-        IpsReasonCode = IpsAccepted.Value ? null : withinReplyWindow && CoreStatus == CoreOutcome.Rejected
-            ? string.IsNullOrWhiteSpace(CoreReasonCode) ? "MS03" : CoreReasonCode : "MS03";
-        IpsDescription = withinReplyWindow && CoreStatus is CoreOutcome.Accepted or CoreOutcome.Rejected
-            ? CoreDescription : "Core system did not return a final payment result within the reply window.";
-        FollowUp = FollowUp == IncomingFollowUp.ManualReviewRequired ? FollowUp : IpsAccepted.Value ? IncomingFollowUp.None : RequiredFollowUp();
+        IpsReasonCode = IpsAccepted.Value ? null : final && !string.IsNullOrWhiteSpace(CoreReasonCode) ? CoreReasonCode : "MS03";
+        IpsDescription = final ? CoreDescription : NoFinalResult;
+        FollowUp = RequiredFollowUp();
         Record(IncomingProcessingOperation.IpsDecisionRecorded, at);
     }
 
-    private IncomingFollowUp RequiredFollowUp() => FollowUp == IncomingFollowUp.ManualReviewRequired ? FollowUp : CoreStatus switch
+    // A final outcome keeps its original time and details; a contradicting final report requires manual review.
+    private void ObserveAgain(CorePaymentResult result, DateTimeOffset observedAt)
     {
-        CoreOutcome.Accepted => IncomingFollowUp.ReversalRequired,
-        CoreOutcome.SubmissionStarted or CoreOutcome.Unknown => IncomingFollowUp.ReconciliationRequired,
+        var conflict = result.Status is CoreOutcome.Accepted or CoreOutcome.Rejected && result.Status != CoreStatus;
+        if (conflict) FollowUp = IncomingFollowUp.ManualReviewRequired;
+        Record(conflict ? IncomingProcessingOperation.OutcomeConflictObserved : IncomingProcessingOperation.OutcomeObserved, observedAt, result);
+    }
+
+    private IncomingFollowUp RequiredFollowUp() => this switch
+    {
+        { FollowUp: IncomingFollowUp.ManualReviewRequired } => IncomingFollowUp.ManualReviewRequired,
+        { IpsAccepted: true } => IncomingFollowUp.None,
+        { CoreStatus: CoreOutcome.Accepted } => IncomingFollowUp.ReversalRequired,
+        { CoreStatus: CoreOutcome.SubmissionStarted or CoreOutcome.Unknown } => IncomingFollowUp.ReconciliationRequired,
         _ => IncomingFollowUp.None
     };
 
     private void Record(IncomingProcessingOperation operation, DateTimeOffset at, CorePaymentResult? observed = null) =>
         Raise((id, sequence) => new IncomingProcessingRecorded(id, Id, sequence, at.ToUniversalTime(),
             operation, CoreStatus, CoreResult, IpsDecision, FollowUp, observed));
-
 }
 
 public sealed record IncomingPaymentRegistered(

@@ -1,4 +1,4 @@
-using IPS.Middleware.Application.Inbound;
+using IPS.Middleware.Application.Inbound.Receipts;
 using Xunit;
 
 namespace IPS.Middleware.Tests.Inbound;

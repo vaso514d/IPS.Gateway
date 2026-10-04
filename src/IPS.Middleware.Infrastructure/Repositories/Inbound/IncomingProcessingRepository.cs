@@ -1,14 +1,14 @@
-using IPS.Middleware.Application.Abstractions.Inbound;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Inbound;
 using IPS.Middleware.Application.Inbound.Pacs008;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
-using static IPS.Middleware.Infrastructure.Persistence.IncomingProcessingColumns;
+using static IPS.Middleware.Infrastructure.Persistence.Inbound.IncomingPaymentColumns;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
@@ -89,8 +89,7 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         var entry = db.Entry(payment);
         entry.Property<DateTimeOffset?>(FollowUpAtUtc).CurrentValue = followUpAtUtc?.ToUniversalTime();
         entry.Property<DateTimeOffset?>(NextActionAtUtc).CurrentValue = null;
-        entry.Property<Guid?>(ClaimToken).CurrentValue = null;
-        entry.Property<DateTimeOffset?>(ClaimExpiresAtUtc).CurrentValue = null;
+        entry.SetClaim(null, null);
     }
 
     private async Task<IncomingPayment> TouchAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
@@ -99,9 +98,7 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         var payment = await db.IncomingPayments.FindAsync([claim.PaymentId], cancellationToken)
             ?? throw new PersistenceConcurrencyException("The incoming payment no longer exists.");
         var entry = db.Entry(payment);
-        if (entry.State == EntityState.Added || entry.Property<Guid?>(ClaimToken).IsModified ||
-            entry.Property<Guid?>(ClaimToken).CurrentValue != claim.Token ||
-            entry.Property<DateTimeOffset?>(ClaimExpiresAtUtc).CurrentValue is not { } expiry || expiry <= now)
+        if (entry.State == EntityState.Added || entry.Property<Guid?>(ClaimToken).IsModified || !entry.HasLiveClaim(claim, now))
             throw new PersistenceConcurrencyException("The incoming payment owner is stale or expired.");
         var revision = entry.Property<long>(CheckpointVersion);
         revision.CurrentValue = checked(revision.CurrentValue + 1);
