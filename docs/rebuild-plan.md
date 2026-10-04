@@ -49,7 +49,11 @@ Run the initial attempt immediately in a service-owned, supervised scope. The HT
 
 Integration tests must cover final 200, unresolved 504, immediate duplicates, caller disconnect, competing request/recovery execution, callbacks, and process termination at each durable checkpoint. Use independent schemas/fixtures and a lost-reply simulator.
 
-## Remaining capability order
+## Owner-approved incoming priority — 2026-10-04
+
+After Stage 2b.2, incoming foundations now precede outgoing Stage 2c. Follow [004a](specs/004a-inbound-foundations.md): durable receipt and recoverable ID-only scheduling first; incoming pacs.008 processing second; live receive/processing/response-retry pools third. These are separate reviews. Stage 2c remains deferred with its existing behavior decisions intact.
+
+## Remaining capability order (original; incoming priority above supersedes it)
 
 1. Outgoing reliability: pacs.028 investigation, duplicate-safe resending, deadlines, callback retries, manual review.
 2. Incoming payments: separate aggregate/workflow, durable receipt, deduplication, core callbacks, acknowledgement ordering, reconciliation.
