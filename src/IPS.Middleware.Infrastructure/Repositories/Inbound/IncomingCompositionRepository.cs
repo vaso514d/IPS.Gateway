@@ -9,49 +9,54 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
 {
     public async Task<IncomingReceiptState?> ReadAsync(Guid journalId, CancellationToken token)
     {
-        var row = await db.InboundJournal.AsNoTracking().Where(r => r.Id == journalId)
-            .Select(r => new
+        var receipt = await db.InboundJournal
+            .AsNoTracking()
+            .Where(x => x.Id == journalId)
+            .Select(x => new
             {
-                r.Status,
-                r.NextActionAtUtc,
-                r.IncomingPaymentId,
-                HasReply = db.IncomingReplies.Any(reply => reply.JournalId == r.Id)
-            }).SingleOrDefaultAsync(token);
-        if (row is null)
+                x.Status,
+                x.NextActionAtUtc,
+                x.IncomingPaymentId,
+                HasReply = db.IncomingReplies.Any(reply => reply.JournalId == x.Id)
+            })
+            .SingleOrDefaultAsync(token);
+        if (receipt is null)
         {
             return null;
         }
 
-        var payment = row.IncomingPaymentId is { } id ? await db.IncomingPayments.AsNoTracking().SingleAsync(p => p.Id == id, token) : null;
-        return new(row.Status, row.NextActionAtUtc, row.IncomingPaymentId, row.HasReply, payment?.IpsDecision is not null);
+        var hasDecision = receipt.IncomingPaymentId is { } paymentId && await HasIpsDecisionAsync(paymentId, token);
+        return new IncomingReceiptState(receipt.Status, receipt.NextActionAtUtc, receipt.IncomingPaymentId, receipt.HasReply, hasDecision);
     }
 
     public async Task<bool> StageFirstReplyReadyAsync(Guid journalId, DateTimeOffset now, CancellationToken token)
     {
-        var row = await db.InboundJournal.SingleOrDefaultAsync(r => r.Id == journalId, token);
-        if (row is null || row.Status != InboundProcessingStatus.Pending ||
-            row.ClaimToken is not null && row.ClaimExpiresAtUtc > now)
+        var receipt = await db.InboundJournal.SingleOrDefaultAsync(x => x.Id == journalId, token);
+        if (receipt is not { Status: InboundProcessingStatus.Pending } || receipt.ClaimToken is not null && receipt.ClaimExpiresAtUtc > now)
         {
             return false;
         }
+
         // Existing reply scheduling belongs exclusively to its delivery workflow, including preparation deferrals.
-        if (await db.IncomingReplies.AnyAsync(r => r.JournalId == journalId, token))
+        if (await db.IncomingReplies.AnyAsync(x => x.JournalId == journalId, token))
         {
             return false;
         }
 
-        if (row.IncomingPaymentId is not { } paymentId)
+        if (receipt.IncomingPaymentId is not { } paymentId || !await HasIpsDecisionAsync(paymentId, token))
         {
             return false;
         }
 
-        var payment = await db.IncomingPayments.AsNoTracking().SingleAsync(p => p.Id == paymentId, token);
-        if (payment.IpsDecision is null)
-        {
-            return false;
-        }
-
-        row.NextActionAtUtc = now.ToUniversalTime();
+        receipt.NextActionAtUtc = now.ToUniversalTime();
         return true;
+    }
+
+    private async Task<bool> HasIpsDecisionAsync(Guid paymentId, CancellationToken token)
+    {
+        var payment = await db.IncomingPayments
+            .AsNoTracking()
+            .SingleAsync(x => x.Id == paymentId, token);
+        return payment.IpsDecision is not null;
     }
 }

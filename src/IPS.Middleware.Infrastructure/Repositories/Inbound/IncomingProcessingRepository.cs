@@ -1,4 +1,3 @@
-using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
@@ -9,30 +8,40 @@ using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
+// CBS calls are journaled before they are made; each completion is written once and consumed once.
 public sealed class IncomingProcessingRepository(TransactionDbContext db) : IIncomingProcessingRepository
 {
     public async Task<IncomingProcessingSnapshot?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        var row = await db.IncomingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
-        if (row is null)
+        var metadata = await db.IncomingMetadata
+            .Include(x => x.Payment)
+            .SingleOrDefaultAsync(x => x.Id == paymentId, cancellationToken);
+        if (metadata is null)
         {
             return null;
         }
 
-        var calls = await db.IncomingCoreCalls.Where(c => c.PaymentId == paymentId).OrderBy(c => c.Number).ToListAsync(cancellationToken);
-        return new(row.Payment, IncomingPacs008.Freeze(IncomingPaymentJson.Read<Pacs008Request>(row.RequestJson)),
-            IncomingPaymentJson.Read<IncomingProcessingContext>(row.ContextJson), calls.Select(c => c.Snapshot()).ToArray(), row.FollowUpAtUtc, row.ReconciliationDeadlineUtc);
+        var calls = await db.IncomingCoreCalls
+            .Where(x => x.PaymentId == paymentId)
+            .OrderBy(x => x.Number)
+            .ToListAsync(cancellationToken);
+
+        return new IncomingProcessingSnapshot(
+            metadata.Payment,
+            IncomingPacs008.Freeze(IncomingPaymentJson.Read<Pacs008Request>(metadata.RequestJson)),
+            IncomingPaymentJson.Read<IncomingProcessingContext>(metadata.ContextJson),
+            calls.ConvertAll(call => call.Snapshot()),
+            metadata.FollowUpAtUtc,
+            metadata.ReconciliationDeadlineUtc);
     }
 
-    public Task<bool> IsOwnerAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
-    {
-        return db.IncomingMetadata.AsNoTracking().AnyAsync(p => p.Id == claim.PaymentId &&
-            p.ClaimToken == claim.Token && p.ClaimExpiresAtUtc > now, cancellationToken);
-    }
+    public Task<bool> IsOwnerAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken) =>
+        db.IncomingMetadata
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == claim.PaymentId && x.ClaimToken == claim.Token && x.ClaimExpiresAtUtc > now, cancellationToken);
 
     public async Task<IncomingCoreCall> StageCallAsync(
         IncomingPaymentClaim claim,
@@ -41,46 +50,33 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         CancellationToken cancellationToken,
         ReversalNotification? notification = null)
     {
-        var payment = await TouchAsync(claim, now, cancellationToken);
-        var hasSubmission = await db.IncomingCoreCalls.AnyAsync(c => c.PaymentId == payment.Id && c.Kind == CoreCallKind.Submission, cancellationToken);
-        var allowed = kind switch
-        {
-            CoreCallKind.Submission => payment.IpsAccepted is null && !hasSubmission,
-            CoreCallKind.Status => payment.IpsAccepted is null && hasSubmission,
-            CoreCallKind.Reconciliation => payment.IpsAccepted == false && hasSubmission && payment.FollowUp == IncomingFollowUp.ReconciliationRequired,
-            CoreCallKind.Reversal => payment.IpsAccepted == false && payment.CoreStatus == CoreOutcome.Accepted &&
-                payment.FollowUp == IncomingFollowUp.ReversalRequired && payment.Reversal == ReversalDelivery.Started &&
-                !await db.IncomingCoreCalls.AnyAsync(c => c.PaymentId == payment.Id && c.Kind == CoreCallKind.Reversal, cancellationToken),
-            _ => false
-        };
-        if (!allowed || (kind == CoreCallKind.Reversal) != (notification is not null))
+        var payment = await db.OwnedIncomingPaymentAsync(claim, now, cancellationToken);
+        var expectsNotification = kind == CoreCallKind.Reversal;
+        if (!await IsCallAllowedAsync(payment, kind, cancellationToken) || expectsNotification != (notification is not null))
         {
             throw new InvalidOperationException("The call must match the payment's current processing or follow-up obligation.");
         }
 
-        if (notification is not null)
+        if (notification is not null && notification != FrozenReversalNotification(payment))
         {
-            var context = IncomingPaymentJson.Read<IncomingProcessingContext>(db.Metadata(payment).ContextJson);
-            var expected = new ReversalNotification(payment.Id, payment.ParticipantBic, payment.EndToEndId, payment.IpsDecidedAtUtc!.Value,
-                payment.IpsReasonCode, payment.IpsDescription, context.Original.GroupMessageId);
-            if (notification != expected)
-            {
-                throw new InvalidOperationException("Reversal notification must preserve the immutable IPS decision and references.");
-            }
+            throw new InvalidOperationException("Reversal notification must preserve the immutable IPS decision and references.");
         }
-        var number = (await db.IncomingCoreCalls.Where(c => c.PaymentId == payment.Id).MaxAsync(c => (int?)c.Number, cancellationToken) ?? 0) + 1;
-        var row = new IncomingCoreCallRow
+
+        var lastNumber = await db.IncomingCoreCalls
+            .Where(x => x.PaymentId == payment.Id)
+            .MaxAsync(x => (int?)x.Number, cancellationToken);
+        var call = new IncomingCoreCallRow
         {
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
-            Number = number,
+            Number = (lastNumber ?? 0) + 1,
             Kind = kind,
             OwnerToken = claim.Token,
             RequestJson = notification is null ? null : IncomingPaymentJson.Write(notification),
             StartedAtUtc = now.ToUniversalTime()
         };
-        db.IncomingCoreCalls.Add(row);
-        return row.Snapshot();
+        db.IncomingCoreCalls.Add(call);
+        return call.Snapshot();
     }
 
     public async Task StageCompletionAsync(
@@ -90,27 +86,31 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
-        await TouchAsync(claim, now, cancellationToken);
-        var row = await CallAsync(claim, callId, cancellationToken);
-        if (db.Entry(row).State == EntityState.Added || row.OwnerToken != claim.Token || row.CompletionJson is not null ||
-            (completion.Response is null) == (completion.Failure is null))
+        await db.OwnedIncomingPaymentAsync(claim, now, cancellationToken);
+        var call = await CallAsync(claim, callId, cancellationToken);
+        var completable = db.Entry(call).State != EntityState.Added
+            && call.OwnerToken == claim.Token
+            && call.CompletionJson is null
+            && (completion.Response is null) != (completion.Failure is null);
+        if (!completable)
         {
             throw new InvalidOperationException("A committed call accepts one response or failure from its original live owner.");
         }
 
-        row.CompletionJson = IncomingPaymentJson.Write(completion);
+        call.CompletionJson = IncomingPaymentJson.Write(completion);
     }
 
     public async Task StageConsumptionAsync(IncomingPaymentClaim claim, Guid callId, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        await TouchAsync(claim, now, cancellationToken);
-        var row = await CallAsync(claim, callId, cancellationToken);
-        if (row.CompletionJson is null || db.Entry(row).Property(c => c.CompletionJson).IsModified)
+        await db.OwnedIncomingPaymentAsync(claim, now, cancellationToken);
+        var call = await CallAsync(claim, callId, cancellationToken);
+        var completionCommitted = call.CompletionJson is not null && !db.Entry(call).Property(x => x.CompletionJson).IsModified;
+        if (!completionCommitted)
         {
             throw new InvalidOperationException("Interpret only committed call results.");
         }
 
-        row.Consumed = true;
+        call.Consumed = true;
     }
 
     public async Task StageFinishAsync(
@@ -120,44 +120,71 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         DateTimeOffset? reconciliationDeadlineUtc,
         CancellationToken cancellationToken)
     {
-        var payment = await TouchAsync(claim, now, cancellationToken);
-        if (payment.IpsAccepted is null || (payment.FollowUp == IncomingFollowUp.None) != (followUpAtUtc is null) ||
-            (followUpAtUtc is null) != (reconciliationDeadlineUtc is null) ||
-            reconciliationDeadlineUtc <= payment.IpsDecidedAtUtc || followUpAtUtc > reconciliationDeadlineUtc)
+        var payment = await db.OwnedIncomingPaymentAsync(claim, now, cancellationToken);
+        if (!IsConsistentFinish(payment, followUpAtUtc, reconciliationDeadlineUtc))
         {
             throw new InvalidOperationException("A final decision and its follow-up obligation must be stored together.");
         }
 
-        var entry = db.Entry(db.Metadata(payment));
-        var deadline = entry.Property(p => p.ReconciliationDeadlineUtc);
-        if (deadline.CurrentValue is not null && deadline.CurrentValue != reconciliationDeadlineUtc)
+        var metadata = db.Metadata(payment);
+        if (metadata.ReconciliationDeadlineUtc is not null && metadata.ReconciliationDeadlineUtc != reconciliationDeadlineUtc)
         {
             throw new InvalidOperationException("The reconciliation deadline cannot change.");
         }
 
-        deadline.CurrentValue = reconciliationDeadlineUtc?.ToUniversalTime();
-        entry.Entity.FollowUpAtUtc = followUpAtUtc?.ToUniversalTime();
-        entry.Entity.NextActionAtUtc = null;
-        entry.Entity.SetClaim(null, null);
+        metadata.ReconciliationDeadlineUtc = reconciliationDeadlineUtc?.ToUniversalTime();
+        metadata.FollowUpAtUtc = followUpAtUtc?.ToUniversalTime();
+        metadata.NextActionAtUtc = null;
+        metadata.SetClaim(null, null);
     }
 
-    internal async Task<IncomingPayment> TouchAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
+    private async Task<bool> IsCallAllowedAsync(IncomingPayment payment, CoreCallKind kind, CancellationToken cancellationToken)
     {
-        var metadata = await db.IncomingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == claim.PaymentId, cancellationToken)
-            ?? throw new PersistenceConcurrencyException("The incoming payment no longer exists.");
-        var payment = metadata.Payment;
-        var entry = db.Entry(metadata);
-        if (entry.State == EntityState.Added || entry.Property(p => p.ClaimToken).IsModified || !entry.Entity.HasLiveClaim(claim, now))
+        var submitted = await HasCallAsync(payment.Id, CoreCallKind.Submission, cancellationToken);
+        return kind switch
         {
-            throw new PersistenceConcurrencyException("The incoming payment owner is stale or expired.");
-        }
-
-        var revision = entry.Property(p => p.CheckpointVersion);
-        revision.CurrentValue = checked(revision.CurrentValue + 1);
-        return payment;
+            CoreCallKind.Submission => payment.IpsAccepted is null && !submitted,
+            CoreCallKind.Status => payment.IpsAccepted is null && submitted,
+            CoreCallKind.Reconciliation => payment.IpsAccepted == false
+                && submitted
+                && payment.FollowUp == IncomingFollowUp.ReconciliationRequired,
+            CoreCallKind.Reversal => payment.IpsAccepted == false
+                && payment.CoreStatus == CoreOutcome.Accepted
+                && payment.FollowUp == IncomingFollowUp.ReversalRequired
+                && payment.Reversal == ReversalDelivery.Started
+                && !await HasCallAsync(payment.Id, CoreCallKind.Reversal, cancellationToken),
+            _ => false
+        };
     }
 
-    private async Task<IncomingCoreCallRow> CallAsync(IncomingPaymentClaim claim, Guid id, CancellationToken cancellationToken) =>
-        await db.IncomingCoreCalls.SingleOrDefaultAsync(c => c.Id == id && c.PaymentId == claim.PaymentId, cancellationToken)
+    private Task<bool> HasCallAsync(Guid paymentId, CoreCallKind kind, CancellationToken cancellationToken) =>
+        db.IncomingCoreCalls.AnyAsync(x => x.PaymentId == paymentId && x.Kind == kind, cancellationToken);
+
+    private ReversalNotification FrozenReversalNotification(IncomingPayment payment)
+    {
+        var context = IncomingPaymentJson.Read<IncomingProcessingContext>(db.Metadata(payment).ContextJson);
+        return new ReversalNotification(
+            payment.Id,
+            payment.ParticipantBic,
+            payment.EndToEndId,
+            payment.IpsDecidedAtUtc!.Value,
+            payment.IpsReasonCode,
+            payment.IpsDescription,
+            context.Original.GroupMessageId);
+    }
+
+    // A follow-up time exists exactly when an obligation exists, and it never passes the reconciliation deadline.
+    private static bool IsConsistentFinish(IncomingPayment payment, DateTimeOffset? followUpAtUtc, DateTimeOffset? reconciliationDeadlineUtc)
+    {
+        var hasObligation = payment.FollowUp != IncomingFollowUp.None;
+        return payment.IpsAccepted is not null
+            && hasObligation == followUpAtUtc.HasValue
+            && followUpAtUtc.HasValue == reconciliationDeadlineUtc.HasValue
+            && !(reconciliationDeadlineUtc <= payment.IpsDecidedAtUtc)
+            && !(followUpAtUtc > reconciliationDeadlineUtc);
+    }
+
+    private async Task<IncomingCoreCallRow> CallAsync(IncomingPaymentClaim claim, Guid callId, CancellationToken cancellationToken) =>
+        await db.IncomingCoreCalls.SingleOrDefaultAsync(x => x.Id == callId && x.PaymentId == claim.PaymentId, cancellationToken)
             ?? throw new InvalidOperationException("The CBS call belongs to another payment.");
 }

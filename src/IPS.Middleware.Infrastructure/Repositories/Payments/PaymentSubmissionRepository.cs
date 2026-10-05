@@ -11,53 +11,55 @@ using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
+// The submission marker commits before any remote call; the response and its interpretation are separate checkpoints.
 public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaymentSubmissionRepository
 {
+    private const string Pacs002Definition = "pacs.002.001.14";
+    private const string InconclusiveResponse = "The response did not establish a valid correlated final outcome.";
+
     public async Task<IReadOnlyList<OutgoingMessage>> ReadJournalAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        var rows = await db.OutgoingMessages.AsNoTracking().Where(p => p.PaymentId == paymentId)
-            .OrderBy(p => p.Direction).ToListAsync(cancellationToken);
-        return Array.AsReadOnly(rows.Select(p => p.Snapshot()).ToArray());
+        var rows = await db.OutgoingMessages
+            .AsNoTracking()
+            .Where(x => x.PaymentId == paymentId)
+            .OrderBy(x => x.Direction)
+            .ToListAsync(cancellationToken);
+        return rows.ConvertAll(row => row.Snapshot()).AsReadOnly();
     }
 
     public async Task<PaymentSubmission?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        if (!await db.Payments.AnyAsync(p => p.Id == paymentId && p.MessageType == Pacs008, cancellationToken))
+        if (!await db.Payments.AnyAsync(x => x.Id == paymentId && x.MessageType == Pacs008, cancellationToken))
         {
             return null;
         }
 
-        var rows = await ReadJournalAsync(paymentId, cancellationToken);
-        return new(rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Outbound)?.Submission,
-            rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Response)?.Response);
+        var journal = await ReadJournalAsync(paymentId, cancellationToken);
+        var submitted = journal.SingleOrDefault(x => x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Outbound);
+        var received = journal.SingleOrDefault(x => x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Response);
+        return new PaymentSubmission(submitted?.Submission, received?.Response);
     }
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, SubmissionMessageKind messageKind, DateTimeOffset now)
     {
-        if (!Enum.IsDefined(messageKind))
-        {
-            throw new ArgumentOutOfRangeException(nameof(messageKind));
-        }
-
-        db.OwnedPacs008(payment, claim, now);
-        var row = Committed(payment.Id, OutgoingMessageDirection.Outbound);
-        if (row.Status != MessageJournalStatus.ReadyToSend || row.Disposition != messageKind)
+        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        var ready = CommittedMessage(payment.Id, OutgoingMessageDirection.Outbound);
+        if (ready.Status != MessageJournalStatus.ReadyToSend || ready.Disposition != messageKind)
         {
             throw new InvalidOperationException("The committed message must be ready and must match the selected disposition.");
         }
 
-        row.Status = MessageJournalStatus.SendStarted;
-        row.StartedAtUtc = now.ToUniversalTime();
-        row.SubmissionOwner = claim.Token;
+        ready.Status = MessageJournalStatus.SendStarted;
+        ready.StartedAtUtc = now.ToUniversalTime();
+        ready.SubmissionOwner = claim.Token;
         db.RequireCurrentVersion(payment);
     }
 
     public void StageResponse(OutgoingPayment payment, TransactionClaim claim, IpsSubmissionResponse response, DateTimeOffset now)
     {
-        ArgumentNullException.ThrowIfNull(response);
-        db.OwnedPacs008(payment, claim, now);
-        var sent = Committed(payment.Id, OutgoingMessageDirection.Outbound);
-        if (db.Entry(sent).Property(p => p.Status).OriginalValue != MessageJournalStatus.SendStarted)
+        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        var sent = CommittedMessage(payment.Id, OutgoingMessageDirection.Outbound);
+        if (db.Entry(sent).Property(x => x.Status).OriginalValue != MessageJournalStatus.SendStarted)
         {
             throw new InvalidOperationException("Commit submission before recording its response.");
         }
@@ -67,17 +69,21 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
             throw new PersistenceConcurrencyException("The response belongs to a different submission owner.");
         }
 
-        var headers = PaymentJson.Write(response.Headers);
+        var headersJson = PaymentJson.Write(response.Headers);
         if (OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Response) is { } existing)
         {
-            if (existing.Content != response.Body || existing.HttpStatusCode != response.HttpStatusCode || existing.HeadersJson != headers)
+            var same = existing.Content == response.Body
+                && existing.HttpStatusCode == response.HttpStatusCode
+                && existing.HeadersJson == headersJson;
+            if (!same)
             {
                 throw new InvalidOperationException("Response evidence cannot be replaced.");
             }
 
             return;
         }
-        var row = new OutgoingMessageRow
+
+        db.OutgoingMessages.Add(new OutgoingMessageRow
         {
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
@@ -87,36 +93,30 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
             OriginatingMessageId = sent.Id,
             Status = MessageJournalStatus.Received,
             HttpStatusCode = response.HttpStatusCode,
-            HeadersJson = headers
-        };
-        db.OutgoingMessages.Add(row);
+            HeadersJson = headersJson
+        });
         db.RequireCurrentVersion(payment);
     }
 
     public void StageInterpretation(OutgoingPayment payment, TransactionClaim claim, IpsReply reply, DateTimeOffset now)
     {
-        db.OwnedPacs008(payment, claim, now);
-        var row = Committed(payment.Id, OutgoingMessageDirection.Response);
-        if (row.Status != MessageJournalStatus.Received)
+        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        var received = CommittedMessage(payment.Id, OutgoingMessageDirection.Response);
+        if (received.Status != MessageJournalStatus.Received)
         {
             throw new InvalidOperationException("Only unconsumed response evidence can be interpreted.");
         }
 
-        var conclusive = reply.Status is IpsReplyStatus.Accepted or IpsReplyStatus.Rejected;
-        row.Status = conclusive ? MessageJournalStatus.Processed : MessageJournalStatus.Failed;
         // Only a validated, correlated response establishes its protocol definition.
-        row.MessageDefinition = conclusive ? "pacs.002.001.14" : null;
-        row.ProcessedAtUtc = now.ToUniversalTime();
-        row.Failure = conclusive ? null : reply.Details.Description ?? "The response did not establish a valid correlated final outcome.";
-        if (row.Failure?.Length > 2000)
-        {
-            row.Failure = row.Failure[..2000];
-        }
-
+        var conclusive = reply.Status is IpsReplyStatus.Accepted or IpsReplyStatus.Rejected;
+        received.Status = conclusive ? MessageJournalStatus.Processed : MessageJournalStatus.Failed;
+        received.MessageDefinition = conclusive ? Pacs002Definition : null;
+        received.ProcessedAtUtc = now.ToUniversalTime();
+        received.Failure = conclusive ? null : reply.Details.Description ?? InconclusiveResponse;
         db.RequireCurrentVersion(payment);
     }
 
-    private OutgoingMessageRow Committed(Guid paymentId, OutgoingMessageDirection direction)
+    private OutgoingMessageRow CommittedMessage(Guid paymentId, OutgoingMessageDirection direction)
     {
         var row = OutgoingJournal.Find(db, paymentId, direction);
         if (row is null || db.Entry(row).State == EntityState.Added)

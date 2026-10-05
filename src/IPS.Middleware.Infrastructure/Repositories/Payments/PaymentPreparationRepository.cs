@@ -6,44 +6,59 @@ using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
+// Each artifact is written once; repeating identical content is a no-op, different content is refused.
 public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPaymentPreparationRepository
 {
+    private const string Pacs008Definition = "pacs.008.001.12";
+
     public async Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        var stored = await db.OutgoingMetadata.AsNoTracking()
-            .Where(p => p.Id == paymentId && p.MessageId != null)
-            .Select(p => new
-            {
-                MessageId = p.MessageId,
-                TransactionId = p.ProtocolTransactionId,
-                Unsigned = p.UnsignedXml,
-                Accepted = p.AcceptedJson
-            }).SingleOrDefaultAsync(cancellationToken);
+        var stored = await db.OutgoingMetadata
+            .AsNoTracking()
+            .Where(x => x.Id == paymentId && x.MessageId != null)
+            .Select(x => new { x.MessageId, x.ProtocolTransactionId, x.UnsignedXml, x.AcceptedJson })
+            .SingleOrDefaultAsync(cancellationToken);
         if (stored is null)
         {
             return null;
         }
 
-        var ready = await db.OutgoingMessages.AsNoTracking()
-            .SingleOrDefaultAsync(p => p.PaymentId == paymentId && p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Outbound, cancellationToken);
-        return new(stored.MessageId!, stored.TransactionId!, stored.Unsigned,
-            ready?.Disposition == SubmissionMessageKind.Signed ? ready.Content : null, PaymentJson.ReadAccepted(stored.Accepted), ready?.Disposition);
+        var ready = await db.OutgoingMessages
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Outbound, cancellationToken);
+        var signedXml = ready?.Disposition == SubmissionMessageKind.Signed ? ready.Content : null;
+
+        return new PreparedPaymentMessage(
+            stored.MessageId!,
+            stored.ProtocolTransactionId!,
+            stored.UnsignedXml,
+            signedXml,
+            PaymentJson.ReadAccepted(stored.AcceptedJson),
+            ready?.Disposition);
     }
 
     public void StageUnsignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(xml);
-        var entry = db.OwnedPacs008(payment, claim, now);
-        if (entry.Entity.UnsignedXml is null && OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound) is not null)
+        var metadata = db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending).Entity;
+        if (metadata.UnsignedXml is { } existing)
+        {
+            if (existing != xml)
+            {
+                throw new InvalidOperationException("Stored payment artifacts cannot be replaced.");
+            }
+
+            return;
+        }
+
+        if (OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound) is not null)
         {
             throw new InvalidOperationException("Preparation cannot change after the wire message is frozen.");
         }
 
-        db.WriteUnsignedXml(entry, xml);
+        metadata.UnsignedXml = xml;
     }
 
     public void StageSignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now) =>
@@ -51,17 +66,14 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
 
     public void StageDevelopmentUnsigned(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now)
     {
-        var entry = db.OwnedPacs008(payment, claim, now);
-        StageReady(payment, claim, entry.Property(p => p.UnsignedXml).OriginalValue
-            ?? throw new InvalidOperationException("Commit unsigned XML before selecting it for development transmission."),
-            SubmissionMessageKind.DevelopmentUnsigned, now);
+        var unsignedXml = CommittedUnsignedXml(payment, claim, now)
+            ?? throw new InvalidOperationException("Commit unsigned XML before selecting it for development transmission.");
+        StageReady(payment, claim, unsignedXml, SubmissionMessageKind.DevelopmentUnsigned, now);
     }
 
     private void StageReady(OutgoingPayment payment, TransactionClaim claim, string xml, SubmissionMessageKind kind, DateTimeOffset now)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(xml);
-        var entry = db.OwnedPacs008(payment, claim, now);
-        if (entry.Property(p => p.UnsignedXml).OriginalValue is null)
+        if (CommittedUnsignedXml(payment, claim, now) is null)
         {
             throw new InvalidOperationException("Commit unsigned XML before freezing the wire message.");
         }
@@ -75,18 +87,21 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
 
             return;
         }
-        var row = new OutgoingMessageRow
+
+        db.OutgoingMessages.Add(new OutgoingMessageRow
         {
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
             Direction = OutgoingMessageDirection.Outbound,
-            MessageDefinition = "pacs.008.001.12",
+            MessageDefinition = Pacs008Definition,
             Content = xml,
             CreatedAtUtc = now.ToUniversalTime(),
             Status = MessageJournalStatus.ReadyToSend,
             Disposition = kind
-        };
-        db.OutgoingMessages.Add(row);
+        });
         db.RequireCurrentVersion(payment);
     }
+
+    private string? CommittedUnsignedXml(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now) =>
+        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending).Property(x => x.UnsignedXml).OriginalValue;
 }

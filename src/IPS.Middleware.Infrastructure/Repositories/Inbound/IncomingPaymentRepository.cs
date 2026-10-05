@@ -15,25 +15,22 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
     {
         var bic = participantBic.Trim().ToUpperInvariant();
         // SQL equality ignores trailing spaces, so the ordinal match is chosen among the padded candidates.
-        var candidates = await db.IncomingMetadata.Include(p => p.Payment).Where(p => p.Payment.ParticipantBic == bic && p.Payment.EndToEndId == endToEndId)
+        var candidates = await db.IncomingMetadata
+            .Include(x => x.Payment)
+            .Where(x => x.Payment.ParticipantBic == bic && x.Payment.EndToEndId == endToEndId)
             .ToListAsync(cancellationToken);
-        return candidates.SingleOrDefault(c => c.Payment.EndToEndId == endToEndId) is { } match
-            ? new(match.Payment, IncomingPacs008.Freeze(IncomingPaymentJson.Read<Pacs008Request>(match.RequestJson)))
-            : null;
+        var match = candidates.SingleOrDefault(x => x.Payment.EndToEndId == endToEndId);
+        if (match is null)
+        {
+            return null;
+        }
+
+        var request = IncomingPacs008.Freeze(IncomingPaymentJson.Read<Pacs008Request>(match.RequestJson));
+        return new RegisteredIncomingPayment(match.Payment, request);
     }
 
     public void Add(IncomingPayment payment, Pacs008Request request, IncomingProcessingContext context)
     {
-        if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1)
-        {
-            throw new ArgumentException("Registration requires a newly registered payment.", nameof(payment));
-        }
-
-        if (request.EndToEndId != payment.EndToEndId)
-        {
-            throw new ArgumentException("The request belongs to another payment.", nameof(request));
-        }
-
         db.IncomingMetadata.Add(new IncomingPaymentMetadata
         {
             Id = payment.Id,

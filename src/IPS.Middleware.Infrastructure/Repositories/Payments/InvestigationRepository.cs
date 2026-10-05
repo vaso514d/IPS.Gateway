@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Payments.Investigation;
@@ -12,53 +13,68 @@ using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
+// Each investigation cycle journals its pacs.028 like a payment: prepare, submit once, record the response, then the result.
 public sealed class InvestigationRepository(TransactionDbContext db) : IInvestigationRepository
 {
+    private const string Pacs028Definition = "pacs.028.001.06";
+    private const string Pacs002Definition = "pacs.002.001.14";
+    private const string UnresolvedResponse = "Unresolved investigation response.";
+
     public async Task<InvestigationAttempt?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        var row = await db.Investigations.AsNoTracking().Where(p => p.PaymentId == paymentId).OrderByDescending(p => p.Number).FirstOrDefaultAsync(cancellationToken);
-        if (row is null)
+        var attempt = await db.Investigations
+            .AsNoTracking()
+            .Where(x => x.PaymentId == paymentId)
+            .OrderByDescending(x => x.Number)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (attempt is null)
         {
             return null;
         }
 
-        var messages = await db.OutgoingMessages.AsNoTracking().Where(p => p.InvestigationId == row.Id).ToListAsync(cancellationToken);
-        return new(new(row.Id, row.Number, row.MessageId, row.StatusRequestId, row.CreatedAtUtc, row.DeadlineUtc), row.UnsignedXml,
-            messages.SingleOrDefault(p => p.Direction == OutgoingMessageDirection.Outbound)?.Snapshot(),
-            messages.SingleOrDefault(p => p.Direction == OutgoingMessageDirection.Response)?.Snapshot(),
-            row.Outcome is { } outcome ? new(outcome, PaymentJson.Read<PaymentDetails>(row.DetailsJson)!) : null, row.TransportFailure);
+        var messages = await db.OutgoingMessages
+            .AsNoTracking()
+            .Where(x => x.InvestigationId == attempt.Id)
+            .ToListAsync(cancellationToken);
+        var request = messages.SingleOrDefault(x => x.Direction == OutgoingMessageDirection.Outbound);
+        var response = messages.SingleOrDefault(x => x.Direction == OutgoingMessageDirection.Response);
+        var result = attempt.Outcome is { } outcome
+            ? new InvestigationReply(outcome, PaymentJson.Read<PaymentDetails>(attempt.DetailsJson)!)
+            : null;
+
+        return new InvestigationAttempt(
+            new InvestigationIdentity(attempt.Id, attempt.Number, attempt.MessageId, attempt.StatusRequestId, attempt.CreatedAtUtc, attempt.DeadlineUtc),
+            attempt.UnsignedXml,
+            request?.Snapshot(),
+            response?.Snapshot(),
+            result,
+            attempt.TransportFailure);
     }
 
     public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, InvestigationOptions options, CancellationToken cancellationToken)
     {
         var firstDue = now - options.FirstDelay;
-        return await db.OutgoingMetadata.AsNoTracking().Where(p => p.Payment.MessageType == Pacs008 &&
-            (p.Payment.CurrentStatus == TransactionStatus.Uncertain || p.Payment.CurrentStatus == TransactionStatus.Investigating) &&
-            (p.ClaimToken == null || p.ClaimExpiresAtUtc <= now) &&
-            (p.NextActionAtUtc == null || p.NextActionAtUtc <= now) &&
-            (p.Payment.CurrentSource == StatusSource.Recovery || p.Payment.CurrentStatusAtUtc <= firstDue || db.Investigations.Any(i => i.PaymentId == p.Id)) &&
-            !db.Investigations.Any(i => i.PaymentId == p.Id && i.Outcome == InvestigationOutcome.NotFound))
-            .OrderBy(p => p.NextActionAtUtc ??
-                (p.Payment.CurrentSource == StatusSource.Recovery || db.Investigations.Any(i => i.PaymentId == p.Id)
-                    ? p.Payment.CurrentStatusAtUtc : p.Payment.CurrentStatusAtUtc.AddSeconds(options.FirstDelay.TotalSeconds))).ThenBy(p => p.Id)
-            .Select(p => p.Id).Take(options.DiscoveryBatch).ToListAsync(cancellationToken);
+        return await db.OutgoingMetadata
+            .AsNoTracking()
+            .Where(IsUnresolvedPacs008())
+            .Where(IsUnownedAndDue(now))
+            .Where(HasWaitedForFirstInvestigation(firstDue))
+            .Where(x => !db.Investigations.Any(i => i.PaymentId == x.Id && i.Outcome == InvestigationOutcome.NotFound))
+            // Without a scheduled action, a first cycle becomes due FirstDelay after the uncertain outcome.
+            .OrderBy(x => x.NextActionAtUtc
+                ?? (x.Payment.CurrentSource == StatusSource.Recovery || db.Investigations.Any(i => i.PaymentId == x.Id)
+                    ? x.Payment.CurrentStatusAtUtc
+                    : x.Payment.CurrentStatusAtUtc.AddSeconds(options.FirstDelay.TotalSeconds)))
+            .ThenBy(x => x.Id)
+            .Select(x => x.Id)
+            .Take(options.DiscoveryBatch)
+            .ToListAsync(cancellationToken);
     }
 
     public void StageIdentity(OutgoingPayment payment, TransactionClaim claim, InvestigationIdentity identity, DateTimeOffset now)
     {
-        Own(payment, claim, now);
-        if (identity.Id == Guid.Empty || identity.Number < 1 || identity.MessageId.Length is < 1 or > 35 || identity.StatusRequestId.Length is < 1 or > 35)
-        {
-            throw new ArgumentException("A complete investigation identity is required.");
-        }
-
-        var previous = db.Investigations.Where(p => p.PaymentId == payment.Id).OrderByDescending(p => p.Number).FirstOrDefault();
-        if (previous is not null && (identity.DeadlineUtc != previous.DeadlineUtc || previous.Outcome != InvestigationOutcome.Unresolved || identity.Number != previous.Number + 1) || previous is null && identity.Number != 1)
-        {
-            throw new InvalidOperationException("Complete the previous unresolved cycle before creating the next.");
-        }
-
-        var row = new InvestigationRow
+        RequireOwner(payment, claim, now);
+        var attempt = new InvestigationRow
         {
             Id = identity.Id,
             PaymentId = payment.Id,
@@ -68,90 +84,81 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             CreatedAtUtc = identity.CreatedAtUtc.ToUniversalTime(),
             DeadlineUtc = identity.DeadlineUtc.ToUniversalTime()
         };
-        db.Investigations.Add(row);
+        db.Investigations.Add(attempt);
         db.RequireCurrentVersion(payment);
     }
 
     public void StageUnsigned(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, string xml, DateTimeOffset now)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(xml);
-        Own(payment, claim, now);
-        var row = Attempt(payment.Id, attemptId);
-        if (row.UnsignedXml is not null || row.Outcome is not null)
+        RequireOwner(payment, claim, now);
+        var attempt = CommittedAttempt(payment.Id, attemptId);
+        if (attempt.UnsignedXml is not null || attempt.Outcome is not null)
         {
             throw new InvalidOperationException("Unsigned preparation is write-once.");
         }
 
-        row.UnsignedXml = xml;
+        attempt.UnsignedXml = xml;
         db.RequireCurrentVersion(payment);
     }
 
     public void StageReady(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, SignedMessage message, DateTimeOffset now)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message.Xml);
-        if (!Enum.IsDefined(message.Kind))
-        {
-            throw new ArgumentOutOfRangeException(nameof(message));
-        }
-
-        Own(payment, claim, now);
-        var attempt = Attempt(payment.Id, attemptId);
+        RequireOwner(payment, claim, now);
+        var attempt = CommittedAttempt(payment.Id, attemptId);
         if (message.Kind == SubmissionMessageKind.DevelopmentUnsigned && message.Xml != attempt.UnsignedXml)
         {
             throw new InvalidOperationException("Development sending must use the frozen unsigned XML.");
         }
 
-        if (db.Entry(attempt).Property(p => p.UnsignedXml).OriginalValue is null || attempt.Outcome is not null || Message(attemptId, OutgoingMessageDirection.Outbound) is not null)
+        var preparedAndOpen = db.Entry(attempt).Property(x => x.UnsignedXml).OriginalValue is not null
+            && attempt.Outcome is null
+            && Message(attemptId, OutgoingMessageDirection.Outbound) is null;
+        if (!preparedAndOpen)
         {
             throw new InvalidOperationException("Commit preparation before selecting exactly one wire message.");
         }
 
         var original = OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound)
             ?? throw new InvalidOperationException("An investigation requires the original payment message.");
-        var row = new OutgoingMessageRow
+        db.OutgoingMessages.Add(new OutgoingMessageRow
         {
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
             InvestigationId = attemptId,
             Direction = OutgoingMessageDirection.Outbound,
-            MessageDefinition = "pacs.028.001.06",
+            MessageDefinition = Pacs028Definition,
             Content = message.Xml,
             CreatedAtUtc = now.ToUniversalTime(),
             OriginatingMessageId = original.Id,
             Disposition = message.Kind,
             Status = MessageJournalStatus.ReadyToSend
-        };
-        db.OutgoingMessages.Add(row);
+        });
         db.RequireCurrentVersion(payment);
     }
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, DateTimeOffset now)
     {
-        Own(payment, claim, now);
-        Attempt(payment.Id, attemptId);
-        var row = CommittedMessage(attemptId, OutgoingMessageDirection.Outbound);
-        if (row.Status != MessageJournalStatus.ReadyToSend)
+        RequireOwner(payment, claim, now);
+        CommittedAttempt(payment.Id, attemptId);
+        var ready = CommittedMessage(attemptId, OutgoingMessageDirection.Outbound);
+        if (ready.Status != MessageJournalStatus.ReadyToSend)
         {
             throw new InvalidOperationException("An investigation may be submitted once.");
         }
 
-        row.Status = MessageJournalStatus.SendStarted;
-        row.StartedAtUtc = now.ToUniversalTime();
-        row.SubmissionOwner = claim.Token;
+        ready.Status = MessageJournalStatus.SendStarted;
+        ready.StartedAtUtc = now.ToUniversalTime();
+        ready.SubmissionOwner = claim.Token;
         db.RequireCurrentVersion(payment);
     }
 
-    public void StageResponse(
-        OutgoingPayment payment,
-        TransactionClaim claim,
-        Guid attemptId,
-        IpsSubmissionResponse response,
-        DateTimeOffset now)
+    public void StageResponse(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, IpsSubmissionResponse response, DateTimeOffset now)
     {
-        Own(payment, claim, now);
-        Attempt(payment.Id, attemptId);
+        RequireOwner(payment, claim, now);
+        CommittedAttempt(payment.Id, attemptId);
         var sent = CommittedMessage(attemptId, OutgoingMessageDirection.Outbound);
-        if (db.Entry(sent).Property(p => p.Status).OriginalValue != MessageJournalStatus.SendStarted || sent.SubmissionOwner != claim.Token)
+        var committedSubmission = db.Entry(sent).Property(x => x.Status).OriginalValue == MessageJournalStatus.SendStarted;
+        if (!committedSubmission || sent.SubmissionOwner != claim.Token)
         {
             throw new PersistenceConcurrencyException("A response requires the committed submission owner.");
         }
@@ -161,7 +168,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             throw new InvalidOperationException("Response evidence is write-once.");
         }
 
-        var row = new OutgoingMessageRow
+        db.OutgoingMessages.Add(new OutgoingMessageRow
         {
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
@@ -173,8 +180,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             Status = MessageJournalStatus.Received,
             HttpStatusCode = response.HttpStatusCode,
             HeadersJson = PaymentJson.Write(response.Headers)
-        };
-        db.OutgoingMessages.Add(row);
+        });
         db.RequireCurrentVersion(payment);
     }
 
@@ -186,31 +192,20 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         string? transportFailure,
         DateTimeOffset now)
     {
-        Own(payment, claim, now);
-        var attempt = Attempt(payment.Id, attemptId);
+        RequireOwner(payment, claim, now);
+        var attempt = CommittedAttempt(payment.Id, attemptId);
         if (attempt.Outcome is not null)
         {
             throw new InvalidOperationException("Investigation results are immutable.");
         }
 
-        if (Message(attemptId, OutgoingMessageDirection.Response) is { } response)
+        if (Message(attemptId, OutgoingMessageDirection.Response) is not null)
         {
-            CommittedMessage(attemptId, OutgoingMessageDirection.Response);
-            if (response.Status != MessageJournalStatus.Received || transportFailure is not null)
-            {
-                throw new InvalidOperationException("Interpret unconsumed response evidence only.");
-            }
-
-            response.Status = result.Outcome == InvestigationOutcome.Unresolved ? MessageJournalStatus.Failed : MessageJournalStatus.Processed;
-            response.ProcessedAtUtc = now.ToUniversalTime();
-            response.MessageDefinition = result.Outcome == InvestigationOutcome.Unresolved ? null : "pacs.002.001.14";
-            response.Failure = result.Outcome == InvestigationOutcome.Unresolved ? result.Details.Description ?? "Unresolved investigation response." : null;
-            db.RequireCurrentVersion(payment);
+            ConsumeResponse(attemptId, result, transportFailure, now);
         }
-        else if (result.Outcome != InvestigationOutcome.Unresolved || string.IsNullOrWhiteSpace(transportFailure) ||
-            db.Entry(CommittedMessage(attemptId, OutgoingMessageDirection.Outbound)).Property(p => p.Status).OriginalValue != MessageJournalStatus.SendStarted)
+        else
         {
-            throw new InvalidOperationException("A result requires committed response or submission failure evidence.");
+            RequireAbandonedSubmission(attemptId, result, transportFailure);
         }
 
         attempt.Outcome = result.Outcome;
@@ -220,34 +215,71 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         db.RequireCurrentVersion(payment);
     }
 
-    private void Own(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now)
+    private void ConsumeResponse(Guid attemptId, InvestigationReply result, string? transportFailure, DateTimeOffset now)
     {
-        var entry = db.Entry(db.Metadata(payment));
-        if (entry.State is EntityState.Detached or EntityState.Added || payment.MessageType != Pacs008 || payment.CurrentStatus != TransactionStatus.Investigating)
+        var response = CommittedMessage(attemptId, OutgoingMessageDirection.Response);
+        if (response.Status != MessageJournalStatus.Received || transportFailure is not null)
         {
-            throw new InvalidOperationException("Investigation writes require a tracked investigating payment.");
+            throw new InvalidOperationException("Interpret unconsumed response evidence only.");
         }
 
-        if (!entry.Entity.HasLiveClaim(claim, now) || entry.Property(p => p.ClaimToken).OriginalValue != claim.Token)
+        var unresolved = result.Outcome == InvestigationOutcome.Unresolved;
+        response.Status = unresolved ? MessageJournalStatus.Failed : MessageJournalStatus.Processed;
+        response.ProcessedAtUtc = now.ToUniversalTime();
+        response.MessageDefinition = unresolved ? null : Pacs002Definition;
+        response.Failure = unresolved ? result.Details.Description ?? UnresolvedResponse : null;
+    }
+
+    // Without a response, only an unresolved result for a committed, abandoned submission may be recorded.
+    private void RequireAbandonedSubmission(Guid attemptId, InvestigationReply result, string? transportFailure)
+    {
+        var sent = CommittedMessage(attemptId, OutgoingMessageDirection.Outbound);
+        var submissionStarted = db.Entry(sent).Property(x => x.Status).OriginalValue == MessageJournalStatus.SendStarted;
+        var abandoned = result.Outcome == InvestigationOutcome.Unresolved
+            && !string.IsNullOrWhiteSpace(transportFailure)
+            && submissionStarted;
+        if (!abandoned)
         {
-            throw new PersistenceConcurrencyException("Investigation requires a committed live owner.");
+            throw new InvalidOperationException("A result requires committed response or submission failure evidence.");
         }
     }
-    private InvestigationRow Attempt(Guid paymentId, Guid id)
+
+    private static Expression<Func<OutgoingPaymentMetadata, bool>> IsUnresolvedPacs008() =>
+        x => x.Payment.MessageType == Pacs008
+            && (x.Payment.CurrentStatus == TransactionStatus.Uncertain || x.Payment.CurrentStatus == TransactionStatus.Investigating);
+
+    private static Expression<Func<OutgoingPaymentMetadata, bool>> IsUnownedAndDue(DateTimeOffset now) =>
+        x => (x.ClaimToken == null || x.ClaimExpiresAtUtc <= now)
+            && (x.NextActionAtUtc == null || x.NextActionAtUtc <= now);
+
+    // Recovery and already-started investigations continue at once; a fresh uncertain outcome waits FirstDelay.
+    private Expression<Func<OutgoingPaymentMetadata, bool>> HasWaitedForFirstInvestigation(DateTimeOffset firstDue) =>
+        x => x.Payment.CurrentSource == StatusSource.Recovery
+            || x.Payment.CurrentStatusAtUtc <= firstDue
+            || db.Investigations.Any(i => i.PaymentId == x.Id);
+
+    private void RequireOwner(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now) =>
+        db.OwnedPacs008(payment, claim, now, TransactionStatus.Investigating);
+
+    private InvestigationRow CommittedAttempt(Guid paymentId, Guid attemptId)
     {
-        var row = db.Investigations.Local.SingleOrDefault(p => p.Id == id) ?? db.Investigations.Single(p => p.Id == id);
-        if (row.PaymentId != paymentId || db.Entry(row).State == EntityState.Added)
+        var attempt = db.Investigations.Local.SingleOrDefault(x => x.Id == attemptId)
+            ?? db.Investigations.Single(x => x.Id == attemptId);
+        if (attempt.PaymentId != paymentId || db.Entry(attempt).State == EntityState.Added)
         {
             throw new InvalidOperationException("Commit the investigation identity first.");
         }
 
-        return row;
+        return attempt;
     }
-    private OutgoingMessageRow? Message(Guid id, OutgoingMessageDirection direction) =>
-        db.OutgoingMessages.Local.SingleOrDefault(p => p.InvestigationId == id && p.Direction == direction) ?? db.OutgoingMessages.SingleOrDefault(p => p.InvestigationId == id && p.Direction == direction);
-    private OutgoingMessageRow CommittedMessage(Guid id, OutgoingMessageDirection direction)
+
+    private OutgoingMessageRow? Message(Guid attemptId, OutgoingMessageDirection direction) =>
+        db.OutgoingMessages.Local.SingleOrDefault(x => x.InvestigationId == attemptId && x.Direction == direction)
+        ?? db.OutgoingMessages.SingleOrDefault(x => x.InvestigationId == attemptId && x.Direction == direction);
+
+    private OutgoingMessageRow CommittedMessage(Guid attemptId, OutgoingMessageDirection direction)
     {
-        var row = Message(id, direction);
+        var row = Message(attemptId, direction);
         if (row is null || db.Entry(row).State == EntityState.Added)
         {
             throw new InvalidOperationException("Commit the preceding journal checkpoint first.");

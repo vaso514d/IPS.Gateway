@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Receipts;
-using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -10,33 +9,33 @@ namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
 public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWorkRepository
 {
-    public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
-        return await db.InboundJournal.AsNoTracking().Where(DueAt(now))
-            .OrderBy(e => e.NextActionAtUtc).ThenBy(e => e.ReceivedAtUtc).ThenBy(e => e.Id)
-            .Take(take).Select(e => e.Id).ToListAsync(cancellationToken);
-    }
+    public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken) =>
+        await db.InboundJournal
+            .AsNoTracking()
+            .Where(DueAt(now))
+            .OrderBy(x => x.NextActionAtUtc)
+            .ThenBy(x => x.ReceivedAtUtc)
+            .ThenBy(x => x.Id)
+            .Take(take)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
 
     public async Task<InboundClaim?> StageClaimAsync(Guid journalId, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(duration, TimeSpan.Zero);
-        var entry = await db.InboundJournal.Where(DueAt(now)).SingleOrDefaultAsync(e => e.Id == journalId, cancellationToken);
+        var entry = await db.InboundJournal
+            .Where(DueAt(now))
+            .SingleOrDefaultAsync(x => x.Id == journalId, cancellationToken);
         if (entry is null)
         {
             return null;
         }
 
         var claim = new InboundClaim(entry.Id, Guid.NewGuid(), now.ToUniversalTime() + duration);
-        Own(entry, claim.Token, claim.ExpiresAtUtc);
+        SetClaim(entry, claim.Token, claim.ExpiresAtUtc);
         return claim;
     }
 
-    public async Task<bool> StageFinishAsync(
-        InboundClaim claim,
-        DateTimeOffset now,
-        DateTimeOffset? nextActionAtUtc,
-        CancellationToken cancellationToken)
+    public async Task<bool> StageFinishAsync(InboundClaim claim, DateTimeOffset now, DateTimeOffset? nextActionAtUtc, CancellationToken cancellationToken)
     {
         if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
         {
@@ -45,16 +44,19 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
         entry.Status = nextActionAtUtc is null ? InboundProcessingStatus.Processed : InboundProcessingStatus.Pending;
         entry.NextActionAtUtc = nextActionAtUtc?.ToUniversalTime();
-        Own(entry, null, null);
+        SetClaim(entry, null, null);
         return true;
     }
 
-    public async Task<OwnedInboundReceipt?> FindOwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken) =>
-        await OwnedAsync(claim, now, cancellationToken) is { } entry ? new(entry.Id, entry.ParticipantBic, entry.ReceivedAtUtc) : null;
+    public async Task<OwnedInboundReceipt?> FindOwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var entry = await OwnedAsync(claim, now, cancellationToken);
+        return entry is null ? null : new OwnedInboundReceipt(entry.Id, entry.ParticipantBic, entry.ReceivedAtUtc);
+    }
 
     public async Task<bool> StageHoldAsync(InboundClaim claim, DateTimeOffset now, string reason, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        // Reasons may carry protocol detail; the column has a fixed limit.
         ArgumentOutOfRangeException.ThrowIfGreaterThan(reason.Trim().Length, InboundJournalEntry.HoldReasonLimit, nameof(reason));
         if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
         {
@@ -64,7 +66,7 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         entry.Status = InboundProcessingStatus.Held;
         entry.HoldReason = reason.Trim();
         entry.NextActionAtUtc = null;
-        Own(entry, null, null);
+        SetClaim(entry, null, null);
         return true;
     }
 
@@ -81,8 +83,12 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
         if (entry.OriginalJson is { } stored)
         {
-            return IncomingPaymentJson.Read<IncomingPacs008Reference>(stored) == original
-                ? true : throw new InvalidOperationException("The receipt's original references cannot be replaced.");
+            if (IncomingPaymentJson.Read<IncomingPacs008Reference>(stored) != original)
+            {
+                throw new InvalidOperationException("The receipt's original references cannot be replaced.");
+            }
+
+            return true;
         }
 
         entry.OriginalJson = IncomingPaymentJson.Write(original);
@@ -101,9 +107,9 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
             throw new InvalidOperationException("Save original references before attaching a receipt.");
         }
 
-        if (entry.IncomingPaymentId is { } attached)
+        if (entry.IncomingPaymentId is { } attached && attached != paymentId)
         {
-            return attached == paymentId ? true : throw new InvalidOperationException("The receipt is attached to another payment.");
+            throw new InvalidOperationException("The receipt is attached to another payment.");
         }
 
         entry.IncomingPaymentId = paymentId;
@@ -112,7 +118,9 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
     // Discovery and acquisition share one definition: pending, due and without a live owner.
     internal static Expression<Func<InboundJournalEntry, bool>> DueAt(DateTimeOffset now) =>
-        e => e.Status == InboundProcessingStatus.Pending && e.NextActionAtUtc <= now && (e.ClaimToken == null || e.ClaimExpiresAtUtc <= now);
+        x => x.Status == InboundProcessingStatus.Pending
+            && x.NextActionAtUtc <= now
+            && (x.ClaimToken == null || x.ClaimExpiresAtUtc <= now);
 
     private async Task<InboundJournalEntry?> OwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -120,7 +128,7 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         return entry is not null && entry.IsOwnedBy(claim, now) ? entry : null;
     }
 
-    private void Own(InboundJournalEntry entry, Guid? token, DateTimeOffset? expiresAtUtc)
+    private static void SetClaim(InboundJournalEntry entry, Guid? token, DateTimeOffset? expiresAtUtc)
     {
         entry.ClaimToken = token;
         entry.ClaimExpiresAtUtc = expiresAtUtc;

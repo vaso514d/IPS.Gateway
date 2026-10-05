@@ -9,102 +9,130 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
+// Reply artifacts are prepared once, then each send attempt is journaled before the call and completed once.
 public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncomingReplyRepository
 {
+    private const string StructuralRejectionReason = "FF01";
+
     public async Task<IncomingReplySnapshot?> ReadAsync(Guid journalId, CancellationToken token)
     {
-        var row = await db.IncomingReplies.AsNoTracking().SingleOrDefaultAsync(r => r.JournalId == journalId, token);
-        if (row is null)
+        var reply = await db.IncomingReplies
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.JournalId == journalId, token);
+        if (reply is null)
         {
             return null;
         }
 
-        var attempts = await db.IncomingReplyAttempts.AsNoTracking().Where(a => a.JournalId == journalId).OrderBy(a => a.Number).ToListAsync(token);
-        return new(journalId, Envelope(row), row.UnsignedXml, row.MessageXml, row.MessageKind, row.Status, row.ReviewReason,
-            attempts.ConvertAll(a => a.Snapshot()).AsReadOnly());
+        var attempts = await db.IncomingReplyAttempts
+            .AsNoTracking()
+            .Where(x => x.JournalId == journalId)
+            .OrderBy(x => x.Number)
+            .ToListAsync(token);
+
+        return new IncomingReplySnapshot(
+            journalId,
+            Envelope(reply),
+            reply.UnsignedXml,
+            reply.MessageXml,
+            reply.MessageKind,
+            reply.Status,
+            reply.ReviewReason,
+            attempts.ConvertAll(attempt => attempt.Snapshot()).AsReadOnly());
     }
 
     public async Task<IncomingReplyDecision?> ReadDecisionAsync(Guid journalId, CancellationToken token)
     {
-        var paymentId = await db.InboundJournal.Where(r => r.Id == journalId).Select(r => r.IncomingPaymentId).SingleOrDefaultAsync(token);
+        var paymentId = await db.InboundJournal
+            .Where(x => x.Id == journalId)
+            .Select(x => x.IncomingPaymentId)
+            .SingleOrDefaultAsync(token);
         if (paymentId is null)
         {
             return null;
         }
 
-        var p = await db.IncomingPayments.AsNoTracking().SingleAsync(p => p.Id == paymentId, token);
-        return p.IpsDecision is { } d ? new(d.Accepted, d.DecidedAtUtc, d.ReasonCode, d.Description) : null;
+        var payment = await db.IncomingPayments
+            .AsNoTracking()
+            .SingleAsync(x => x.Id == paymentId, token);
+        return payment.IpsDecision is { } decision
+            ? new IncomingReplyDecision(decision.Accepted, decision.DecidedAtUtc, decision.ReasonCode, decision.Description)
+            : null;
     }
 
     public async Task StageEnvelopeAsync(InboundClaim claim, IncomingReplyEnvelope envelope, DateTimeOffset now, CancellationToken token)
     {
-        var receipt = await TouchAsync(claim, now, token);
-        if (receipt.ParticipantBic != envelope.ParticipantBic || receipt.OriginalJson is null ||
-            IncomingPaymentJson.Read<IncomingPacs008Reference>(receipt.OriginalJson) != envelope.Original || envelope.MaxAttempts < 1)
+        var receipt = await OwnedReceiptAsync(claim, now, token);
+        var matchesReceipt = receipt.ParticipantBic == envelope.ParticipantBic
+            && receipt.OriginalJson is not null
+            && IncomingPaymentJson.Read<IncomingPacs008Reference>(receipt.OriginalJson) == envelope.Original;
+        if (!matchesReceipt || envelope.MaxAttempts < 1)
         {
             throw new InvalidOperationException("Reply context must match the owned receipt.");
         }
 
-        if (receipt.IncomingPaymentId is not null)
+        if (receipt.IncomingPaymentId is null)
         {
-            if (await ReadDecisionAsync(claim.JournalId, token) != envelope.Decision)
+            if (envelope.Decision.Accepted || envelope.Decision.ReasonCode != StructuralRejectionReason)
             {
-                throw new InvalidOperationException("Reply must use the payment's immutable IPS decision.");
+                throw new InvalidOperationException("Only a trusted structural rejection may reply without a payment.");
             }
         }
-        else if (envelope.Decision.Accepted || envelope.Decision.ReasonCode != "FF01")
+        else if (await ReadDecisionAsync(claim.JournalId, token) != envelope.Decision)
         {
-            throw new InvalidOperationException("Only a trusted structural rejection may reply without a payment.");
+            throw new InvalidOperationException("Reply must use the payment's immutable IPS decision.");
         }
 
-        if (await db.IncomingReplies.AnyAsync(r => r.JournalId == claim.JournalId, token))
+        if (await db.IncomingReplies.AnyAsync(x => x.JournalId == claim.JournalId, token))
         {
             throw new InvalidOperationException("The receipt already has a reply.");
         }
 
-        db.Add(new IncomingReplyRow { JournalId = claim.JournalId, EnvelopeJson = IncomingPaymentJson.Write(envelope) });
+        db.IncomingReplies.Add(new IncomingReplyRow { JournalId = claim.JournalId, EnvelopeJson = IncomingPaymentJson.Write(envelope) });
     }
 
     public async Task StageUnsignedAsync(InboundClaim claim, string xml, DateTimeOffset now, CancellationToken token)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(xml);
-        var row = await OwnedReplyAsync(claim, now, token);
-        if (row.UnsignedXml is not null)
+        var reply = await OwnedReplyAsync(claim, now, token);
+        if (reply.UnsignedXml is not null)
         {
             throw new InvalidOperationException("Unsigned reply is already saved.");
         }
 
-        row.UnsignedXml = xml;
+        reply.UnsignedXml = xml;
     }
+
     public async Task StageMessageAsync(InboundClaim claim, SignedMessage message, DateTimeOffset now, CancellationToken token)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(message.Xml);
-        var row = await OwnedReplyAsync(claim, now, token);
-        if (row.UnsignedXml is null || row.MessageXml is not null || !Enum.IsDefined(message.Kind))
+        var reply = await OwnedReplyAsync(claim, now, token);
+        if (reply.UnsignedXml is null || reply.MessageXml is not null)
         {
             throw new InvalidOperationException("Reply signing requires unsigned XML and no previous signed artifact.");
         }
 
-        row.MessageXml = message.Xml;
-        row.MessageKind = message.Kind;
-        row.Status = IncomingReplyStatus.Ready;
+        reply.MessageXml = message.Xml;
+        reply.MessageKind = message.Kind;
+        reply.Status = IncomingReplyStatus.Ready;
     }
+
     public async Task<IncomingReplyAttempt> StageAttemptAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
-        var row = await OwnedReplyAsync(claim, now, token);
-        if (row.Status != IncomingReplyStatus.Ready)
+        var reply = await OwnedReplyAsync(claim, now, token);
+        if (reply.Status != IncomingReplyStatus.Ready)
         {
             throw new InvalidOperationException("Only a ready reply can be sent.");
         }
 
-        var attempts = await db.IncomingReplyAttempts.Where(a => a.JournalId == claim.JournalId).ToListAsync(token);
-        if (attempts.Any(a => a.CompletionJson is not null && !a.Consumed))
+        var attempts = await db.IncomingReplyAttempts
+            .Where(x => x.JournalId == claim.JournalId)
+            .ToListAsync(token);
+        if (attempts.Any(x => x.CompletionJson is not null && !x.Consumed))
         {
             throw new InvalidOperationException("Consume saved response evidence before another send.");
         }
 
         var number = attempts.Count + 1;
-        if (number > Envelope(row).MaxAttempts)
+        if (number > Envelope(reply).MaxAttempts)
         {
             throw new InvalidOperationException("Reply attempt budget is exhausted.");
         }
@@ -117,9 +145,10 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
             OwnerToken = claim.Token,
             StartedAtUtc = now.ToUniversalTime()
         };
-        db.Add(attempt);
+        db.IncomingReplyAttempts.Add(attempt);
         return attempt.Snapshot();
     }
+
     public async Task StageCompletionAsync(
         InboundClaim claim,
         Guid attemptId,
@@ -127,8 +156,8 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
         DateTimeOffset now,
         CancellationToken token)
     {
-        var call = await OwnedAttemptAsync(claim, attemptId, now, token);
-        if (call.OwnerToken != claim.Token || call.CompletionJson is not null)
+        var attempt = await OwnedAttemptAsync(claim, attemptId, now, token);
+        if (attempt.OwnerToken != claim.Token || attempt.CompletionJson is not null)
         {
             throw new PersistenceConcurrencyException("Only the original live attempt owner can save its response once.");
         }
@@ -138,22 +167,25 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
             throw new ArgumentException("Store either a response or a failure.");
         }
 
-        call.CompletionJson = IncomingPaymentJson.Write(completion);
+        attempt.CompletionJson = IncomingPaymentJson.Write(completion);
     }
+
     public async Task StageConsumptionAsync(InboundClaim claim, Guid attemptId, DateTimeOffset now, CancellationToken token)
     {
-        var call = await OwnedAttemptAsync(claim, attemptId, now, token);
-        if (call.CompletionJson is null || call.Consumed)
+        var attempt = await OwnedAttemptAsync(claim, attemptId, now, token);
+        if (attempt.CompletionJson is null || attempt.Consumed)
         {
             throw new InvalidOperationException("Consume complete evidence only once.");
         }
 
-        call.Consumed = true;
+        attempt.Consumed = true;
     }
+
     public async Task StageOutcomeAsync(InboundClaim claim, IncomingReplyStatus status, string? reason, DateTimeOffset now, CancellationToken token)
     {
-        var row = await OwnedReplyAsync(claim, now, token);
-        if (row.Status != IncomingReplyStatus.Ready || status is not (IncomingReplyStatus.Delivered or IncomingReplyStatus.ManualReview))
+        var reply = await OwnedReplyAsync(claim, now, token);
+        var completing = status is IncomingReplyStatus.Delivered or IncomingReplyStatus.ManualReview;
+        if (reply.Status != IncomingReplyStatus.Ready || !completing)
         {
             throw new InvalidOperationException("A ready reply may complete or require review once.");
         }
@@ -163,20 +195,32 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
             ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         }
 
-        row.Status = status;
-        row.ReviewReason = status == IncomingReplyStatus.ManualReview ? reason : null;
+        reply.Status = status;
+        reply.ReviewReason = status == IncomingReplyStatus.ManualReview ? reason : null;
     }
-    public async Task<bool> IsOwnerAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
-    {
-        return await db.InboundJournal.AsNoTracking().AnyAsync(r => r.Id == claim.JournalId && r.Status == InboundProcessingStatus.Pending &&
-            r.ClaimToken == claim.Token && r.ClaimExpiresAtUtc > now, token);
-    }
+
+    public Task<bool> IsOwnerAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token) =>
+        db.InboundJournal
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == claim.JournalId
+                && x.Status == InboundProcessingStatus.Pending
+                && x.ClaimToken == claim.Token
+                && x.ClaimExpiresAtUtc > now, token);
+
     private async Task<IncomingReplyRow> OwnedReplyAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
-        await TouchAsync(claim, now, token);
-        return await db.IncomingReplies.SingleAsync(r => r.JournalId == claim.JournalId, token);
+        await OwnedReceiptAsync(claim, now, token);
+        return await db.IncomingReplies.SingleAsync(x => x.JournalId == claim.JournalId, token);
     }
-    private async Task<InboundJournalEntry> TouchAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
+
+    private async Task<IncomingReplyAttemptRow> OwnedAttemptAsync(InboundClaim claim, Guid attemptId, DateTimeOffset now, CancellationToken token)
+    {
+        await OwnedReceiptAsync(claim, now, token);
+        return await db.IncomingReplyAttempts.SingleAsync(x => x.Id == attemptId && x.JournalId == claim.JournalId, token);
+    }
+
+    // Every checkpoint advances the receipt's reply marker, so a stale owner's concurrent write fails on the row version.
+    private async Task<InboundJournalEntry> OwnedReceiptAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
         var receipt = await db.InboundJournal.FindAsync([claim.JournalId], token);
         if (receipt is null || !receipt.IsOwnedBy(claim, now))
@@ -184,8 +228,8 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
             throw new PersistenceConcurrencyException("Reply checkpoint requires live receipt ownership.");
         }
 
-        var entry = db.Entry(receipt);
-        if (entry.Property(r => r.ClaimToken).OriginalValue != claim.Token || entry.Property(r => r.ClaimToken).IsModified)
+        var claimToken = db.Entry(receipt).Property(x => x.ClaimToken);
+        if (claimToken.OriginalValue != claim.Token || claimToken.IsModified)
         {
             throw new InvalidOperationException("Commit receipt ownership before staging reply checkpoints.");
         }
@@ -193,10 +237,7 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
         receipt.ReplyCheckpoint = Guid.NewGuid();
         return receipt;
     }
-    private async Task<IncomingReplyAttemptRow> OwnedAttemptAsync(InboundClaim claim, Guid id, DateTimeOffset now, CancellationToken token)
-    {
-        await TouchAsync(claim, now, token);
-        return await db.IncomingReplyAttempts.SingleAsync(a => a.Id == id && a.JournalId == claim.JournalId, token);
-    }
-    private static IncomingReplyEnvelope Envelope(IncomingReplyRow row) => IncomingPaymentJson.Read<IncomingReplyEnvelope>(row.EnvelopeJson);
+
+    private static IncomingReplyEnvelope Envelope(IncomingReplyRow reply) =>
+        IncomingPaymentJson.Read<IncomingReplyEnvelope>(reply.EnvelopeJson);
 }

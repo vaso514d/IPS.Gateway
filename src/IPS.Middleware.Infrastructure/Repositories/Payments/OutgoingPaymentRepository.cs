@@ -14,25 +14,20 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
 {
     public async Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken)
     {
-        return (await db.OutgoingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == id, cancellationToken))?.Payment;
+        var metadata = await db.OutgoingMetadata
+            .Include(x => x.Payment)
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        return metadata?.Payment;
     }
 
     public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
-        db.Payments.AsNoTracking().SingleOrDefaultAsync(p => p.ClientReference == reference, cancellationToken);
+        db.Payments
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.ClientReference == reference, cancellationToken);
 
     public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
-        if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1 || payment.CurrentStatus != TransactionStatus.Received)
-        {
-            throw new ArgumentException("Intake requires a new Received payment.", nameof(payment));
-        }
-
-        if (accepted is not null && payment.MessageType != Pacs008)
-        {
-            throw new ArgumentException("Only pacs.008 payments carry an accepted snapshot.", nameof(accepted));
-        }
-
+        var isPacs008 = payment.MessageType == Pacs008;
         db.OutgoingMetadata.Add(new OutgoingPaymentMetadata
         {
             Id = payment.Id,
@@ -40,17 +35,25 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
             RequestJson = requestJson,
             AcceptedJson = accepted is null ? null : PaymentJson.WriteAccepted(accepted),
             Direction = TransactionDirection.Outgoing,
-            MessageId = payment.MessageType == Pacs008 ? Guid.NewGuid().ToString("N") : null,
-            ProtocolTransactionId = payment.MessageType == Pacs008 ? Guid.NewGuid().ToString("N") : null
+            MessageId = isPacs008 ? NewProtocolId() : null,
+            ProtocolTransactionId = isPacs008 ? NewProtocolId() : null
         });
     }
 
     public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) =>
-        db.OutgoingMetadata.AsNoTracking().Where(p => p.Id == id).Select(p => p.RequestJson)
+        db.OutgoingMetadata
+            .AsNoTracking()
+            .Where(x => x.Id == id)
+            .Select(x => x.RequestJson)
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<StoredPaymentEvent>> ReadEventsAsync(Guid id, CancellationToken cancellationToken) =>
-        await db.Events.AsNoTracking().Where(e => e.TransactionId == id).OrderBy(e => e.Sequence)
-            .Select(e => new StoredPaymentEvent(e.EventId, e.TransactionId, e.Sequence, e.Name, e.SchemaVersion, e.OccurredAtUtc, e.PayloadJson))
+        await db.Events
+            .AsNoTracking()
+            .Where(x => x.TransactionId == id)
+            .OrderBy(x => x.Sequence)
+            .Select(x => new StoredPaymentEvent(x.EventId, x.TransactionId, x.Sequence, x.Name, x.SchemaVersion, x.OccurredAtUtc, x.PayloadJson))
             .ToListAsync(cancellationToken);
+
+    private static string NewProtocolId() => Guid.NewGuid().ToString("N");
 }

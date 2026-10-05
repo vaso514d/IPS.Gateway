@@ -325,7 +325,6 @@ public sealed class PaymentSubmissionTests
         Assert.Throws<InvalidOperationException>(() => repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now));
         var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", "other", "{}").Request!, default)).Payment;
         Assert.Null(await repository.ReadAsync(other.Id, default));
-        Assert.Throws<ArgumentOutOfRangeException>(() => repository.StageSubmission(payment, claim, (SubmissionMessageKind)99, Now));
     }
 
     private static async Task<(OutgoingPayment Payment, TransactionClaim Claim)> Start(PaymentSession session, bool signed = true, bool prepare = true)

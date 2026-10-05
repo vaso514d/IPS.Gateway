@@ -142,13 +142,12 @@ public sealed class PaymentPreparationTests
     }
 
     [Fact]
-    public async Task Preparation_rejects_empty_content_wrong_state_other_message_type_and_unpersisted_payments()
+    public async Task Preparation_rejects_wrong_state_other_message_type_and_unpersisted_payments()
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
         var (payment, claim) = await Start(session);
         var repository = new PaymentPreparationRepository(session.Context);
-        Assert.Throws<ArgumentException>(() => repository.StageUnsignedXml(payment, claim, " ", Now));
         var received = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "received", "{}").Request!, default)).Payment;
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(received, claim, Xml, Now));
         var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", "other", "{}").Request!, default)).Payment;

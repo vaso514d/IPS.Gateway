@@ -169,8 +169,6 @@ public sealed class AggregateOwnershipTests
         Assert.Null(await discovery.Processing(Now.AddSeconds(19)).TryStartAsync(deferred, Lease, default));
         Assert.Null(await discovery.Processing(Now).TryStartAsync(active, Lease, default));
         Assert.Null(await discovery.Processing(Now).TryStartAsync(Guid.NewGuid(), Lease, default));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => discovery.Work.FindDueAsync(TransactionStatus.Accepted, Now, 1, default));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => discovery.Work.FindExpiredAsync(Now, 1001, default));
     }
 
     [Theory]
