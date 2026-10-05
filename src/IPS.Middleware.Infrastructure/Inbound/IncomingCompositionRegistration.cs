@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
-public static class IncomingCompositionServices
+public static class IncomingCompositionRegistration
 {
     // Callable composition only. The caller supplies persistence, protocol profile, protocol and remote ports.
     public static IServiceCollection AddIncomingComposition(this IServiceCollection services)

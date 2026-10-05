@@ -2,7 +2,7 @@
 
 A fresh foundation for rebuilding the IPS middleware in reviewed capability increments.
 
-**Status:** incoming pacs.008 processing and synchronous outgoing pacs.008 send/status/callbacks are implemented behind explicit configuration. The readability rewrite is under review on `codex/readability-refactor`; the callable outgoing investigation workflow still needs host integration in a later capability. Live processing is disabled by default. See the [resume checkpoint](docs/migration-ledger.md) for verification and merge status.
+**Status:** incoming pacs.008 processing and synchronous outgoing pacs.008 send/status/callbacks are implemented behind explicit configuration. The 006 clean-code rewrite is under review on `codex/readability-refactor`; the callable outgoing investigation workflow still needs host integration in a later capability. Live processing is disabled by default. See the [resume checkpoint](docs/migration-ledger.md) for verification and merge status.
 
 ## Start
 
@@ -37,7 +37,7 @@ The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally kee
 - [Shared unit of work revision and checks](docs/reviews/001e-shared-unit-of-work.md)
 - [Architecture and dependency diagram](docs/architecture.md)
 - [Coding conventions](docs/coding-style.md)
-- [Readability rewrite and file inventory](docs/specs/005-readability-refactor.md)
+- [Clean-code rewrite and reference examples](docs/specs/006-clean-code-rewrite.md)
 - [Contribution and review process](CONTRIBUTING.md)
 - [Capability migration ledger](docs/migration-ledger.md)
 - [Transaction lifecycle specification](docs/specs/001a-transaction-lifecycle.md)

@@ -189,20 +189,23 @@ Infrastructure OutgoingRuntime tracks bounded payment and callback tasks separat
 
 Shutdown stops admission and discovery, drains tracked attempts for the configured budget, then cancels execution. Existing short post-call persistence budgets preserve available evidence; failed contexts are disposed. All task exceptions are observed. Multiple instances use the same SQL ownership rules without a leader or configured instance count. No broker or normal-path channel is introduced. Incoming reservations and certificate sources remain independent.
 
-## Typed persistence metadata (005b)
+## Typed persistence metadata
 
-OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, identifiers, claims and scheduling as ordinary Infrastructure properties. Each maps to the same physical row as its directly mapped Domain aggregate. Both mappings share RowVersion; only the Domain mapping's concurrency token and SQL-computed identity columns remain shadow properties. Repositories explicitly load the metadata and aggregate together before mutations. Domain owns no persistence navigation or technical fields.
+OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, identifiers, claims and scheduling as ordinary Infrastructure properties. Each maps to the same physical row as its directly mapped Domain aggregate, and both mappings share RowVersion. Only the Domain mapping's concurrency token and the SQL-computed identity columns remain shadow properties. Repositories load the metadata and aggregate together before changing them. The Domain owns no persistence navigation or technical fields.
 
-Metadata is the EF relationship principal and its Payment navigation is required. This preserves mandatory SQL columns and allows generated migration snapshots to reproduce the model. Discovery still sorts by the same business timestamps and IDs. Typed discovery indexes cover their owning mapping's columns; SQL applies the cross-mapping ordering against the same physical table.
+## Current implementation (006)
 
-PersistenceChanges holds scoped save authorization and deferred evidence separately from DbContext mappings. StagedChanges captures EF property values (including snapshots of mutable bytes), replacing JSON serialization used only to compare repository-authorized writes. The unit of work writes entities first, then dependent evidence/events, inside one transaction, and acknowledges Domain events after commit. Failed scopes remain unusable. Immutable payload JSON, event versions and external contracts are unchanged.
+- **Models.** Domain events, value objects and request/result models are records. Aggregates, EF rows and services are classes. AggregateRoot.Raise stamps each event's id, aggregate, sequence and time, so events carry only their own data.
+- **Unit of work.** UnitOfWork.SaveAsync performs persistence explicitly, with no SaveChanges interceptors. Inside one transaction it:
+  1. adds aggregate identities;
+  2. saves parent rows first, so their row-version check decides concurrent writers before any dependent evidence meets a uniqueness constraint;
+  3. adds event rows, callback outbox rows (OutgoingStatusOutbox) and the deferred journal/investigation evidence, then saves again;
+  4. commits, then acknowledges events.
 
-## Readable implementation and HTTP boundary (005)
+  A failed save marks the scope unusable.
+- **Repositories** keep only the rules they own. PaymentOwnership checks for a committed, live claim; repositories also enforce write-once evidence and commit-before-next ordering. RequireCurrentVersion forces the parent row-version check when only evidence changes.
+- **Workflows.** Application workflows use ClaimedPayment (outgoing) and ClaimedIncomingPayment (incoming) to hold the claim, commit, report the committed outcome and release ownership.
+- **Hosting.** Hosted runtimes derive from SupervisedBackgroundService. Shutdown stops admission, drains running work within the shutdown budget, then cancels its bounded attempts.
+- **API.** The host composes everything through Api DependencyInjection.AddMiddleware and validates settings once with ValidateMiddleware. OutgoingPaymentsController preserves the existing routes, JSON and HTTP results, and is removed from the application model while outgoing execution is disabled.
 
-Authored production models use explicit classes. Immutable snapshots retain defensive copies and JSON constructors; value comparison is explicit where canonical-payment identity or reply correlation needs it. Feature handlers are concrete and directly called. Outgoing and incoming workflows expose preparation, saved-evidence interpretation, remote calls and final persistence as named steps, with fresh scopes and committed facts at execution boundaries.
-
-HTTP adapters have individual files. Certificate source loading and TLS trust validation are separate named operations; no automatic retries, redirects or certificate bypasses were added. Workers retain bounded admission, supervised tasks and SQL recovery. Configuration factories resolve after all host providers are applied.
-
-OutgoingPaymentsController maps the existing Contracts to Application handlers and returns the same HTTP Results, preserving status JSON and validation-problem shape. The controller is removed from the MVC application model while outgoing execution is disabled, so routes and OpenAPI remain absent. A small query binder preserves repeated query parameters as comma-separated values. A JSON input formatter delegates to the existing HTTP JSON reader, preserving content types, encodings, depth and configured serializer options. MVC rejects malformed/missing bodies before intake; business validation remains in Application after duplicate lookup. No new payment route, capability or activation is part of this rewrite.
-
-See [005](specs/005-readability-refactor.md), [coding style](coding-style.md), and the [complete authored-file inventory](readability-inventory.md). Earlier stage descriptions above record historical layouts; the typed persistence section and this section describe the current implementation.
+See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above describe the current implementation.

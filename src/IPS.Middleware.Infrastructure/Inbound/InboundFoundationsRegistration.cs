@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
-public static class InboundServices
+public static class InboundFoundationsRegistration
 {
     // Registers foundations only. Persistence must also be registered; no hosted worker is started.
     public static IServiceCollection AddInboundFoundations(this IServiceCollection services, InboundSchedulingOptions? options = null)

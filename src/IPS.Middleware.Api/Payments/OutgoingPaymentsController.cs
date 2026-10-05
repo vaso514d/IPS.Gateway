@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using IPS.Middleware.Api.Binding;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.StatusDelivery;
@@ -15,7 +16,7 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
 {
     private static readonly JsonSerializerOptions Wire = new(JsonSerializerDefaults.Web)
     {
-        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
     [HttpPost(Pacs008RestApiRoutes.Send, Name = "SendPacs008")]
@@ -24,14 +25,15 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public async Task<IResult> SendAsync([FromBody] Pacs008InstantPaymentRequestDto request, CancellationToken token)
     {
-        var result = await submission.SubmitAsync(Pacs008RequestMapping.Map(request), JsonSerializer.Serialize(request, JsonSerializerOptions.Web), token);
+        var requestJson = JsonSerializer.Serialize(request, JsonSerializerOptions.Web);
+        var result = await submission.SubmitAsync(Pacs008RequestMapping.Map(request), requestJson, token);
         if (result.Status is not { } status)
         {
             return Invalid(result.Errors);
         }
 
-        return Results.Json(OutgoingStatusContract.Map(status), Wire,
-            statusCode: result.TimedOut ? StatusCodes.Status504GatewayTimeout : StatusCodes.Status200OK);
+        var statusCode = result.TimedOut ? StatusCodes.Status504GatewayTimeout : StatusCodes.Status200OK;
+        return Results.Json(OutgoingStatusContract.Map(status), Wire, statusCode: statusCode);
     }
 
     [HttpGet(TransactionRestApiRoutes.Status, Name = "GetTransactionStatus")]
@@ -53,6 +55,7 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
         var status = await reader.ReadAsync(type!, clientReference!, token);
         return status is null ? Results.NotFound() : Results.Ok(OutgoingStatusContract.Map(status));
     }
+
     private static string? MessageType(string? messageKind)
     {
         return Enum.TryParse<IpsMessageKind>(messageKind, true, out var kind) ? kind switch
@@ -68,6 +71,11 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
         } : null;
     }
 
-    private static IResult Invalid(IReadOnlyList<IntakeValidationError> errors) => Results.ValidationProblem(
-        errors.GroupBy(e => e.Field).ToDictionary(g => g.Key, g => g.Select(e => e.Message).ToArray()));
+    private static IResult Invalid(IReadOnlyList<IntakeValidationError> errors)
+    {
+        var byField = errors
+            .GroupBy(error => error.Field)
+            .ToDictionary(group => group.Key, group => group.Select(error => error.Message).ToArray());
+        return Results.ValidationProblem(byField);
+    }
 }

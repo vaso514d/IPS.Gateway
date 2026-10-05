@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Workers;
 
-public static class IncomingWorkerServices
+public static class IncomingWorkerRegistration
 {
     // Persistence, protocol, clients and validated settings are supplied by the host.
     public static IServiceCollection AddIncomingWorkers(this IServiceCollection services)

@@ -22,24 +22,39 @@ internal static class Pacs008RequestMapping
             Creditor = Creditor(payment.Creditor),
             UltimateDebtor = Ultimate(payment.UltimateDebtor),
             UltimateCreditor = Ultimate(payment.UltimateCreditor),
-            PaymentInitiation = payment.PaymentInitiation is not { } initiation ? null : new()
-            { ChannelCode = initiation.ChannelCode, Geolocation = initiation.Geolocation },
-            InitiationChannelInstrument = payment.InitiationChannelInstrument is not { } instrument ? null : new()
-            { ChannelCode = instrument.ChannelCode, InstrumentCodes = instrument.InstrumentCodes, ElectronicAddress = instrument.ElectronicAddress },
-            Remittance = payment.Remittance is not { } remittance ? null : new()
-            {
-                Unstructured = remittance.Unstructured,
-                Structured = remittance.Structured is null ? null : Array.AsReadOnly(remittance.Structured.Select(reference =>
-                    reference is null ? null! : new Pacs008StructuredRemittanceInput
-                    {
-                        ReferenceType = reference.ReferenceType,
-                        ReferenceIssuer = reference.ReferenceIssuer,
-                        Reference = reference.Reference,
-                        AdditionalInformation = reference.AdditionalInformation
-                    }).ToArray())
-            }
+            PaymentInitiation = Initiation(payment.PaymentInitiation),
+            InitiationChannelInstrument = Instrument(payment.InitiationChannelInstrument),
+            Remittance = Remittance(payment.Remittance)
         };
     }
+
+    private static Pacs008PaymentInitiationInput? Initiation(Pacs008PaymentInitiationDto? value) => value is null ? null : new()
+    {
+        ChannelCode = value.ChannelCode,
+        Geolocation = value.Geolocation
+    };
+
+    private static Pacs008InitiationChannelInstrumentInput? Instrument(Pacs008InitiationChannelInstrumentDto? value) => value is null ? null : new()
+    {
+        ChannelCode = value.ChannelCode,
+        InstrumentCodes = value.InstrumentCodes,
+        ElectronicAddress = value.ElectronicAddress
+    };
+
+    // A null list element is kept so validation can report it at its position.
+    private static Pacs008RemittanceInput? Remittance(Pacs008RemittanceDto? value) => value is null ? null : new()
+    {
+        Unstructured = value.Unstructured,
+        Structured = value.Structured is null ? null : Array.AsReadOnly(value.Structured.Select(StructuredReference).ToArray())
+    };
+
+    private static Pacs008StructuredRemittanceInput StructuredReference(Pacs008StructuredRemittanceDto? value) => value is null ? null! : new()
+    {
+        ReferenceType = value.ReferenceType,
+        ReferenceIssuer = value.ReferenceIssuer,
+        Reference = value.Reference,
+        AdditionalInformation = value.AdditionalInformation
+    };
 
     private static Pacs008DebtorInput? Debtor(Pacs008DebtorRequestDto? value) => value is null ? null : new()
     {

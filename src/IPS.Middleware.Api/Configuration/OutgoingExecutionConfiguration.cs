@@ -13,46 +13,21 @@ internal static class OutgoingExecutionConfiguration
 {
     internal static IServiceCollection AddOutgoingExecutionConfiguration(this IServiceCollection services)
     {
-        services.AddSingleton(sp => sp.GetRequiredService<IConfiguration>().GetSection("Payments:Outgoing:Investigation")
-            .Get<InvestigationOptions>(o => o.ErrorOnUnknownConfiguration = true) ?? new());
-        services.AddSingleton(sp => sp.GetRequiredService<IConfiguration>().GetSection("Payments:Outgoing:Execution")
-            .Get<OutgoingExecutionOptions>(o => o.ErrorOnUnknownConfiguration = true) ?? new());
-        services.AddSingleton(CreatePaymentProfile);
+        services.AddSingleton(sp => sp.ReadSection<InvestigationOptions>("Payments:Outgoing:Investigation") ?? new InvestigationOptions());
+        services.AddSingleton(sp => sp.ReadSection<OutgoingExecutionOptions>("Payments:Outgoing:Execution") ?? new OutgoingExecutionOptions());
+        services.AddSingleton(ReadPaymentProfile);
         services.AddScoped<OutgoingTransactionIntake>();
         services.AddScoped<OutgoingTransactionWork>();
         services.AddScoped<Pacs008Processing>();
         services.AddScoped<OutgoingStatusDelivery>();
-        services.AddScoped(sp => new Pacs008Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(),
-            sp.GetRequiredService<OutgoingTransactionIntake>(), sp.GetRequiredService<PaymentProfile>().Policy,
-            sp.GetRequiredService<PaymentProfile>().Protocol, sp.GetRequiredService<Pacs008Options>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddScoped(CreatePacs008Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddSingleton<OutgoingSubmission>();
-        services.AddOptions<HostOptions>().PostConfigure<OutgoingExecutionOptions, Pacs008Options, StatusDeliveryOptions>((host, execution, payment, delivery) =>
-        {
-            if (execution.Enabled)
-            {
-                host.ServicesStopConcurrently = true;
-                var required = execution.ShutdownBudget + (payment.PersistenceBudget > delivery.PersistenceBudget ? payment.PersistenceBudget : delivery.PersistenceBudget);
-                if (host.ShutdownTimeout < required)
-                {
-                    host.ShutdownTimeout = required;
-                }
-            }
-        });
+        services.AddOptions<HostOptions>()
+            .PostConfigure<OutgoingExecutionOptions, Pacs008Options, StatusDeliveryOptions>(ExtendShutdownTimeout);
         return services;
-    }
-
-    private static PaymentProfile CreatePaymentProfile(IServiceProvider sp)
-    {
-        var config = sp.GetRequiredService<IConfiguration>();
-        var settings = config.GetSection("Payments:Outgoing:Policy").Get<PolicySettings>(o => o.ErrorOnUnknownConfiguration = true) ?? new();
-        var policy = new Pacs008Policy(sp.GetRequiredService<OutgoingTransportSettings>().ParticipantBic.ToUpperInvariant(),
-            settings.TreasuryBic, settings.Currencies, settings.IndirectParticipants);
-        var profile = config.GetSection("Payments:Outgoing:Protocol").Get<Pacs008ProtocolProfile>(o => o.ErrorOnUnknownConfiguration = true)
-            ?? throw new InvalidOperationException("Outgoing execution requires Payments:Outgoing:Protocol:IpsBic.");
-        return new PaymentProfile(policy, profile);
     }
 
     internal static void ValidateOutgoingExecution(this IServiceProvider services)
@@ -67,18 +42,68 @@ internal static class OutgoingExecutionConfiguration
         var transport = services.GetRequiredService<OutgoingTransportSettings>();
         var payment = services.GetRequiredService<Pacs008Options>();
         var delivery = services.GetRequiredService<StatusDeliveryOptions>();
-        if (!transport.Enabled || execution.Concurrency > transport.Ips.ConnectionLimit || execution.CallbackConcurrency > transport.Cbs.ConnectionLimit)
+
+        var admissionFitsConnections = transport.Enabled
+            && execution.Concurrency <= transport.Ips.ConnectionLimit
+            && execution.CallbackConcurrency <= transport.Cbs.ConnectionLimit;
+        if (!admissionFitsConnections)
         {
             throw new InvalidOperationException("Outgoing execution requires enabled transport and admission within each connection pool.");
         }
 
-        if (transport.Ips.RequestTimeout >= execution.HttpWait || execution.AttemptBudget + payment.PersistenceBudget >= payment.Ownership ||
-            transport.Cbs.RequestTimeout > delivery.CallTimeout)
+        var timeoutsAreOrdered = transport.Ips.RequestTimeout < execution.HttpWait
+            && execution.AttemptBudget + payment.PersistenceBudget < payment.Ownership
+            && transport.Cbs.RequestTimeout <= delivery.CallTimeout;
+        if (!timeoutsAreOrdered)
         {
             throw new InvalidOperationException("Outgoing timeout ordering must fit the HTTP wait, attempt, callback and ownership budgets.");
         }
 
         _ = services.GetRequiredService<PaymentProfile>();
+    }
+
+    // Outgoing intake uses the outgoing policy and protocol profile; incoming workers register their own profile.
+    private static Pacs008Intake CreatePacs008Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Pacs008Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            profile.Protocol,
+            services.GetRequiredService<Pacs008Options>(),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static PaymentProfile ReadPaymentProfile(IServiceProvider services)
+    {
+        var settings = services.ReadSection<PolicySettings>("Payments:Outgoing:Policy") ?? new PolicySettings();
+        var participantBic = services.GetRequiredService<OutgoingTransportSettings>().ParticipantBic.ToUpperInvariant();
+        var policy = new Pacs008Policy(participantBic, settings.TreasuryBic, settings.Currencies, settings.IndirectParticipants);
+        var protocol = services.ReadSection<Pacs008ProtocolProfile>("Payments:Outgoing:Protocol")
+            ?? throw new InvalidOperationException("Outgoing execution requires Payments:Outgoing:Protocol:IpsBic.");
+        return new PaymentProfile(policy, protocol);
+    }
+
+    // Shutdown leaves room to drain admitted work and persist evidence of its last attempts.
+    private static void ExtendShutdownTimeout(
+        HostOptions host,
+        OutgoingExecutionOptions execution,
+        Pacs008Options payment,
+        StatusDeliveryOptions delivery)
+    {
+        if (!execution.Enabled)
+        {
+            return;
+        }
+
+        host.ServicesStopConcurrently = true;
+        var persistence = payment.PersistenceBudget > delivery.PersistenceBudget ? payment.PersistenceBudget : delivery.PersistenceBudget;
+        var required = execution.ShutdownBudget + persistence;
+        if (host.ShutdownTimeout < required)
+        {
+            host.ShutdownTimeout = required;
+        }
     }
 
     private sealed record PaymentProfile(Pacs008Policy Policy, Pacs008ProtocolProfile Protocol);
