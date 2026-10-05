@@ -28,7 +28,14 @@ public sealed class InboundWork(IInboundWorkRepository repository, IUnitOfWork u
     // A competing owner or duplicate delivery changed the row first; the caller discards this scope.
     private async Task<bool> TryCommitAsync(CancellationToken cancellationToken)
     {
-        try { await unitOfWork.SaveAsync(cancellationToken); return true; }
-        catch (PersistenceConcurrencyException) { return false; }
+        try
+        {
+            await unitOfWork.SaveAsync(cancellationToken);
+            return true;
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return false;
+        }
     }
 }

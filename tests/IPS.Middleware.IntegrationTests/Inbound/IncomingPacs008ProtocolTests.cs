@@ -66,9 +66,7 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
     [InlineData("wrong-namespace")]
     [InlineData("extra-header")]
     [InlineData("batch-bad-second")]
-    public void Signed_but_invalid_inputs_are_held_without_a_reply_decision(string name) =>
-        Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(fixture.Signed[name]));
-
+    public void Signed_but_invalid_inputs_are_held_without_a_reply_decision(string name) => Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(fixture.Signed[name]));
     [Fact]
     public void Unsigned_untrusted_tampered_and_unsafe_xml_are_held()
     {
@@ -140,7 +138,7 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
         var time = new DateTimeOffset(2026, 10, 4, 12, 0, 3, TimeSpan.Zero).AddTicks(1234567);
         var context = new IncomingReplyContext("fixed-reply", "fixed-status", time);
         var builder = new IncomingPacs002Reply(new("NBGEGE22"), new(new(false, true), TimeProvider.System));
-        var xml = builder.BuildUnsigned(incoming.Original, new(false, default, Description: "  " + new string('x', 50) + "  "), context, "BAGAGE22");
+        var xml = builder.BuildUnsigned(incoming.Original, new(false, default, description: "  " + new string('x', 50) + "  "), context, "BAGAGE22");
         var doc = XDocument.Parse(xml);
         XNamespace p = "urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14";
         Assert.Equal("2026-10-04T12:00:03.1234567Z", doc.Descendants(p + "AccptncDtTm").Single().Value);

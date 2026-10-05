@@ -37,7 +37,11 @@ public static class OutgoingHttpRegistration
     private static void Add(IServiceCollection services, string name, bool ips) => SingleAttemptHttp.Add(services, name, sp =>
     {
         var settings = sp.GetRequiredService<OutgoingTransportSettings>();
-        if (!settings.Enabled) throw new InvalidOperationException("Outgoing live transport is disabled.");
+        if (!settings.Enabled)
+        {
+            throw new InvalidOperationException("Outgoing live transport is disabled.");
+        }
+
         var endpoint = ips ? settings.Ips : settings.Cbs;
         return new(endpoint, endpoint.ConnectionLimit, endpoint.RequestTimeout,
             sp.GetRequiredService<OutgoingTransportCertificates>().Tls(ips, endpoint.CheckCertificateRevocation));

@@ -14,13 +14,11 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace IPS.Middleware.IntegrationTests.Payments;
-
 /// <summary>Real SQL scopes, XML, signing and reply verification around an independent IPS simulator.</summary>
 internal sealed class ProcessingHarness : IAsyncDisposable
 {
     internal static readonly DateTimeOffset Start = Pacs008Fixture.Created.AddSeconds(1);
     internal static readonly TimeSpan Ownership = TimeSpan.FromSeconds(5);
-
     private ProcessingHarness(SqlTestDatabase database, bool allowUnsignedInDevelopment)
     {
         Database = database;
@@ -39,9 +37,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     public IpsSimulator Ips { get; }
     public Pacs008Options Options { get; } = new(ownership: Ownership);
 
-    public static async Task<ProcessingHarness> CreateAsync(bool allowUnsignedInDevelopment = false) =>
-        new(await SqlTestDatabase.CreateAsync(), allowUnsignedInDevelopment);
-
+    public static async Task<ProcessingHarness> CreateAsync(bool allowUnsignedInDevelopment = false) => new(await SqlTestDatabase.CreateAsync(), allowUnsignedInDevelopment);
     public async Task<Pacs008IntakeResult> AcceptAsync(Pacs008Request request, Pacs008ProtocolProfile? profile = null)
     {
         await using var session = Database.Session();
@@ -50,9 +46,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
             .AcceptAsync(request, JsonSerializer.Serialize(request), default);
     }
 
-    public async Task<Guid> AcceptAsync(string reference = "processing") =>
-        (await AcceptAsync(Pacs008Fixture.Request() with { ClientReference = reference })).Intake!.Payment.Id;
-
+    public async Task<Guid> AcceptAsync(string reference = "processing") => (await AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = reference })).Intake!.Payment.Id;
     public async Task<PaymentOutcome?> ProcessAsync(Guid id, CancellationToken cancellationToken = default, params IInterceptor[] interceptors)
     {
         await using var session = Database.Session(interceptors);
@@ -77,12 +71,12 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     {
         await using var session = Database.Session();
         var payment = (await session.Payments.FindAsync(id, default))!;
-        var entry = session.Context.Entry(payment);
+        var metadata = session.Context.Metadata(payment);
         return new(payment, (await new PaymentPreparationRepository(session.Context).ReadAsync(id, default))!,
             (await session.Submissions.ReadAsync(id, default))!,
             (await session.Payments.ReadEventsAsync(id, default)).Select(e => e.Name).ToArray(),
-            entry.Property<Guid?>("ClaimToken").CurrentValue, entry.Property<DateTimeOffset?>("NextActionAtUtc").CurrentValue,
-            entry.Property<string?>("AcceptedJson").CurrentValue, (await session.Payments.ReadRequestAsync(id, default))!);
+            metadata.ClaimToken, metadata.NextActionAtUtc,
+            metadata.AcceptedJson, (await session.Payments.ReadRequestAsync(id, default))!);
     }
 
     internal static X509Certificate2 Certificate(DateTimeOffset notBefore, DateTimeOffset notAfter)
@@ -101,13 +95,11 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     }
 }
 
-internal sealed record StoredPayment(
-    OutgoingPayment Payment, PreparedPaymentMessage Message, PaymentSubmission Submission, IReadOnlyList<string> Events,
-    Guid? ClaimToken, DateTimeOffset? NextActionAtUtc, string? AcceptedJson, string RequestJson);
-
+internal sealed record StoredPayment(OutgoingPayment Payment, PreparedPaymentMessage Message, PaymentSubmission Submission, IReadOnlyList<string> Events, Guid? ClaimToken, DateTimeOffset? NextActionAtUtc, string? AcceptedJson, string RequestJson);
 internal sealed class TestClock(DateTimeOffset now) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = now;
+
     public override DateTimeOffset GetUtcNow() => Now;
 }
 
@@ -116,8 +108,7 @@ internal sealed class CertificateSlot : ISigningCertificateSource
     public X509Certificate2? Current { get; set; }
     public bool Unavailable { get; set; }
 
-    public ValueTask<X509Certificate2?> GetCurrentAsync(CancellationToken cancellationToken) =>
-        Unavailable ? throw new IOException("The certificate store is unavailable.") : ValueTask.FromResult(Current);
+    public ValueTask<X509Certificate2?> GetCurrentAsync(CancellationToken cancellationToken) => Unavailable ? throw new IOException("The certificate store is unavailable.") : ValueTask.FromResult(Current);
 }
 
 /// <summary>Counts protocol work so tests can prove committed artifacts are reused.</summary>
@@ -146,32 +137,50 @@ internal sealed class RecordingPreparation(IPacs008MessagePreparation inner) : I
 internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransport
 {
     private readonly List<string> _received = [];
+    public IReadOnlyList<string> Received
+    {
+        get
+        {
+            lock (_received)
+            {
+                return _received.ToArray();
+            }
+        }
+    }
 
-    public IReadOnlyList<string> Received { get { lock (_received) return _received.ToArray(); } }
     public Func<IpsReplies.Reply, CancellationToken, Task<IpsSubmissionResponse>>? Behavior { get; set; }
     public TaskCompletionSource? Gate { get; set; }
 
     public async Task<IpsSubmissionResponse> SendAsync(string xml, CancellationToken cancellationToken)
     {
-        lock (_received) _received.Add(xml);
+        lock (_received)
+        {
+            _received.Add(xml);
+        }
+
         var document = XDocument.Parse(xml);
         string Value(string name) => document.Descendants().First(element => element.Name.LocalName == name).Value;
-        var reply = new IpsReplies.Reply { MessageId = Value("BizMsgIdr"), TransactionId = Value("TxId"), EndToEndId = Value("EndToEndId") };
-        if (Gate is { } gate) await gate.Task.WaitAsync(cancellationToken);
+        var reply = new IpsReplies.Reply
+        {
+            MessageId = Value("BizMsgIdr"),
+            TransactionId = Value("TxId"),
+            EndToEndId = Value("EndToEndId")
+        };
+        if (Gate is { } gate)
+        {
+            await gate.Task.WaitAsync(cancellationToken);
+        }
+
         return Behavior is { } behavior ? await behavior(reply, cancellationToken) : await RespondAsync(reply, "ACCP");
     }
 
-    public async Task<IpsSubmissionResponse> RespondAsync(IpsReplies.Reply reply, string requestStatus) =>
-        new(200, (await IpsReplies.SignAsync(ipsCertificate, IpsReplies.Unsigned(reply)))[0],
+    public async Task<IpsSubmissionResponse> RespondAsync(IpsReplies.Reply reply, string requestStatus) => new(200, (await IpsReplies.SignAsync(ipsCertificate, IpsReplies.Unsigned(reply)))[0],
             [new("X-MONTRAN-IPS-ReqSts", requestStatus), new("X-MONTRAN-IPS-MessageType", "pacs.002")]);
 }
 
 internal sealed class SimulatedCrash : Exception;
-
 /// <summary>Terminates a save that would commit the selected change, rolling back its transaction.</summary>
 internal sealed class CrashOnSave(Func<EntityEntry<OutgoingPayment>, bool> when) : SaveChangesInterceptor
 {
-    public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default) =>
-        eventData.Context!.ChangeTracker.Entries<OutgoingPayment>().Any(when) ? throw new SimulatedCrash() : ValueTask.FromResult(result);
+    public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default) => eventData.Context!.ChangeTracker.Entries<OutgoingPayment>().Any(when) ? throw new SimulatedCrash() : ValueTask.FromResult(result);
 }

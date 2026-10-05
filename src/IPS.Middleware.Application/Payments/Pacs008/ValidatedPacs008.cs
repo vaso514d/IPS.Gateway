@@ -9,12 +9,28 @@ public sealed class ValidatedPacs008
 {
     // Only validation creates new values; JSON restores an accepted snapshot without re-applying current policy.
     [JsonConstructor]
-    private ValidatedPacs008(string clientReference, string instructionId, string endToEndId,
-        DateTimeOffset creationDateTime, DateTimeOffset acceptanceDateTime, decimal amount, string currency,
-        PaymentPriority priority, string? categoryPurposeCode, string participantBic, PaymentParty debtor, PaymentParty creditor,
-        PaymentAccount debtorAccount, PaymentAccount creditorAccount, PaymentAgent debtorAgent, PaymentAgent creditorAgent,
-        PaymentParty? ultimateDebtor, PaymentParty? ultimateCreditor, PaymentInitiation? paymentInitiation,
-        PaymentInitiationChannel? initiationChannel, PaymentRemittance? remittance)
+    private ValidatedPacs008(
+        string clientReference,
+        string instructionId,
+        string endToEndId,
+        DateTimeOffset creationDateTime,
+        DateTimeOffset acceptanceDateTime,
+        decimal amount,
+        string currency,
+        PaymentPriority priority,
+        string? categoryPurposeCode,
+        string participantBic,
+        PaymentParty debtor,
+        PaymentParty creditor,
+        PaymentAccount debtorAccount,
+        PaymentAccount creditorAccount,
+        PaymentAgent debtorAgent,
+        PaymentAgent creditorAgent,
+        PaymentParty? ultimateDebtor,
+        PaymentParty? ultimateCreditor,
+        PaymentInitiation? paymentInitiation,
+        PaymentInitiationChannel? initiationChannel,
+        PaymentRemittance? remittance)
     {
         ClientReference = clientReference;
         InstructionId = instructionId;
@@ -34,9 +50,18 @@ public sealed class ValidatedPacs008
         CreditorAgent = creditorAgent;
         UltimateDebtor = ultimateDebtor;
         UltimateCreditor = ultimateCreditor;
-        PaymentInitiation = paymentInitiation is null ? null : paymentInitiation with { Geolocation = Snapshot(paymentInitiation.Geolocation) };
-        InitiationChannel = initiationChannel is null ? null : initiationChannel with { InstrumentCodes = Snapshot(initiationChannel.InstrumentCodes) };
-        Remittance = remittance is null ? null : remittance with { Structured = Snapshot(remittance.Structured) };
+        PaymentInitiation = paymentInitiation is null ? null : new PaymentInitiation(paymentInitiation)
+        {
+            Geolocation = Snapshot(paymentInitiation.Geolocation)
+        };
+        InitiationChannel = initiationChannel is null ? null : new PaymentInitiationChannel(initiationChannel)
+        {
+            InstrumentCodes = Snapshot(initiationChannel.InstrumentCodes)
+        };
+        Remittance = remittance is null ? null : new PaymentRemittance(remittance)
+        {
+            Structured = Snapshot(remittance.Structured)
+        };
     }
 
     private static ValidatedPacs008 Normalize(Pacs008Request request, Pacs008Policy policy)
@@ -99,47 +124,82 @@ public sealed class ValidatedPacs008
     // Retain the existing camel-case, unindexed error paths at this boundary.
     private static string ErrorPath(string property) => string.Join('.',
         Regex.Replace(property, @"\[\d+\]", "").Split('.').Select(part => char.ToLowerInvariant(part[0]) + part[1..]));
+    private static PaymentParty NormalizeParty(
+        Pacs008PartyInput party,
+        string? bill = null,
+        Pacs008PostalAddressInput? address = null) =>
+        new(
+            kind: (PaymentPartyKind)party.Type!.Value,
+            name: party.Name!.Trim(),
+            identifier: Optional(party.Identifier),
+            billIdentifier: Optional(bill),
+            address: NormalizeAddress(address));
 
-    private static PaymentParty NormalizeParty(Pacs008PartyInput party, string? bill = null, Pacs008PostalAddressInput? address = null) =>
-        new(Kind: (PaymentPartyKind)party.Type!.Value, Name: party.Name!.Trim(),
-            Identifier: Optional(party.Identifier), BillIdentifier: Optional(bill), Address: NormalizeAddress(address));
-
-    private static PaymentAddress? NormalizeAddress(Pacs008PostalAddressInput? address) => address is null ? null :
-        new(StreetName: Optional(address.StreetName), BuildingNumber: Optional(address.BuildingNumber),
-            PostCode: Optional(address.PostCode), TownName: Optional(address.TownName),
-            CountrySubdivision: Optional(address.CountrySubdivision), Country: Optional(address.Country),
-            AddressLines: address.AddressLines);
+    private static PaymentAddress? NormalizeAddress(Pacs008PostalAddressInput? address) =>
+        address is null ? null : new(
+            streetName: Optional(address.StreetName),
+            buildingNumber: Optional(address.BuildingNumber),
+            postCode: Optional(address.PostCode),
+            townName: Optional(address.TownName),
+            countrySubdivision: Optional(address.CountrySubdivision),
+            country: Optional(address.Country),
+            addressLines: address.AddressLines);
 
     private static PaymentInitiation? NormalizeInitiation(Pacs008PaymentInitiationInput? initiation)
     {
-        if (initiation is null) return null;
+        if (initiation is null)
+        {
+            return null;
+        }
+
         var geolocation = (initiation.Geolocation ?? [])
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value.Trim());
-        return new(ChannelCode: Optional(initiation.ChannelCode), Geolocation: Snapshot(geolocation));
+        return new(channelCode: Optional(initiation.ChannelCode), geolocation: Snapshot(geolocation));
     }
 
     private static PaymentInitiationChannel? NormalizeChannel(Pacs008InitiationChannelInstrumentInput? channel)
     {
-        if (channel is null) return null;
+        if (channel is null)
+        {
+            return null;
+        }
+
         var instruments = Snapshot(channel.InstrumentCodes!.Select(value => value.Trim()));
-        return new(ChannelCode: channel.ChannelCode!.Trim(), InstrumentCodes: instruments,
-            ElectronicAddress: Optional(channel.ElectronicAddress));
+        return new(channelCode: channel.ChannelCode!.Trim(), instrumentCodes: instruments,
+            electronicAddress: Optional(channel.ElectronicAddress));
     }
 
     private static PaymentRemittance? NormalizeRemittance(Pacs008RemittanceInput? remittance)
     {
-        if (remittance is null) return null;
+        if (remittance is null)
+        {
+            return null;
+        }
+
         var references = Snapshot((remittance.Structured ?? []).Select(NormalizeReference));
-        return new(Unstructured: Optional(remittance.Unstructured), Structured: references);
+        return new(unstructured: Optional(remittance.Unstructured), structured: references);
     }
 
     private static PaymentRemittanceReference NormalizeReference(Pacs008StructuredRemittanceInput reference) =>
-        new(Type: reference.ReferenceType!.Trim().ToUpperInvariant(), Reference: reference.Reference!.Trim(),
-            Issuer: Optional(reference.ReferenceIssuer), AdditionalInformation: Optional(reference.AdditionalInformation));
+        new(
+            type: reference.ReferenceType!.Trim().ToUpperInvariant(),
+            reference: reference.Reference!.Trim(),
+            issuer: Optional(reference.ReferenceIssuer),
+            additionalInformation: Optional(reference.AdditionalInformation));
 
     private static string? Optional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static IReadOnlyList<T> Snapshot<T>(IEnumerable<T> values) => Array.AsReadOnly(values.ToArray());
 }
 
-public sealed record Pacs008ValidationResult(ValidatedPacs008? Payment, IReadOnlyList<IntakeValidationError> Errors);
+public sealed class Pacs008ValidationResult
+{
+    public Pacs008ValidationResult(ValidatedPacs008? payment, IReadOnlyList<IntakeValidationError> errors)
+    {
+        Payment = payment;
+        Errors = errors;
+    }
+
+    public ValidatedPacs008? Payment { get; init; }
+    public IReadOnlyList<IntakeValidationError> Errors { get; init; }
+}

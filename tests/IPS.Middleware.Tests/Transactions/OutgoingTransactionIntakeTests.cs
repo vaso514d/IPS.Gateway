@@ -85,7 +85,10 @@ public sealed class OutgoingTransactionIntakeTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
     }
 
-    private sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => Now; }
+    private sealed class Clock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
 
     private sealed class IntakeStorage : IOutgoingPaymentRepository, IUnitOfWork
     {
@@ -100,8 +103,16 @@ public sealed class OutgoingTransactionIntakeTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(CommitCalls == 0 ? Existing : Winner);
         }
-        public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted) { Added = payment; Json = requestJson; }
-        public Task<int> SaveAsync(CancellationToken cancellationToken) { CommitCalls++; return Commit.Task.WaitAsync(cancellationToken); }
+        public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
+        {
+            Added = payment;
+            Json = requestJson;
+        }
+        public Task<int> SaveAsync(CancellationToken cancellationToken)
+        {
+            CommitCalls++;
+            return Commit.Task.WaitAsync(cancellationToken);
+        }
         public Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<StoredPaymentEvent>> ReadEventsAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();

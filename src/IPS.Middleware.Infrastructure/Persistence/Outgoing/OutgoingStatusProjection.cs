@@ -7,11 +7,11 @@ namespace IPS.Middleware.Infrastructure.Persistence.Outgoing;
 
 internal static class OutgoingStatusProjection
 {
-    internal static OutgoingStatus Read(EntityEntry<OutgoingPayment> entry)
+    internal static OutgoingStatus Read(OutgoingPaymentMetadata metadata)
     {
-        var payment = entry.Entity;
+        var payment = metadata.Payment;
         return new(payment.Id, payment.CurrentSequence, payment.MessageType, payment.ClientReference,
-            payment.CurrentStatus, payment.CurrentStatusAtUtc, payment.Current.Details, entry.TextOf(MessageId).CurrentValue,
-            PaymentJson.ReadAccepted(entry.TextOf(AcceptedJson).CurrentValue)?.Payment.EndToEndId);
+            payment.CurrentStatus, payment.CurrentStatusAtUtc, payment.Current.Details, metadata.MessageId,
+            PaymentJson.ReadAccepted(metadata.AcceptedJson)?.Payment.EndToEndId);
     }
 }

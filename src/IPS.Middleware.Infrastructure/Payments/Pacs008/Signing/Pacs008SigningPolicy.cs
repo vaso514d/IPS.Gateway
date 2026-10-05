@@ -7,7 +7,10 @@ public sealed class Pacs008SigningPolicy
     public Pacs008SigningPolicy(bool allowUnsignedInDevelopment, bool isDevelopment)
     {
         if (allowUnsignedInDevelopment && !isDevelopment)
+        {
             throw new InvalidOperationException("Unsigned payment messages can only be enabled in Development.");
+        }
+
         AllowUnsignedWithoutCertificate = allowUnsignedInDevelopment && isDevelopment;
     }
 

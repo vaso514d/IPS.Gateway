@@ -11,10 +11,15 @@ internal static class ProtocolTextRules
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                if (required) context.AddFailure("A value is required.");
+                if (required)
+                {
+                    context.AddFailure("A value is required.");
+                }
             }
             else if (!Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+            {
                 context.AddFailure("The value has an invalid format or length.");
+            }
         });
 
     internal static void Iban<T>(this IRuleBuilder<T, string?> rule)

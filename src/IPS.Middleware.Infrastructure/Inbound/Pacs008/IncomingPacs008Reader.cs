@@ -23,20 +23,39 @@ public sealed class IncomingPacs008Reader
             var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
             if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
                 header.Name != Head + "AppHdr" || body.Name != Pacs + "Document")
+            {
                 return Hold("Unexpected message envelope or version.");
-            if (header.Element(Head + "MsgDefIdr")?.Value != Pacs008Message.MessageDefinition) return Hold("Unsupported message definition.");
+            }
+
+            if (header.Element(Head + "MsgDefIdr")?.Value != Pacs008Message.MessageDefinition)
+            {
+                return Hold("Unsupported message definition.");
+            }
             // Nothing in the message is trusted, including its correlation, before the original signature verifies.
-            if (!IpsSignatureVerifier.IsTrusted(xml, trustedCertificates)) return Hold("Untrusted message signature.");
+            if (!IpsSignatureVerifier.IsTrusted(xml, trustedCertificates))
+            {
+                return Hold("Untrusted message signature.");
+            }
 
             var transfer = body.Element(Pacs + "FIToFICstmrCdtTrf");
             var group = transfer?.Element(Pacs + "GrpHdr");
             var transactions = transfer?.Elements(Pacs + "CdtTrfTxInf").ToArray() ?? [];
-            if (group is null || transactions.Length == 0) return Hold("Missing payment correlation.");
+            if (group is null || transactions.Length == 0)
+            {
+                return Hold("Missing payment correlation.");
+            }
 
             var single = transactions.Length == 1 &&
                 int.TryParse(group.Element(Pacs + "NbOfTxs")?.Value, CultureInfo.InvariantCulture, out var count) && count == 1;
-            if (single) Pacs008Schema.Validate(xml);
-            else ValidateEachTransferAlone(root.Document!);
+            if (single)
+            {
+                Pacs008Schema.Validate(xml);
+            }
+            else
+            {
+                ValidateEachTransferAlone(root.Document!);
+            }
+
             var original = IncomingPacs008Mapping.Original(header, group, transactions[0]);
             return single
                 ? new IncomingPacs008ReadResult.Ready(new(IncomingPacs008Mapping.Payment(group, transactions[0]), original))
@@ -58,8 +77,15 @@ public sealed class IncomingPacs008Reader
             var candidate = new XDocument(original);
             var transfer = Transfer(candidate);
             var group = transfer.Element(Pacs + "GrpHdr")!;
-            if (group.Element(Pacs + "NbOfTxs") is { } count) count.Value = "1";
-            else (group.Element(Pacs + "CreDtTm") ?? throw new FormatException("Missing creation time.")).AddAfterSelf(new XElement(Pacs + "NbOfTxs", "1"));
+            if (group.Element(Pacs + "NbOfTxs") is { } count)
+            {
+                count.Value = "1";
+            }
+            else
+            {
+                (group.Element(Pacs + "CreDtTm") ?? throw new FormatException("Missing creation time.")).AddAfterSelf(new XElement(Pacs + "NbOfTxs", "1"));
+            }
+
             transfer.Elements(Pacs + "CdtTrfTxInf").Where((_, position) => position != index).Remove();
             Pacs008Schema.Validate(candidate.ToString(SaveOptions.DisableFormatting));
         }

@@ -31,7 +31,10 @@ public sealed class UnitOfWorkTests
         Assert.Equal(1, await unit.SaveAsync());
         Assert.Equal(0, await unit.SaveAsync());
         await using (var read = Context(database))
+        {
             Assert.Equal("second", (await read.Set<Note>().SingleAsync()).Text);
+        }
+
         context.Remove(note);
         Assert.Equal(1, await unit.SaveAsync());
         await using var verify = Context(database);
@@ -47,7 +50,10 @@ public sealed class UnitOfWorkTests
         await using var context = Context(database);
         await CreateNotesTable(context);
         if (failEvents)
+        {
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_NoIntake CHECK (Sequence > 1)");
+        }
+
         var unit = new UnitOfWork(context);
         var repository = new OutgoingPaymentRepository(context);
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "shared-save", Now);
@@ -83,7 +89,7 @@ public sealed class UnitOfWorkTests
             .AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "stale-shared-save", "{}").Request!, default)).Payment;
         await using (var winner = Context(database))
         {
-            var current = await winner.Set<OutgoingPayment>().SingleAsync();
+            var current = (await winner.OutgoingMetadata.Include(p => p.Payment).SingleAsync()).Payment;
             current.RecordStep(ProcessingStep.Validated, Now);
             await new UnitOfWork(winner).SaveAsync();
         }

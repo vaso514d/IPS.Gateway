@@ -100,7 +100,9 @@ public sealed class OutgoingHttpClientTests
             await context.Response.WriteAsync("partial");
             await context.Response.Body.FlushAsync();
             started.SetResult();
-            try { await Task.Delay(Timeout.Infinite, context.RequestAborted); } catch (OperationCanceledException) { }
+            try
+            { await Task.Delay(Timeout.Infinite, context.RequestAborted); }
+            catch (OperationCanceledException) { }
         });
         using var certificates = new TransportCertificates();
         using var services = Services(Settings(server.Url, certificates, TimeSpan.FromSeconds(1)));
@@ -116,7 +118,11 @@ public sealed class OutgoingHttpClientTests
             stop.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
         }
-        else await Assert.ThrowsAsync<TimeoutRejectedException>(() => call);
+        else
+        {
+            await Assert.ThrowsAsync<TimeoutRejectedException>(() => call);
+        }
+
         Assert.Equal(1, calls);
     }
 
@@ -130,14 +136,27 @@ public sealed class OutgoingHttpClientTests
             wrongHost ? certificates.Leaf(true, true) : certificates.Server, certificates.Client);
         using var services = Services(Settings(server.Url, certificates, tls: true));
         var call = services.GetRequiredService<IIpsTransport>().SendAsync("<payment/>", default);
-        if (wrongHost) await Assert.ThrowsAsync<HttpRequestException>(() => call);
-        else Assert.Equal("verified", (await call).Body);
+        if (wrongHost)
+        {
+            await Assert.ThrowsAsync<HttpRequestException>(() => call);
+        }
+        else
+        {
+            Assert.Equal("verified", (await call).Body);
+        }
     }
 
     internal static OutgoingTransportSettings Settings(string url, TransportCertificates certificates, TimeSpan? timeout = null, bool tls = false)
     {
         var incoming = IncomingHttpClientTests.Settings(url, certificates, timeout, tls);
-        return new() { Enabled = true, ParticipantBic = "TESTGE22", Ips = incoming.Ips, Cbs = incoming.Cbs, IpsSignatureTrust = incoming.IpsSignatureTrust };
+        return new()
+        {
+            Enabled = true,
+            ParticipantBic = "TESTGE22",
+            Ips = incoming.Ips,
+            Cbs = incoming.Cbs,
+            IpsSignatureTrust = incoming.IpsSignatureTrust
+        };
     }
     internal static ServiceProvider Services(OutgoingTransportSettings settings)
     {

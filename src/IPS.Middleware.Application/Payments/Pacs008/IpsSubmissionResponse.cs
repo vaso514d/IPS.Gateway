@@ -1,5 +1,4 @@
 namespace IPS.Middleware.Application.Payments.Pacs008;
-
 /// <summary>The received HTTP evidence, before interpreting its business meaning.</summary>
 public sealed class IpsSubmissionResponse(int httpStatusCode, string body, IReadOnlyList<IpsResponseHeader> headers)
 {
@@ -14,9 +13,25 @@ public sealed class IpsSubmissionResponse(int httpStatusCode, string body, IRead
         ArgumentNullException.ThrowIfNull(headers);
         var snapshot = headers.ToArray();
         if (snapshot.Any(header => header is null || string.IsNullOrWhiteSpace(header.Name) || header.Value is null))
+        {
             throw new ArgumentException("Response headers require names and values.", nameof(headers));
+        }
+
         return Array.AsReadOnly(snapshot);
     }
 }
 
-public sealed record IpsResponseHeader(string Name, string Value);
+public sealed class IpsResponseHeader : IEquatable<IpsResponseHeader>
+{
+    public IpsResponseHeader(string name, string value)
+    {
+        Name = name;
+        Value = value;
+    }
+
+    public string Name { get; init; }
+    public string Value { get; init; }
+    public bool Equals(IpsResponseHeader? other) => other is not null && Name == other.Name && Value == other.Value;
+    public override bool Equals(object? obj) => obj is IpsResponseHeader other && Equals(other);
+    public override int GetHashCode() => HashCode.Combine(Name, Value);
+}

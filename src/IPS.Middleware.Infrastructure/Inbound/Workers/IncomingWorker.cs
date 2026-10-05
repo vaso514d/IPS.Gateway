@@ -18,9 +18,20 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
 
     protected sealed override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!Options.Enabled) return;
-        using var registration = stoppingToken.Register(() => { admission.Cancel(); execution.Cancel(); });
-        try { await RunAsync(admission.Token, execution.Token); }
+        if (!Options.Enabled)
+        {
+            return;
+        }
+
+        using var registration = stoppingToken.Register(() =>
+        {
+            admission.Cancel();
+            execution.Cancel();
+        });
+        try
+        {
+            await RunAsync(admission.Token, execution.Token);
+        }
         catch (OperationCanceledException) when (admission.IsCancellationRequested || execution.IsCancellationRequested) { }
     }
 
@@ -30,7 +41,11 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
     {
         lock (lifecycle)
         {
-            if (disposed) return stopping ?? Task.CompletedTask;
+            if (disposed)
+            {
+                return stopping ?? Task.CompletedTask;
+            }
+
             return stopping ??= DrainAsync(cancellationToken);
         }
     }
@@ -42,7 +57,10 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
         {
             using var budget = new CancellationTokenSource(Options.ShutdownBudget, Time);
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(budget.Token, cancellationToken);
-            try { await ExecuteTask.WaitAsync(deadline.Token); }
+            try
+            {
+                await ExecuteTask.WaitAsync(deadline.Token);
+            }
             catch (OperationCanceledException) when (deadline.IsCancellationRequested)
             {
                 await execution.CancelAsync();
@@ -54,13 +72,23 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
 
     protected async Task ObserveAsync(Guid id, Func<Guid, CancellationToken, Task> process, CancellationToken work)
     {
-        try { await process(id, work); }
+        try
+        {
+            await process(id, work);
+        }
         catch (OperationCanceledException) when (work.IsCancellationRequested) { }
-        catch (Exception error) { Logger.LogError(error, "Incoming work {WorkId} failed; SQL recovery will rediscover it", id); }
+        catch (Exception error)
+        {
+            Logger.LogError(error, "Incoming work {WorkId} failed; SQL recovery will rediscover it", id);
+        }
     }
 
-    protected async Task DispatchAsync(InboundJournalChannel channel, int capacity,
-        Func<Guid, CancellationToken, Task> process, CancellationToken stop, CancellationToken work)
+    protected async Task DispatchAsync(
+        InboundJournalChannel channel,
+        int capacity,
+        Func<Guid, CancellationToken, Task> process,
+        CancellationToken stop,
+        CancellationToken work)
     {
         var running = new List<Task>();
         try
@@ -78,16 +106,28 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
                 running.Add(ObserveAsync(id, process, work));
             }
         }
-        finally { await Task.WhenAll(running); }
+        finally
+        {
+            await Task.WhenAll(running);
+        }
     }
 
     protected async Task RefillAsync(Func<CancellationToken, Task> refill, TimeSpan interval, CancellationToken stop)
     {
         while (!stop.IsCancellationRequested)
         {
-            try { await refill(stop); }
-            catch (OperationCanceledException) when (stop.IsCancellationRequested) { break; }
-            catch (Exception error) { Logger.LogError(error, "Incoming discovery failed; the next sweep will retry"); }
+            try
+            {
+                await refill(stop);
+            }
+            catch (OperationCanceledException) when (stop.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception error)
+            {
+                Logger.LogError(error, "Incoming discovery failed; the next sweep will retry");
+            }
             await Task.Delay(interval, Time, stop);
         }
     }
@@ -96,7 +136,11 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
     {
         lock (lifecycle)
         {
-            if (disposed) return;
+            if (disposed)
+            {
+                return;
+            }
+
             disposed = true;
             base.Dispose();
             admission.Dispose();

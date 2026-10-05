@@ -2,13 +2,26 @@ namespace IPS.Middleware.Application.Payments.Investigation;
 
 public sealed class InvestigationOptions
 {
-    public InvestigationOptions(TimeSpan? firstDelay = null, TimeSpan[]? retryDelays = null, TimeSpan? repeatInterval = null,
-        TimeSpan? window = null, int maxCycles = 0, TimeSpan? callTimeout = null, TimeSpan? attemptBudget = null,
-        TimeSpan? ownership = null, TimeSpan? persistenceBudget = null, TimeSpan? preparationRetryDelay = null,
-        int discoveryBatch = 50, TimeSpan? discoveryInterval = null)
+    public InvestigationOptions(
+        TimeSpan? firstDelay = null,
+        TimeSpan[]? retryDelays = null,
+        TimeSpan? repeatInterval = null,
+        TimeSpan? window = null,
+        int maxCycles = 0,
+        TimeSpan? callTimeout = null,
+        TimeSpan? attemptBudget = null,
+        TimeSpan? ownership = null,
+        TimeSpan? persistenceBudget = null,
+        TimeSpan? preparationRetryDelay = null,
+        int discoveryBatch = 50,
+        TimeSpan? discoveryInterval = null)
     {
         FirstDelay = Positive(firstDelay ?? TimeSpan.FromSeconds(9));
-        if (FirstDelay < TimeSpan.FromSeconds(9)) throw new ArgumentOutOfRangeException(nameof(firstDelay));
+        if (FirstDelay < TimeSpan.FromSeconds(9))
+        {
+            throw new ArgumentOutOfRangeException(nameof(firstDelay));
+        }
+
         _retryDelays = (retryDelays ?? [TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5)]).Select(Positive).ToArray();
         RepeatInterval = Positive(repeatInterval ?? TimeSpan.FromMinutes(15));
         Window = Positive(window ?? TimeSpan.FromHours(24));
@@ -20,8 +33,12 @@ public sealed class InvestigationOptions
         DiscoveryInterval = Positive(discoveryInterval ?? TimeSpan.FromSeconds(5));
         if (maxCycles < 0 || discoveryBatch is < 1 or > 1000 || Window > TimeSpan.FromHours(24) ||
             CallTimeout >= AttemptBudget || AttemptBudget + PersistenceBudget >= Ownership)
+        {
             throw new ArgumentException("Invalid investigation limits or timeout ordering.");
-        MaxCycles = maxCycles; DiscoveryBatch = discoveryBatch;
+        }
+
+        MaxCycles = maxCycles;
+        DiscoveryBatch = discoveryBatch;
     }
     public TimeSpan FirstDelay { get; }
     private readonly TimeSpan[] _retryDelays;

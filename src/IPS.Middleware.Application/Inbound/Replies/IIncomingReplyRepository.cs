@@ -12,8 +12,18 @@ public interface IIncomingReplyRepository
     Task StageUnsignedAsync(InboundClaim claim, string xml, DateTimeOffset now, CancellationToken cancellationToken);
     Task StageMessageAsync(InboundClaim claim, SignedMessage message, DateTimeOffset now, CancellationToken cancellationToken);
     Task<IncomingReplyAttempt> StageAttemptAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken);
-    Task StageCompletionAsync(InboundClaim claim, Guid attemptId, ReplyAttemptCompletion completion, DateTimeOffset now, CancellationToken cancellationToken);
+    Task StageCompletionAsync(
+        InboundClaim claim,
+        Guid attemptId,
+        ReplyAttemptCompletion completion,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
     Task StageConsumptionAsync(InboundClaim claim, Guid attemptId, DateTimeOffset now, CancellationToken cancellationToken);
-    Task StageOutcomeAsync(InboundClaim claim, IncomingReplyStatus status, string? reason, DateTimeOffset now, CancellationToken cancellationToken);
+    Task StageOutcomeAsync(
+        InboundClaim claim,
+        IncomingReplyStatus status,
+        string? reason,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
     Task<bool> IsOwnerAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken);
 }

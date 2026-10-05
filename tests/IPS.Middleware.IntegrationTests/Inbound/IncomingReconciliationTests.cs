@@ -22,7 +22,6 @@ namespace IPS.Middleware.IntegrationTests.Inbound;
 public sealed class IncomingReconciliationTests
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public async Task Correlated_rejection_closes_unknown_without_changing_ips_decision()
     {
@@ -51,7 +50,15 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync();
         test.Remote.Query = _ => Task.FromResult(new CoreResponse(status, body));
-        foreach (var seconds in new[] { 30, 60, 300, 900 })
+        foreach (var seconds in new[]
+        {
+            30,
+            60,
+            300,
+            900
+        }
+
+        )
         {
             var now = test.Time.Now;
             var result = await test.RunAsync(id);
@@ -62,6 +69,7 @@ public sealed class IncomingReconciliationTests
             Assert.Empty(await test.DiscoverAsync());
             test.Time.Now = stored.FollowUpAtUtc!.Value;
         }
+
         test.Time.Now = Start.AddHours(24);
         Assert.Equal(IncomingFollowUp.ManualReviewRequired, (await test.RunAsync(id))!.FollowUp);
         Assert.Equal(4, test.Remote.Queries);
@@ -174,7 +182,11 @@ public sealed class IncomingReconciliationTests
         var id = await test.SeedAsync();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var response = new TaskCompletionSource<CoreResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-        test.Remote.Query = _ => { entered.SetResult(); return response.Task; };
+        test.Remote.Query = _ =>
+        {
+            entered.SetResult();
+            return response.Task;
+        };
         var first = test.RunAsync(id);
         await entered.Task;
         Assert.Empty(await test.DiscoverAsync());
@@ -196,7 +208,11 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync(credit: true);
         using var stop = new CancellationTokenSource();
-        test.Remote.Reverse = _ => { stop.Cancel(); return Task.FromResult(new CoreResponse(202, "accepted")); };
+        test.Remote.Reverse = _ =>
+        {
+            stop.Cancel();
+            return Task.FromResult(new CoreResponse(202, "accepted"));
+        };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => test.RunAsync(id, stop.Token));
         Assert.NotNull((await test.ReadAsync(id)).Calls.Single(c => c.Kind == CoreCallKind.Reversal).Completion);
         test.Time.Now += TimeSpan.FromSeconds(46);
@@ -211,7 +227,12 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync(credit: true);
         using var stop = new CancellationTokenSource();
-        test.Remote.Reverse = async token => { stop.Cancel(); await Task.Delay(Timeout.Infinite, token); return new(202, ""); };
+        test.Remote.Reverse = async token =>
+        {
+            stop.Cancel();
+            await Task.Delay(Timeout.Infinite, token);
+            return new(202, "");
+        };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => test.RunAsync(id, stop.Token));
         test.Time.Now += TimeSpan.FromSeconds(46);
         await test.RunAsync(id);
@@ -225,7 +246,11 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync(credit: true);
         test.Options = new(callTimeout: TimeSpan.FromMilliseconds(40));
-        test.Remote.Reverse = async token => { await Task.Delay(Timeout.Infinite, token); return new(202, ""); };
+        test.Remote.Reverse = async token =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            return new(202, "");
+        };
         await test.RunAsync(id);
         Assert.Equal(ReversalDelivery.Uncertain, (await test.ReadAsync(id)).Payment.Reversal);
     }
@@ -251,7 +276,13 @@ public sealed class IncomingReconciliationTests
         Assert.Single(test.Remote.ReversedPayments);
         await using var db = test.Database.Context();
         var payloads = await db.Database.SqlQuery<string>($"SELECT PayloadJson AS Value FROM TransactionEvents WHERE TransactionId = {id} AND Name = 'incoming-payment.reconciliation-recorded' ORDER BY Sequence").ToListAsync();
-        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } };
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Converters =
+            {
+                new JsonStringEnumConverter()
+            }
+        };
         var history = payloads.Select(p => JsonSerializer.Deserialize<IncomingReconciliationRecorded>(p, json)!).ToArray();
         Assert.Equal(2, history.Length);
         Assert.Equal(ReversalDelivery.Started, history[0].Reversal);
@@ -282,7 +313,12 @@ public sealed class IncomingReconciliationTests
     public async Task Discovery_is_bounded_and_orders_by_due_time_then_registration_and_sql_id()
     {
         await using var test = await Harness.CreateAsync();
-        var ids = new[] { await test.SeedAsync(reference: "A"), await test.SeedAsync(reference: "B"), await test.SeedAsync(reference: "C") };
+        var ids = new[]
+        {
+            await test.SeedAsync(reference: "A"),
+            await test.SeedAsync(reference: "B"),
+            await test.SeedAsync(reference: "C")
+        };
         test.Options = new(discoveryBatch: 2);
         test.Time.Now = Start.AddSeconds(10).AddTicks(-1);
         Assert.Empty(await test.DiscoverAsync());
@@ -321,7 +357,7 @@ public sealed class IncomingReconciliationTests
         processing = new(owned);
         snapshot = (await processing.ReadAsync(id, default))!;
         snapshot.Payment.BeginReversal(test.Time.Now);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification with { EndToEndId = "OTHER" }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, new ReversalNotification(notification) { EndToEndId = "OTHER" }));
         var call = await processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification);
         await unit.SaveAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification));
@@ -339,7 +375,11 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync();
         test.Time.Now = Start.AddHours(24).AddMilliseconds(-40);
-        test.Remote.Query = async token => { await Task.Delay(Timeout.Infinite, token); return new(200, ""); };
+        test.Remote.Query = async token =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            return new(200, "");
+        };
         await test.RunAsync(id).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(Start.AddHours(24), (await test.ReadAsync(id)).FollowUpAtUtc);
         test.Time.Now = Start.AddHours(24);
@@ -396,6 +436,7 @@ public sealed class IncomingReconciliationTests
         public Clock Time { get; } = new();
         public Simulator Remote { get; } = new();
         public IncomingReconciliationOptions Options { get; set; } = new();
+
         public static async Task<Harness> CreateAsync() => new(await SqlTestDatabase.CreateAsync());
         public async Task<Guid> SeedAsync(bool credit = false, string reference = "E2E")
         {
@@ -420,16 +461,19 @@ public sealed class IncomingReconciliationTests
             await unit.SaveAsync(default);
             return payment.Id;
         }
+
         public async Task<IncomingProcessingSnapshot> ReadAsync(Guid id)
         {
             await using var db = Database.Context();
             return (await new IncomingProcessingRepository(db).ReadAsync(id, default))!;
         }
+
         public async Task<IReadOnlyList<Guid>> DiscoverAsync()
         {
             await using var db = Database.Context();
             return await new IncomingReconciliationRepository(db).FindDueAsync(Time.Now, Options.DiscoveryBatch, default);
         }
+
         public async Task<IncomingProcessingResult?> RunAsync(Guid id, CancellationToken token = default, params IInterceptor[] interceptors)
         {
             await using var db = Database.Context(interceptors);
@@ -437,13 +481,17 @@ public sealed class IncomingReconciliationTests
             return await new IncomingReconciliation(new IncomingReconciliationRepository(db), new IncomingProcessingRepository(db),
                 new UnitOfWork(db), Remote, Remote, new IncomingCoreReplyInterpreter(), Options, Time).ProcessAsync(id, token);
         }
+
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = Start.AddSeconds(10);
+
         public override DateTimeOffset GetUtcNow() => Now;
     }
+
     private sealed class Simulator : IIncomingCoreClient, IIncomingReversalClient
     {
         public int Queries { get; private set; }
@@ -453,6 +501,7 @@ public sealed class IncomingReconciliationTests
         public Action? CheckTransaction { get; set; }
         public Func<CancellationToken, Task<CoreResponse>> Query { get; set; } = _ => Task.FromResult(new CoreResponse(404, ""));
         public Func<CancellationToken, Task<CoreResponse>> Reverse { get; set; } = _ => Task.FromResult(new CoreResponse(202, ""));
+
         public Task<CoreResponse> SubmitAsync(string participant, Pacs008Request request, CancellationToken token) => throw new Xunit.Sdk.XunitException("Reconciliation must never submit a payment.");
         public Task<CoreResponse> QueryAsync(string participant, string reference, CancellationToken token)
         {
@@ -462,6 +511,7 @@ public sealed class IncomingReconciliationTests
             Queries++;
             return Query(token);
         }
+
         public Task<CoreResponse> RequestAsync(ReversalNotification notification, CancellationToken token)
         {
             CheckTransaction?.Invoke();
@@ -471,23 +521,32 @@ public sealed class IncomingReconciliationTests
             return Reverse(token);
         }
     }
+
     private sealed class Crash : Exception;
     private sealed class BeforeCommit(int target) : DbTransactionInterceptor
     {
         private int _commits;
-        public override ValueTask<InterceptionResult> TransactionCommittingAsync(DbTransaction transaction, TransactionEventData eventData,
-            InterceptionResult result, CancellationToken cancellationToken = default)
+        public override ValueTask<InterceptionResult> TransactionCommittingAsync(DbTransaction transaction, TransactionEventData eventData, InterceptionResult result, CancellationToken cancellationToken = default)
         {
-            if (++_commits == target) throw new Crash();
+            if (++_commits == target)
+            {
+                throw new Crash();
+            }
+
             return ValueTask.FromResult(result);
         }
     }
+
     private sealed class AfterCommit(int target) : DbTransactionInterceptor
     {
         private int _commits;
         public override Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData, CancellationToken cancellationToken = default)
         {
-            if (++_commits == target) throw new Crash();
+            if (++_commits == target)
+            {
+                throw new Crash();
+            }
+
             return Task.CompletedTask;
         }
     }

@@ -2,9 +2,14 @@ namespace IPS.Middleware.Application.Inbound.Reconciliation;
 
 public sealed class IncomingReconciliationOptions
 {
-    public IncomingReconciliationOptions(TimeSpan? callTimeout = null, TimeSpan? persistenceBudget = null,
-        TimeSpan? ownership = null, TimeSpan? window = null, int discoveryBatch = 50,
-        TimeSpan[]? retryDelays = null, TimeSpan? repeatInterval = null)
+    public IncomingReconciliationOptions(
+        TimeSpan? callTimeout = null,
+        TimeSpan? persistenceBudget = null,
+        TimeSpan? ownership = null,
+        TimeSpan? window = null,
+        int discoveryBatch = 50,
+        TimeSpan[]? retryDelays = null,
+        TimeSpan? repeatInterval = null)
     {
         CallTimeout = callTimeout ?? TimeSpan.FromSeconds(20);
         PersistenceBudget = persistenceBudget ?? TimeSpan.FromSeconds(2);
@@ -16,7 +21,9 @@ public sealed class IncomingReconciliationOptions
         if (CallTimeout <= TimeSpan.Zero || PersistenceBudget <= TimeSpan.Zero || Window <= TimeSpan.Zero ||
             Ownership <= CallTimeout + PersistenceBudget || discoveryBatch <= 0 ||
             RepeatInterval <= TimeSpan.Zero || RetryDelays.Any(delay => delay <= TimeSpan.Zero))
+        {
             throw new ArgumentException("Positive reconciliation budgets must fit within ownership.");
+        }
     }
     public TimeSpan CallTimeout { get; }
     public TimeSpan PersistenceBudget { get; }

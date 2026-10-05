@@ -14,7 +14,7 @@ public enum PaymentOperation
     ResolveManually
 }
 
-public sealed record PaymentDetails
+public sealed class PaymentDetails : IEquatable<PaymentDetails>
 {
     public PaymentDetails(string? reasonCode = null, int? ipsInternalCode = null, string? description = null)
     {
@@ -27,40 +27,176 @@ public sealed record PaymentDetails
     public string? ReasonCode { get; }
     public int? IpsInternalCode { get; }
     public string? Description { get; }
+
+    public bool Equals(PaymentDetails? other) => other is not null &&
+            Equals(ReasonCode, other.ReasonCode) &&
+            Equals(IpsInternalCode, other.IpsInternalCode) &&
+            Equals(Description, other.Description);
+    public override bool Equals(object? obj) => obj is PaymentDetails other && Equals(other);
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(ReasonCode);
+        hash.Add(IpsInternalCode);
+        hash.Add(Description);
+        return hash.ToHashCode();
+    }
+
+    public static bool operator ==(PaymentDetails? left, PaymentDetails? right) => Equals(left, right);
+    public static bool operator !=(PaymentDetails? left, PaymentDetails? right) => !Equals(left, right);
 }
 
-public sealed record PaymentOutcome(
-    TransactionStatus Status, StatusSource Source, DateTimeOffset AtUtc, int Sequence, PaymentDetails Details);
+public sealed class PaymentOutcome : IEquatable<PaymentOutcome>
+{
+    public PaymentOutcome(TransactionStatus status, StatusSource source, DateTimeOffset atUtc, int sequence, PaymentDetails details)
+    {
+        Status = status;
+        Source = source;
+        AtUtc = atUtc;
+        Sequence = sequence;
+        Details = details;
+    }
 
-public sealed record PaymentReceived(
-    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
-    string MessageType, string ClientReference)
-    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+    public TransactionStatus Status { get; init; }
+    public StatusSource Source { get; init; }
+    public DateTimeOffset AtUtc { get; init; }
+    public int Sequence { get; init; }
+    public PaymentDetails Details { get; init; }
 
-public sealed record PaymentStateChanged(
-    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
-    PaymentOperation Operation, TransactionStatus PreviousStatus, TransactionStatus Status,
-    StatusSource Source, PaymentDetails Details)
-    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+    public bool Equals(PaymentOutcome? other) => other is not null &&
+            Equals(Status, other.Status) &&
+            Equals(Source, other.Source) &&
+            Equals(AtUtc, other.AtUtc) &&
+            Equals(Sequence, other.Sequence) &&
+            Equals(Details, other.Details);
+    public override bool Equals(object? obj) => obj is PaymentOutcome other && Equals(other);
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(Status);
+        hash.Add(Source);
+        hash.Add(AtUtc);
+        hash.Add(Sequence);
+        hash.Add(Details);
+        return hash.ToHashCode();
+    }
 
-public sealed record PaymentProcessingObserved(
-    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
-    ProcessingStep Step, TransactionStatus Status)
-    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+    public static bool operator ==(PaymentOutcome? left, PaymentOutcome? right) => Equals(left, right);
+    public static bool operator !=(PaymentOutcome? left, PaymentOutcome? right) => !Equals(left, right);
+}
 
-public sealed record PaymentProcessingFailed(
-    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
-    ProcessingStep Step, TransactionStatus Status, string Description)
-    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+public sealed class PaymentReceived : DomainEvent
+{
+    public PaymentReceived(
+        Guid eventId,
+        Guid aggregateId,
+        int sequence,
+        DateTimeOffset occurredAtUtc,
+        string messageType,
+        string clientReference) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    {
+        MessageType = messageType;
+        ClientReference = clientReference;
+    }
 
-public sealed record PaymentOutcomeObserved(
-    Guid EventId, Guid AggregateId, int Sequence, DateTimeOffset OccurredAtUtc,
-    TransactionStatus CurrentStatus, TransactionStatus ReportedStatus, bool Conflicting,
-    StatusSource Source, PaymentDetails Details)
-    : DomainEvent(EventId, AggregateId, Sequence, OccurredAtUtc);
+    public string MessageType { get; init; }
+    public string ClientReference { get; init; }
+}
 
-public sealed class PaymentTransitionException(TransactionStatus state, PaymentOperation operation)
-    : InvalidOperationException($"Payment operation {operation} is not valid in state {state}.")
+public sealed class PaymentStateChanged : DomainEvent
+{
+    public PaymentStateChanged(
+        Guid eventId,
+        Guid aggregateId,
+        int sequence,
+        DateTimeOffset occurredAtUtc,
+        PaymentOperation operation,
+        TransactionStatus previousStatus,
+        TransactionStatus status,
+        StatusSource source,
+        PaymentDetails details) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    {
+        Operation = operation;
+        PreviousStatus = previousStatus;
+        Status = status;
+        Source = source;
+        Details = details;
+    }
+
+    public PaymentOperation Operation { get; init; }
+    public TransactionStatus PreviousStatus { get; init; }
+    public TransactionStatus Status { get; init; }
+    public StatusSource Source { get; init; }
+    public PaymentDetails Details { get; init; }
+}
+
+public sealed class PaymentProcessingObserved : DomainEvent
+{
+    public PaymentProcessingObserved(
+        Guid eventId,
+        Guid aggregateId,
+        int sequence,
+        DateTimeOffset occurredAtUtc,
+        ProcessingStep step,
+        TransactionStatus status) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    {
+        Step = step;
+        Status = status;
+    }
+
+    public ProcessingStep Step { get; init; }
+    public TransactionStatus Status { get; init; }
+}
+
+public sealed class PaymentProcessingFailed : DomainEvent
+{
+    public PaymentProcessingFailed(
+        Guid eventId,
+        Guid aggregateId,
+        int sequence,
+        DateTimeOffset occurredAtUtc,
+        ProcessingStep step,
+        TransactionStatus status,
+        string description) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    {
+        Step = step;
+        Status = status;
+        Description = description;
+    }
+
+    public ProcessingStep Step { get; init; }
+    public TransactionStatus Status { get; init; }
+    public string Description { get; init; }
+}
+
+public sealed class PaymentOutcomeObserved : DomainEvent
+{
+    public PaymentOutcomeObserved(
+        Guid eventId,
+        Guid aggregateId,
+        int sequence,
+        DateTimeOffset occurredAtUtc,
+        TransactionStatus currentStatus,
+        TransactionStatus reportedStatus,
+        bool conflicting,
+        StatusSource source,
+        PaymentDetails details) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    {
+        CurrentStatus = currentStatus;
+        ReportedStatus = reportedStatus;
+        Conflicting = conflicting;
+        Source = source;
+        Details = details;
+    }
+
+    public TransactionStatus CurrentStatus { get; init; }
+    public TransactionStatus ReportedStatus { get; init; }
+    public bool Conflicting { get; init; }
+    public StatusSource Source { get; init; }
+    public PaymentDetails Details { get; init; }
+}
+
+public sealed class PaymentTransitionException(TransactionStatus state, PaymentOperation operation) : InvalidOperationException($"Payment operation {operation} is not valid in state {state}.")
 {
     public TransactionStatus State { get; } = state;
     public PaymentOperation Operation { get; } = operation;

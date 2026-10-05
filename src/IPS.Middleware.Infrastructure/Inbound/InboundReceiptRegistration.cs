@@ -12,7 +12,10 @@ public sealed class InboundReceiptRegistration(IServiceScopeFactory scopes, Inbo
             intake => intake.RegisterAsync(receipt, cancellationToken), options.RegistrationMaxAttempts, cancellationToken);
         // Notify only after a new pending receipt commits; anything missed is rediscovered from SQL.
         if (result is { Created: true, Status: InboundProcessingStatus.Pending } && !cancellationToken.IsCancellationRequested)
+        {
             channel.TryNotify(result.JournalId);
+        }
+
         return result;
     }
 }

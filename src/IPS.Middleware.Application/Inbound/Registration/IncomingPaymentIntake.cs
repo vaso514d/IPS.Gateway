@@ -8,8 +8,12 @@ using IPS.Middleware.Domain.Inbound;
 namespace IPS.Middleware.Application.Inbound.Registration;
 
 /// <summary>Registers the trusted, valid payment read from an owned receipt.</summary>
-public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, IInboundWorkRepository receipts,
-    IUnitOfWork unitOfWork, TimeProvider timeProvider, IncomingProcessingOptions options)
+public sealed class IncomingPaymentIntake(
+        IIncomingPaymentRepository payments,
+        IInboundWorkRepository receipts,
+        IUnitOfWork unitOfWork,
+        TimeProvider timeProvider,
+        IncomingProcessingOptions options)
 {
     public const string ConflictReason = "Payment identity conflict: contents differ from the registered payment.";
 
@@ -20,32 +24,56 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
     public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken) =>
         RegisterAsync(claim, incoming, null, cancellationToken);
 
-    public Task<IncomingRegistration> RegisterAndReleaseAsync(InboundClaim claim, IncomingPacs008 incoming,
-        DateTimeOffset nextActionAtUtc, CancellationToken cancellationToken) => RegisterAsync(claim, incoming, nextActionAtUtc, cancellationToken);
+    public Task<IncomingRegistration> RegisterAndReleaseAsync(
+        InboundClaim claim,
+        IncomingPacs008 incoming,
+        DateTimeOffset nextActionAtUtc,
+        CancellationToken cancellationToken) => RegisterAsync(claim, incoming, nextActionAtUtc, cancellationToken);
 
-    private async Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming,
-        DateTimeOffset? nextActionAtUtc, CancellationToken cancellationToken)
+    private async Task<IncomingRegistration> RegisterAsync(
+        InboundClaim claim,
+        IncomingPacs008 incoming,
+        DateTimeOffset? nextActionAtUtc,
+        CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
-        if (await receipts.FindOwnedAsync(claim, now, cancellationToken) is not { } receipt) return IncomingRegistration.LostOwnership;
+        if (await receipts.FindOwnedAsync(claim, now, cancellationToken) is not { } receipt)
+        {
+            return IncomingRegistration.LostOwnership;
+        }
+
         var endToEndId = incoming.Payment.EndToEndId ?? throw new ArgumentException("A read payment has an EndToEndId.", nameof(incoming));
         var existing = await payments.FindAsync(receipt.ParticipantBic, endToEndId, cancellationToken);
 
         if (!await receipts.StageOriginalReferencesAsync(claim, incoming.Original, now, cancellationToken))
+        {
             return IncomingRegistration.LostOwnership;
+        }
 
         // The canonical payment stays unchanged; the conflicting receipt keeps its references for investigation.
         if (existing is not null && !incoming.HasSameContents(existing.Request))
+        {
             return await receipts.StageHoldAsync(claim, now, ConflictReason, cancellationToken)
                 ? await CommitAsync(IncomingRegistrationOutcome.Conflict, existing.Payment.Id, cancellationToken)
                 : IncomingRegistration.LostOwnership;
+        }
 
         var payment = existing?.Payment ?? IncomingPayment.Register(Guid.NewGuid(), receipt.ParticipantBic, endToEndId, now);
         if (!await receipts.StageAttachmentAsync(claim, payment.Id, now, cancellationToken))
+        {
             return IncomingRegistration.LostOwnership;
+        }
+
         if (nextActionAtUtc is { } due && !await receipts.StageFinishAsync(claim, now, due, cancellationToken))
+        {
             throw new PersistenceConcurrencyException("Receipt ownership expired during registration.");
-        if (existing is not null) return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
+        }
+
+        if (existing is not null)
+        {
+            return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
+        }
+
         payments.Add(payment, incoming.Payment, new(receipt.JournalId, receipt.ReceivedAtUtc,
             (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + options.PaymentWindow,
             incoming.Original));

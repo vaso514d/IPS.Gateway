@@ -145,7 +145,11 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         var id = await h.SeedAsync();
         var registered = await h.Execution.PrepareAsync(id, default);
         Assert.NotNull(registered.PaymentId);
-        if (checkpoint != "registration") await h.Execution.ProcessPaymentAsync(registered.PaymentId.Value, default);
+        if (checkpoint != "registration")
+        {
+            await h.Execution.ProcessPaymentAsync(registered.PaymentId.Value, default);
+        }
+
         if (checkpoint == "reply-response")
         {
             using var stop = new CancellationTokenSource();
@@ -209,7 +213,10 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
                 context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "ACCP";
                 await context.Response.WriteAsync(reply.Body);
             }
-            else context.Response.StatusCode = 404;
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
         });
         using var certificates = new TransportCertificates();
         await using var h = await Harness.CreateAsync(fixture, configure: services =>
@@ -332,7 +339,10 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
             if (eventData.Context!.ChangeTracker.Entries<IncomingPayment>().Any(e => e.State == EntityState.Added))
+            {
                 throw new InvalidOperationException("Injected registration commit failure.");
+            }
+
             return ValueTask.FromResult(result);
         }
     }
@@ -356,11 +366,19 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         public async Task<CoreResponse> SubmitAsync(string participant, Pacs008Request payment, CancellationToken token)
         {
             Submissions.Enqueue(payment.EndToEndId!);
-            if (BeforeSubmit is not null) await BeforeSubmit();
+            if (BeforeSubmit is not null)
+            {
+                await BeforeSubmit();
+            }
+
             AfterSubmit?.Invoke();
             return Response;
         }
-        public Task<CoreResponse> QueryAsync(string participant, string endToEndId, CancellationToken token) { Queries++; return Task.FromResult(Response); }
+        public Task<CoreResponse> QueryAsync(string participant, string endToEndId, CancellationToken token)
+        {
+            Queries++;
+            return Task.FromResult(Response);
+        }
     }
     private sealed class Reply : IIncomingReplyClient
     {
@@ -417,6 +435,10 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             await using var db = Database.Context();
             return (await new IncomingReplyRepository(db).ReadAsync(id, default))!;
         }
-        public async ValueTask DisposeAsync() { await Services.DisposeAsync(); await Database.DisposeAsync(); }
+        public async ValueTask DisposeAsync()
+        {
+            await Services.DisposeAsync();
+            await Database.DisposeAsync();
+        }
     }
 }

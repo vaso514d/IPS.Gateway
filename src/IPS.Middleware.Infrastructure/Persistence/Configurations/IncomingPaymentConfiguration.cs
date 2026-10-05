@@ -31,19 +31,6 @@ internal sealed class IncomingPaymentConfiguration : IEntityTypeConfiguration<In
         payment.Ignore(p => p.PendingEvents);
         payment.Ignore(p => p.CoreResult);
         payment.Ignore(p => p.IpsDecision);
-        payment.Property<string>(IncomingPaymentColumns.ContextJson).IsRequired();
-        payment.Property<long>(IncomingPaymentColumns.CheckpointVersion);
-        payment.Property<DateTimeOffset?>(IncomingPaymentColumns.FollowUpAtUtc);
-        payment.Property<DateTimeOffset?>(IncomingPaymentColumns.ReconciliationDeadlineUtc);
-        payment.ToTable(table => table.HasCheckConstraint("CK_IncomingPayments_FollowUpDeadline",
-            "[FollowUpAtUtc] IS NULL OR ([ReconciliationDeadlineUtc] IS NOT NULL AND [FollowUpAtUtc] <= [ReconciliationDeadlineUtc])"));
-        payment.ToTable(table => table.HasCheckConstraint("CK_IncomingPayments_Context", "ISJSON([ContextJson]) = 1"));
-        payment.Property<string>(RequestJson).IsRequired();
-        payment.Property<Guid?>(ClaimToken);
-        payment.Property<DateTimeOffset?>(ClaimExpiresAtUtc);
-        payment.Property<DateTimeOffset?>(NextActionAtUtc);
         payment.Property<byte[]>(RowVersion).IsRequired().IsRowVersion();
-        payment.HasIndex(IncomingPaymentColumns.FollowUpAtUtc, nameof(IncomingPayment.RegisteredAtUtc), nameof(IncomingPayment.Id));
-        payment.HasIndex(NextActionAtUtc, nameof(IncomingPayment.RegisteredAtUtc), nameof(IncomingPayment.Id));
     }
 }

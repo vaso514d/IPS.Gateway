@@ -13,6 +13,17 @@ public interface IInvestigationRepository
     void StageUnsigned(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, string xml, DateTimeOffset now);
     void StageReady(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, SignedMessage message, DateTimeOffset now);
     void StageSubmission(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, DateTimeOffset now);
-    void StageResponse(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, IpsSubmissionResponse response, DateTimeOffset now);
-    void StageResult(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, InvestigationReply result, string? transportFailure, DateTimeOffset now);
+    void StageResponse(
+        OutgoingPayment payment,
+        TransactionClaim claim,
+        Guid attemptId,
+        IpsSubmissionResponse response,
+        DateTimeOffset now);
+    void StageResult(
+        OutgoingPayment payment,
+        TransactionClaim claim,
+        Guid attemptId,
+        InvestigationReply result,
+        string? transportFailure,
+        DateTimeOffset now);
 }

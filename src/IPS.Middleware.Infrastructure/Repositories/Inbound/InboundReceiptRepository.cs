@@ -19,7 +19,10 @@ public sealed class InboundReceiptRepository(TransactionDbContext db) : IInbound
         {
             existing.DuplicateCount = checked(existing.DuplicateCount + 1);
             if (existing.LastDuplicateAtUtc is null || existing.LastDuplicateAtUtc < receipt.ReceivedAtUtc)
+            {
                 existing.LastDuplicateAtUtc = receipt.ReceivedAtUtc;
+            }
+
             return new(existing.Id, false, existing.Status);
         }
 

@@ -45,23 +45,28 @@ public static class IncomingHttpRegistration
 
     internal static void RequireParticipant(IncomingTransportSettings settings, string participant)
     {
-        if (!settings.Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
+        if (!settings.Enabled)
+        {
+            throw new InvalidOperationException("Incoming live transport is disabled.");
+        }
+
         if (!string.Equals(participant, settings.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Payment participant does not match the configured transport participant.");
+        }
     }
 
     private static void AddClient(IServiceCollection services, string name, bool ips, bool receive)
     {
-        HttpEndpointSettings Endpoint(IServiceProvider sp)
-        {
-            var settings = sp.GetRequiredService<IncomingTransportSettings>();
-            return ips ? settings.Ips : settings.Cbs;
-        }
         SingleAttemptHttp.Add(services, name, sp =>
         {
             var settings = sp.GetRequiredService<IncomingTransportSettings>();
-            if (!settings.Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
-            var endpoint = Endpoint(sp);
+            if (!settings.Enabled)
+            {
+                throw new InvalidOperationException("Incoming live transport is disabled.");
+            }
+
+            var endpoint = ips ? settings.Ips : settings.Cbs;
             return new(endpoint, receive ? 1 : ips ? endpoint.ConnectionLimit - 1 : endpoint.ConnectionLimit,
                 receive ? settings.ReceiveTimeout : endpoint.RequestTimeout,
                 sp.GetRequiredService<IncomingTransportCertificates>().Tls(ips, endpoint.CheckCertificateRevocation));

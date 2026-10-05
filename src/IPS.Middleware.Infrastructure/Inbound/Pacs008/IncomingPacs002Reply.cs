@@ -17,44 +17,30 @@ public sealed class IncomingPacs002Reply(Pacs008ProtocolProfile profile, Pacs008
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs008Schema.ReplyNamespace;
 
-    public Pacs008SigningResult Prepare(IncomingPacs008Reference original, IncomingReplyDecision decision,
-        IncomingReplyContext context, string participantBic, X509Certificate2? certificate) =>
+    public Pacs008SigningResult Prepare(
+        IncomingPacs008Reference original,
+        IncomingReplyDecision decision,
+        IncomingReplyContext context,
+        string participantBic,
+        X509Certificate2? certificate) =>
         signer.PrepareReply(BuildUnsigned(original, decision, context, participantBic), certificate);
 
     // Context is supplied by durable preparation; this builder never generates identifiers or reads the clock.
-    public string BuildUnsigned(IncomingPacs008Reference original, IncomingReplyDecision decision,
-        IncomingReplyContext context, string participantBic)
+    public string BuildUnsigned(
+        IncomingPacs008Reference original,
+        IncomingReplyDecision decision,
+        IncomingReplyContext context,
+        string participantBic)
     {
         var status = decision.Accepted ? "ACCP" : "RJCT";
-        var header = new XElement(Head + "AppHdr",
-            HeaderParty("Fr", participantBic),
-            HeaderParty("To", profile.IpsBic),
-            new XElement(Head + "BizMsgIdr", context.MessageId),
-            new XElement(Head + "MsgDefIdr", MessageDefinition),
-            new XElement(Head + "BizSvc", BusinessService),
-            new XElement(Head + "CreDt", Date(context.CreatedAtUtc)));
+        var header = Header(context, participantBic);
         var report = new XElement(Pacs + "FIToFIPmtStsRpt",
             new XElement(Pacs + "GrpHdr",
                 Element("MsgId", context.MessageId),
                 Element("CreDtTm", Date(context.CreatedAtUtc)),
                 Agent("InstgAgt", participantBic)),
-            new XElement(Pacs + "OrgnlGrpInfAndSts",
-                Element("OrgnlMsgId", original.GroupMessageId),
-                Element("OrgnlMsgNmId", Pacs008Message.MessageDefinition),
-                Element("GrpSts", status),
-                Reason(decision, originator: null)),
-            new XElement(Pacs + "TxInfAndSts",
-                Element("StsId", context.StatusId),
-                Element("OrgnlEndToEndId", original.EndToEndId),
-                Optional("OrgnlTxId", original.TransactionId),
-                Element("TxSts", status),
-                Reason(decision, originator: participantBic),
-                Element("AccptncDtTm", Date(decision.ProcessedAtUtc == default ? context.CreatedAtUtc : decision.ProcessedAtUtc)),
-                new XElement(Pacs + "OrgnlTxRef",
-                    new XElement(Pacs + "PmtTpInf",
-                        new XElement(Pacs + "SvcLvl", Element("Cd", original.ServiceLevelCode ?? profile.ServiceLevelCode)),
-                        new XElement(Pacs + "LclInstrm", Element("Cd", original.LocalInstrumentCode ?? Pacs008ProtocolProfile.InstantServiceLevel))),
-                    Agent("DbtrAgt", original.DebtorAgentBic))));
+            OriginalGroup(original, decision, status),
+            Transaction(original, decision, context, participantBic, status));
         var message = new XElement("Message",
             new XAttribute(XNamespace.Xmlns + "head", Head), new XAttribute(XNamespace.Xmlns + "pacs", Pacs),
             header, new XElement(Pacs + "Document", report));
@@ -62,6 +48,37 @@ public sealed class IncomingPacs002Reply(Pacs008ProtocolProfile profile, Pacs008
         Pacs008Schema.ValidateReply(xml);
         return xml;
     }
+
+    private XElement Header(IncomingReplyContext context, string participantBic) =>
+        new(Head + "AppHdr",
+            HeaderParty("Fr", participantBic),
+            HeaderParty("To", profile.IpsBic),
+            new XElement(Head + "BizMsgIdr", context.MessageId),
+            new XElement(Head + "MsgDefIdr", MessageDefinition),
+            new XElement(Head + "BizSvc", BusinessService),
+            new XElement(Head + "CreDt", Date(context.CreatedAtUtc)));
+
+    private static XElement OriginalGroup(IncomingPacs008Reference original, IncomingReplyDecision decision, string status) =>
+        new XElement(Pacs + "OrgnlGrpInfAndSts",
+            Element("OrgnlMsgId", original.GroupMessageId),
+            Element("OrgnlMsgNmId", Pacs008Message.MessageDefinition),
+            Element("GrpSts", status),
+            Reason(decision, originator: null));
+
+    private XElement Transaction(
+        IncomingPacs008Reference original, IncomingReplyDecision decision, IncomingReplyContext context, string participantBic, string status) =>
+        new XElement(Pacs + "TxInfAndSts",
+            Element("StsId", context.StatusId),
+            Element("OrgnlEndToEndId", original.EndToEndId),
+            Optional("OrgnlTxId", original.TransactionId),
+            Element("TxSts", status),
+            Reason(decision, originator: participantBic),
+            Element("AccptncDtTm", Date(decision.ProcessedAtUtc == default ? context.CreatedAtUtc : decision.ProcessedAtUtc)),
+            new XElement(Pacs + "OrgnlTxRef",
+                new XElement(Pacs + "PmtTpInf",
+                    new XElement(Pacs + "SvcLvl", Element("Cd", original.ServiceLevelCode ?? profile.ServiceLevelCode)),
+                    new XElement(Pacs + "LclInstrm", Element("Cd", original.LocalInstrumentCode ?? Pacs008ProtocolProfile.InstantServiceLevel))),
+                Agent("DbtrAgt", original.DebtorAgentBic)));
 
     // The group-level reason has no originator; the transaction-level reason names the replying participant.
     private static XElement? Reason(IncomingReplyDecision decision, string? originator) => decision.Accepted ? null : new(Pacs + "StsRsnInf",

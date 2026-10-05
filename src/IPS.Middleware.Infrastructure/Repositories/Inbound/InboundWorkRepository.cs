@@ -24,15 +24,27 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(duration, TimeSpan.Zero);
         var entry = await db.InboundJournal.Where(DueAt(now)).SingleOrDefaultAsync(e => e.Id == journalId, cancellationToken);
-        if (entry is null) return null;
+        if (entry is null)
+        {
+            return null;
+        }
+
         var claim = new InboundClaim(entry.Id, Guid.NewGuid(), now.ToUniversalTime() + duration);
         Own(entry, claim.Token, claim.ExpiresAtUtc);
         return claim;
     }
 
-    public async Task<bool> StageFinishAsync(InboundClaim claim, DateTimeOffset now, DateTimeOffset? nextActionAtUtc, CancellationToken cancellationToken)
+    public async Task<bool> StageFinishAsync(
+        InboundClaim claim,
+        DateTimeOffset now,
+        DateTimeOffset? nextActionAtUtc,
+        CancellationToken cancellationToken)
     {
-        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry) return false;
+        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
+        {
+            return false;
+        }
+
         entry.Status = nextActionAtUtc is null ? InboundProcessingStatus.Processed : InboundProcessingStatus.Pending;
         entry.NextActionAtUtc = nextActionAtUtc?.ToUniversalTime();
         Own(entry, null, null);
@@ -46,7 +58,11 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(reason.Trim().Length, InboundJournalEntry.HoldReasonLimit, nameof(reason));
-        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry) return false;
+        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
+        {
+            return false;
+        }
+
         entry.Status = InboundProcessingStatus.Held;
         entry.HoldReason = reason.Trim();
         entry.NextActionAtUtc = null;
@@ -54,26 +70,47 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         return true;
     }
 
-    public async Task<bool> StageOriginalReferencesAsync(InboundClaim claim, IncomingPacs008Reference original,
-        DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> StageOriginalReferencesAsync(
+        InboundClaim claim,
+        IncomingPacs008Reference original,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
-        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry) return false;
+        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
+        {
+            return false;
+        }
+
         if (entry.OriginalJson is { } stored)
+        {
             return IncomingPaymentJson.Read<IncomingPacs008Reference>(stored) == original
                 ? true : throw new InvalidOperationException("The receipt's original references cannot be replaced.");
+        }
+
         entry.OriginalJson = IncomingPaymentJson.Write(original);
-        db.AuthorizedInboundWork.Add(entry.Id);
+        db.Changes.AuthorizedInboundWork.Add(entry.Id);
         return true;
     }
 
     public async Task<bool> StageAttachmentAsync(InboundClaim claim, Guid paymentId, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry) return false;
-        if (entry.OriginalJson is null) throw new InvalidOperationException("Save original references before attaching a receipt.");
+        if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
+        {
+            return false;
+        }
+
+        if (entry.OriginalJson is null)
+        {
+            throw new InvalidOperationException("Save original references before attaching a receipt.");
+        }
+
         if (entry.IncomingPaymentId is { } attached)
+        {
             return attached == paymentId ? true : throw new InvalidOperationException("The receipt is attached to another payment.");
+        }
+
         entry.IncomingPaymentId = paymentId;
-        db.AuthorizedInboundWork.Add(entry.Id);
+        db.Changes.AuthorizedInboundWork.Add(entry.Id);
         return true;
     }
 
@@ -92,6 +129,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
     {
         entry.ClaimToken = token;
         entry.ClaimExpiresAtUtc = expiresAtUtc;
-        db.AuthorizedInboundWork.Add(entry.Id);
+        db.Changes.AuthorizedInboundWork.Add(entry.Id);
     }
 }

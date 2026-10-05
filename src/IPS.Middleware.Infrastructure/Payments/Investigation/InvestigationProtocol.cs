@@ -5,8 +5,11 @@ using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 namespace IPS.Middleware.Infrastructure.Payments.Investigation;
 
-public sealed class InvestigationProtocol(Pacs008MessageSigner signer, ISigningCertificateSource certificates,
-    Pacs008SigningPolicy policy, Pacs028ReplyInterpreter replies) : IInvestigationProtocol
+public sealed class InvestigationProtocol(
+        Pacs008MessageSigner signer,
+        ISigningCertificateSource certificates,
+        Pacs008SigningPolicy policy,
+        Pacs028ReplyInterpreter replies) : IInvestigationProtocol
 {
     public bool AllowsDevelopmentUnsigned => policy.AllowUnsignedWithoutCertificate;
     public string Build(AcceptedPacs008 accepted, IpsReplyCorrelation original, InvestigationIdentity identity) =>

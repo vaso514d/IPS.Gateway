@@ -99,13 +99,25 @@ public sealed class InboundJournalTests
         await new UnitOfWork(left).SaveAsync();
         await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => new UnitOfWork(right).SaveAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(right).SaveAsync());
-        await using (var live = database.Context()) Assert.Null(await Work(live).AcquireAsync(id, Lease, default));
-        await using (var expired = database.Context()) Assert.False(await Work(expired, Now + Lease).CompleteAsync(first, default));
+        await using (var live = database.Context())
+        {
+            Assert.Null(await Work(live).AcquireAsync(id, Lease, default));
+        }
+
+        await using (var expired = database.Context())
+        {
+            Assert.False(await Work(expired, Now + Lease).CompleteAsync(first, default));
+        }
+
         await using var recovery = database.Context();
         var replacement = await Work(recovery, Now + Lease).AcquireAsync(id, Lease, default);
         Assert.NotNull(replacement);
         Assert.NotEqual(first.Token, replacement.Token);
-        await using (var stale = database.Context()) Assert.False(await Work(stale, Now + Lease).CompleteAsync(first, default));
+        await using (var stale = database.Context())
+        {
+            Assert.False(await Work(stale, Now + Lease).CompleteAsync(first, default));
+        }
+
         Assert.True(await Work(recovery, Now + Lease).CompleteAsync(replacement, default));
         await using var read = database.Context();
         Assert.Equal(InboundProcessingStatus.Processed, (await new InboundReceiptRepository(read).ReadAsync(id, default))!.Status);
@@ -121,7 +133,10 @@ public sealed class InboundJournalTests
         await using var owner = database.Context();
         var claim = (await Work(owner).AcquireAsync(id, Lease, default))!;
         await using (var duplicate = database.Context())
+        {
             await Intake(duplicate).RegisterAsync(Receipt(1), default);
+        }
+
         Assert.False(await Work(owner).CompleteAsync(claim, default));
         await using var read = database.Context();
         var row = (await new InboundReceiptRepository(read).ReadAsync(id, default))!;
@@ -139,7 +154,11 @@ public sealed class InboundJournalTests
         var completed = await Insert(database, Receipt(4));
         await Insert(database, Receipt(null));
         var future = await Insert(database, Receipt(5));
-        await using (var db = database.Context()) Assert.NotNull(await Work(db).AcquireAsync(live, Lease, default));
+        await using (var db = database.Context())
+        {
+            Assert.NotNull(await Work(db).AcquireAsync(live, Lease, default));
+        }
+
         await using (var db = database.Context())
         {
             var claim = (await Work(db).AcquireAsync(completed, Lease, default))!;
@@ -197,8 +216,15 @@ public sealed class InboundJournalTests
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.009", "mixed-save", Now);
         new OutgoingPaymentRepository(db).Add(payment, "{}", null);
         var save = new UnitOfWork(db);
-        if (failEvents) await Assert.ThrowsAsync<InvalidOperationException>(() => save.SaveAsync());
-        else await save.SaveAsync();
+        if (failEvents)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => save.SaveAsync());
+        }
+        else
+        {
+            await save.SaveAsync();
+        }
+
         await using var read = database.Context();
         Assert.Equal(!failEvents, await new InboundReceiptRepository(read).ReadAsync(receipt.JournalId, default) is not null);
         Assert.Equal(failEvents ? 0 : 1, await read.Set<OutgoingPayment>().CountAsync());
@@ -319,17 +345,27 @@ public sealed class InboundJournalTests
         var connection = db.Database.GetConnectionString()!;
         var services = new ServiceCollection().AddSingleton<TimeProvider>(new Clock(Now)).AddPersistence(connection).AddInboundFoundations(options);
         if (interceptor is not null)
+        {
             services.AddDbContext<TransactionDbContext>(builder => builder.AddInterceptors(interceptor));
+        }
+
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
     }
-    private sealed class Clock(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
+    private sealed class Clock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
     private sealed class FailEventSave : SaveChangesInterceptor
     {
         private int _calls;
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (Interlocked.Increment(ref _calls) == 2) throw new InvalidOperationException("Fail after entity writes, before commit.");
+            if (Interlocked.Increment(ref _calls) == 2)
+            {
+                throw new InvalidOperationException("Fail after entity writes, before commit.");
+            }
+
             return ValueTask.FromResult(result);
         }
     }

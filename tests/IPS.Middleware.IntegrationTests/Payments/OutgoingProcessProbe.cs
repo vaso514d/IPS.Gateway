@@ -27,7 +27,10 @@ internal static class OutgoingProcessProbe
     {
         var settings = JsonSerializer.Deserialize<Settings>(await File.ReadAllTextAsync(file))!;
         if (!settings.Connection.Contains("IPS_Middleware_Tests_", StringComparison.Ordinal) || !settings.Connection.Contains("(localdb)", StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Probe requires an isolated LocalDB database.");
+        }
+
         var builder = Host.CreateApplicationBuilder();
         builder.Logging.ClearProviders();
         builder.Services.AddPersistence(settings.Connection);
@@ -41,21 +44,31 @@ internal static class OutgoingProcessProbe
         builder.Services.AddSingleton(new Pacs008Options(ownership: TimeSpan.FromSeconds(6), persistenceBudget: TimeSpan.FromMilliseconds(500)));
         builder.Services.AddSingleton(new StatusDeliveryOptions(discoveryInterval: TimeSpan.FromMilliseconds(50)));
         builder.Services.AddSingleton(new OutgoingExecutionOptions(enabled: true, httpWait: TimeSpan.FromSeconds(3.5), attemptBudget: TimeSpan.FromSeconds(4), discoveryInterval: TimeSpan.FromMilliseconds(50)));
-        builder.Services.AddScoped<OutgoingTransactionIntake>(); builder.Services.AddScoped<OutgoingTransactionWork>();
-        builder.Services.AddScoped<Pacs008Processing>(); builder.Services.AddScoped<OutgoingStatusDelivery>();
+        builder.Services.AddScoped<OutgoingTransactionIntake>();
+        builder.Services.AddScoped<OutgoingTransactionWork>();
+        builder.Services.AddScoped<Pacs008Processing>();
+        builder.Services.AddScoped<OutgoingStatusDelivery>();
         builder.Services.AddScoped(sp => new Pacs008Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
             Pacs008Fixture.Policy, new("NBGEGE22"), sp.GetRequiredService<Pacs008Options>(), TimeProvider.System));
-        builder.Services.AddSingleton<OutgoingRuntime>(); builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
+        builder.Services.AddSingleton<OutgoingRuntime>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         using var host = builder.Build();
         if (settings.Initialize)
         {
             await using var scope = host.Services.CreateAsyncScope();
             var now = DateTimeOffset.UtcNow;
-            var request = Pacs008Fixture.Request() with { ClientReference = "crash", CreationDateTime = now.AddMilliseconds(-500), AcceptanceDateTime = now };
+            var request = new Pacs008Request(Pacs008Fixture.Request())
+            {
+                ClientReference = "crash",
+                CreationDateTime = now.AddMilliseconds(-500),
+                AcceptanceDateTime = now
+            };
             await scope.ServiceProvider.GetRequiredService<Pacs008Intake>().AcceptAsync(request, JsonSerializer.Serialize(request), default);
         }
+
         await host.RunAsync();
     }
+
     private sealed class PauseAfterCommit(Settings settings) : DbTransactionInterceptor
     {
         private int paused;
@@ -67,7 +80,7 @@ internal static class OutgoingProcessProbe
             var reached = settings.Checkpoint switch
             {
                 "intake" => payment?.Entity.CurrentStatus == TransactionStatus.Received,
-                "unsigned" => payment?.Property("UnsignedXml").CurrentValue is not null,
+                "unsigned" => db.ChangeTracker.Entries<OutgoingPaymentMetadata>().Any(p => p.Entity.UnsignedXml is not null),
                 "ready" => messages.Any(m => m.Direction == OutgoingMessageDirection.Outbound && m.Status == MessageJournalStatus.ReadyToSend),
                 "marker" => messages.Any(m => m.Direction == OutgoingMessageDirection.Outbound && m.Status == MessageJournalStatus.SendStarted),
                 "response" => messages.Any(m => m.Direction == OutgoingMessageDirection.Response && m.Status == MessageJournalStatus.Received),
@@ -75,7 +88,11 @@ internal static class OutgoingProcessProbe
                 "lost-reply" => payment?.Entity.CurrentStatus == TransactionStatus.Uncertain,
                 _ => false
             };
-            if (!reached || Interlocked.Exchange(ref paused, 1) != 0) return;
+            if (!reached || Interlocked.Exchange(ref paused, 1) != 0)
+            {
+                return;
+            }
+
             await File.WriteAllTextAsync(settings.Signal, settings.Checkpoint, CancellationToken.None);
             await Task.Delay(Timeout.Infinite, CancellationToken.None);
         }

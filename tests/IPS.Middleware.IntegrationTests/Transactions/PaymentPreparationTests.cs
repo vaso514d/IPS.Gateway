@@ -14,7 +14,6 @@ public sealed class PaymentPreparationTests
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 14, 0, 0, TimeSpan.Zero);
     private const string Xml = "<Message>\r\n  <Name>საქართველო &amp; test</Name>\n</Message>";
     private const string Signed = "<Message>\r\n  <Name>საქართველო &amp; test</Name><Signature>fixture</Signature>\n</Message>";
-
     [Fact]
     public async Task Concurrent_duplicate_intake_keeps_one_pair_of_identifiers_and_original_request()
     {
@@ -37,7 +36,7 @@ public sealed class PaymentPreparationTests
         Assert.Null(identifiers.SignedXml);
         var duplicate = await read.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", " duplicate ", "{\"replacement\":true}").Request!, default);
         Assert.False(duplicate.Created);
-        Assert.Equal(identifiers, await repository.ReadAsync(duplicate.Payment.Id, default));
+        Assert.Equivalent(identifiers, await repository.ReadAsync(duplicate.Payment.Id, default), strict: true);
         Assert.Equal("{\"original\":true}", await read.Payments.ReadRequestAsync(duplicate.Payment.Id, default));
         var another = await read.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "another", "{}").Request!, default);
         var other = (await repository.ReadAsync(another.Payment.Id, default))!;
@@ -59,7 +58,10 @@ public sealed class PaymentPreparationTests
         var sequence = payment.EventSequence;
         repository.StageUnsignedXml(payment, claim, Xml, Now);
         await using (var beforeCommit = database.Session())
+        {
             Assert.Null((await new PaymentPreparationRepository(beforeCommit.Context).ReadAsync(payment.Id, default))!.UnsignedXml);
+        }
+
         Assert.Equal(1, await session.Unit.SaveAsync());
         repository.StageUnsignedXml(payment, claim, Xml, Now);
         Assert.Equal(0, await session.Unit.SaveAsync());
@@ -69,7 +71,6 @@ public sealed class PaymentPreparationTests
         repository.StageSignedXml(payment, claim, Signed, Now);
         Assert.Equal(0, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageSignedXml(payment, claim, Signed + " ", Now));
-
         await using var read = database.Session();
         var stored = (await new PaymentPreparationRepository(read.Context).ReadAsync(payment.Id, default))!;
         Assert.Equal(Xml, stored.UnsignedXml);
@@ -77,8 +78,8 @@ public sealed class PaymentPreparationTests
         var current = (await read.Payments.FindAsync(payment.Id, default))!;
         Assert.Equal(before, current.Current);
         Assert.Equal(sequence, current.EventSequence);
-        Assert.Equal(claim.Token, read.Context.Entry(current).Property<Guid?>("ClaimToken").CurrentValue);
-        Assert.Equal(claim.ExpiresAtUtc, read.Context.Entry(current).Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue);
+        Assert.Equal(claim.Token, read.Context.Metadata(current).ClaimToken);
+        Assert.Equal(claim.ExpiresAtUtc, read.Context.Metadata(current).ClaimExpiresAtUtc);
         Assert.Equal(2, (await read.Payments.ReadEventsAsync(payment.Id, default)).Count);
     }
 
@@ -108,14 +109,33 @@ public sealed class PaymentPreparationTests
         await using var session = database.Session();
         var (payment, claim) = await Start(session);
         var now = Now;
-        if (situation == "wrong-token") claim = claim with { Token = Guid.NewGuid() };
-        if (situation == "wrong-payment") claim = claim with { TransactionId = Guid.NewGuid() };
-        if (situation == "expired") now = claim.ExpiresAtUtc;
+        if (situation == "wrong-token")
+        {
+            claim = new TransactionClaim(claim)
+            {
+                Token = Guid.NewGuid()
+            };
+        }
+
+        if (situation == "wrong-payment")
+        {
+            claim = new TransactionClaim(claim)
+            {
+                TransactionId = Guid.NewGuid()
+            };
+        }
+
+        if (situation == "expired")
+        {
+            now = claim.ExpiresAtUtc;
+        }
+
         if (situation == "no-claim")
         {
             Assert.True(session.Work.StageCompletion(payment, claim, Now, null));
             await session.Unit.SaveAsync();
         }
+
         var repository = new PaymentPreparationRepository(session.Context);
         Assert.Throws<PersistenceConcurrencyException>(() => repository.StageUnsignedXml(payment, claim, Xml, now));
         Assert.Null((await repository.ReadAsync(payment.Id, default))!.UnsignedXml);
@@ -159,9 +179,13 @@ public sealed class PaymentPreparationTests
                 current.MarkOutcomeUnknown(StatusSource.Recovery, claim.ExpiresAtUtc);
             }
             else
+            {
                 new PaymentPreparationRepository(winner.Context).StageUnsignedXml(current, claim, "<winner/>", Now);
+            }
+
             await winner.Unit.SaveAsync();
         }
+
         await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => stale.Unit.SaveAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => stale.Unit.SaveAsync());
         await using var read = database.Session();
@@ -185,19 +209,28 @@ public sealed class PaymentPreparationTests
             id = started.Payment.Id;
             claim = started.Claim;
         }
+
         using var cancellation = new CancellationTokenSource();
         await using var session = cancel ? database.Session(new CancelAfterParent(cancellation)) : database.Session();
         var payment = (await session.Payments.FindAsync(id, default))!;
         var repository = new PaymentPreparationRepository(session.Context);
         if (!cancel)
+        {
             await session.Context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_Preparation CHECK (Sequence <= 2)");
+        }
+
         repository.StageUnsignedXml(payment, claim, Xml, Now);
         payment.RecordStep(ProcessingStep.XmlGenerated, Now);
         var eventId = Assert.Single(payment.PendingEvents).EventId;
         if (cancel)
+        {
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.Unit.SaveAsync(cancellation.Token));
+        }
         else
+        {
             await Assert.ThrowsAsync<DbUpdateException>(() => session.Unit.SaveAsync());
+        }
+
         Assert.Equal(eventId, Assert.Single(payment.PendingEvents).EventId);
         await using var read = database.Session();
         Assert.Null((await new PaymentPreparationRepository(read.Context).ReadAsync(id, default))!.UnsignedXml);
@@ -223,13 +256,26 @@ public sealed class PaymentPreparationTests
             repository.StageSignedXml(payment, claim, Signed, Now);
             await session.Unit.SaveAsync();
         }
-        foreach (var replacement in new string?[] { null, "changed" })
+
+        foreach (var replacement in new string?[]
+        {
+            null,
+            "changed"
+        }
+
+        )
         {
             await using var tamper = database.Session();
             var payment = (await tamper.Payments.FindAsync(id, default))!;
             if (property == "SignedXml")
+            {
                 (await tamper.Context.Set<OutgoingMessageRow>().SingleAsync()).Content = replacement!;
-            else tamper.Context.Entry(payment).Property<string?>(property).CurrentValue = replacement;
+            }
+            else
+            {
+                tamper.Context.Entry(tamper.Context.Metadata(payment)).Property<string?>(property).CurrentValue = replacement;
+            }
+
             await Assert.ThrowsAsync<InvalidOperationException>(() => tamper.Unit.SaveAsync());
         }
     }
@@ -242,7 +288,7 @@ public sealed class PaymentPreparationTests
         var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "tamper", "{}").Request!, default)).Payment;
         Assert.NotNull(session.Work.StageClaim(payment, Now, TimeSpan.FromSeconds(45)));
         payment.BeginSending(Now);
-        session.Context.Entry(payment).Property<string?>("UnsignedXml").CurrentValue = Xml;
+        session.Context.Metadata(payment).UnsignedXml = Xml;
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
     }
 
@@ -273,8 +319,16 @@ public sealed class PaymentPreparationTests
             await session.Unit.SaveAsync();
             repository.StageSignedXml(payment, claim, Signed, Now);
         }
-        if (signed) session.Context.Set<OutgoingMessageRow>().Local.Single().Content = replacement;
-        else session.Context.Entry(payment).Property<string?>("UnsignedXml").CurrentValue = replacement;
+
+        if (signed)
+        {
+            session.Context.Set<OutgoingMessageRow>().Local.Single().Content = replacement;
+        }
+        else
+        {
+            session.Context.Metadata(payment).UnsignedXml = replacement;
+        }
+
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
         await using var read = database.Session();
         var stored = (await new PaymentPreparationRepository(read.Context).ReadAsync(payment.Id, default))!;
@@ -292,8 +346,7 @@ public sealed class PaymentPreparationTests
 
     private sealed class CancelAfterParent(CancellationTokenSource cancellation) : SaveChangesInterceptor
     {
-        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
-            CancellationToken cancellationToken = default)
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
             cancellation.Cancel();
             return ValueTask.FromResult(result);

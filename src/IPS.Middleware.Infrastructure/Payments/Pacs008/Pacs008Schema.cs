@@ -27,9 +27,15 @@ public static class Pacs008Schema
         if (root?.Name != "Message" || root.Elements().Count() != 2 ||
             root.Elements().First().Name != XName.Get("AppHdr", Pacs008Xml.HeaderNamespace) ||
             root.Elements().Last().Name != XName.Get("Document", documentNamespace))
+        {
             throw new XmlSchemaValidationException("Expected one Message with AppHdr followed by Document.");
+        }
+
         foreach (var child in root.Elements())
+        {
             new XDocument(new XElement(child)).Validate(Schemas.Value, (_, error) => throw error.Exception);
+        }
+
         return document;
     }
 

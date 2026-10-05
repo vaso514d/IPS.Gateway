@@ -30,13 +30,19 @@ public sealed class PaymentSubmissionTests
         var outcome = payment.Current;
         repository.StageSubmission(payment, claim, kind, Now.ToOffset(TimeSpan.FromHours(4)));
         await using (var before = database.Session())
+        {
             Assert.Null((await new PaymentSubmissionRepository(before.Context).ReadAsync(payment.Id, default))!.Marker);
+        }
+
         Assert.Equal(2, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageSubmission(payment, claim, kind, Now));
         var response = Response;
         repository.StageResponse(payment, claim, response, Now.AddSeconds(1));
         await using (var before = database.Session())
+        {
             Assert.Null((await new PaymentSubmissionRepository(before.Context).ReadAsync(payment.Id, default))!.Response);
+        }
+
         Assert.Equal(2, await session.Unit.SaveAsync());
         repository.StageResponse(payment, claim, Response, Now.AddSeconds(2));
         Assert.Equal(0, await session.Unit.SaveAsync());
@@ -44,10 +50,9 @@ public sealed class PaymentSubmissionTests
         Assert.Equal(outcome, payment.Current);
         Assert.Empty(payment.PendingEvents);
         Assert.Equal(2, (await session.Payments.ReadEventsAsync(payment.Id, default)).Count);
-
         await using var read = database.Session();
         var stored = (await new PaymentSubmissionRepository(read.Context).ReadAsync(payment.Id, default))!;
-        Assert.Equal(new SubmissionMarker(Now, claim.Token, kind), stored.Marker);
+        Assert.Equivalent(new SubmissionMarker(Now, claim.Token, kind), stored.Marker, strict: true);
         Assert.Equal(TimeSpan.Zero, stored.Marker!.StartedAtUtc.Offset);
         Assert.Equal(response.Body, stored.Response!.Body);
         Assert.Equal(response.HttpStatusCode, stored.Response.HttpStatusCode);
@@ -118,13 +123,34 @@ public sealed class PaymentSubmissionTests
             repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
             await session.Unit.SaveAsync();
         }
+
         var now = invalid == "expired" ? claim.ExpiresAtUtc : Now;
-        if (invalid == "wrong-token") claim = claim with { Token = Guid.NewGuid() };
-        if (invalid == "wrong-payment") claim = claim with { TransactionId = Guid.NewGuid() };
+        if (invalid == "wrong-token")
+        {
+            claim = new TransactionClaim(claim)
+            {
+                Token = Guid.NewGuid()
+            };
+        }
+
+        if (invalid == "wrong-payment")
+        {
+            claim = new TransactionClaim(claim)
+            {
+                TransactionId = Guid.NewGuid()
+            };
+        }
+
         Assert.Throws<PersistenceConcurrencyException>(() =>
         {
-            if (response) repository.StageResponse(payment, claim, Response, now);
-            else repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, now);
+            if (response)
+            {
+                repository.StageResponse(payment, claim, Response, now);
+            }
+            else
+            {
+                repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, now);
+            }
         });
     }
 
@@ -141,6 +167,7 @@ public sealed class PaymentSubmissionTests
             new PaymentSubmissionRepository(first.Context).StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
             await first.Unit.SaveAsync();
         }
+
         await using var second = database.Session();
         var concurrent = (await second.Payments.FindAsync(payment.Id, default))!;
         if (response)
@@ -153,6 +180,7 @@ public sealed class PaymentSubmissionTests
             new PaymentSubmissionRepository(first.Context).StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
             new PaymentSubmissionRepository(second.Context).StageSubmission(concurrent, claim, SubmissionMessageKind.Signed, Now.AddSeconds(1));
         }
+
         await first.Unit.SaveAsync();
         await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => second.Unit.SaveAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => second.Unit.SaveAsync());
@@ -173,7 +201,10 @@ public sealed class PaymentSubmissionTests
         await stale.Unit.SaveAsync();
         repository.StageResponse(payment, claim, Response, Now.AddSeconds(1));
         await using (var recovery = database.Session())
+        {
             Assert.Equal(TransactionWorkResult.Saved, await recovery.Processing(claim.ExpiresAtUtc).TryRecoverAsync(payment.Id, default));
+        }
+
         await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => stale.Unit.SaveAsync());
         await using var read = database.Session();
         var stored = (await new PaymentSubmissionRepository(read.Context).ReadAsync(payment.Id, default))!;
@@ -215,7 +246,7 @@ public sealed class PaymentSubmissionTests
         var stored = (await read.Payments.FindAsync(payment.Id, default))!;
         Assert.Equal(TransactionStatus.Accepted, stored.CurrentStatus);
         Assert.Equal(3, (await read.Payments.ReadEventsAsync(payment.Id, default)).Count);
-        Assert.Null(read.Context.Entry(stored).Property<Guid?>("ClaimToken").CurrentValue);
+        Assert.Null(read.Context.Metadata(stored).ClaimToken);
     }
 
     [Theory]
@@ -239,11 +270,15 @@ public sealed class PaymentSubmissionTests
                 await setup.Unit.SaveAsync();
             }
         }
+
         using var cancellation = new CancellationTokenSource();
         await using var session = cancel ? database.Session(new CancelAfterParent(cancellation)) : database.Session();
         var payment = (await session.Payments.FindAsync(id, default))!;
         if (!cancel)
+        {
             await session.Context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_Response CHECK (Sequence <= 2)");
+        }
+
         var repository = new PaymentSubmissionRepository(session.Context);
         if (response)
         {
@@ -255,10 +290,18 @@ public sealed class PaymentSubmissionTests
             repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
             payment.RecordStep(ProcessingStep.Sent, Now);
         }
+
         session.Work.StageCompletion(payment, claim, Now, null);
         var eventId = Assert.Single(payment.PendingEvents).EventId;
-        if (cancel) await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.Unit.SaveAsync(cancellation.Token));
-        else await Assert.ThrowsAsync<DbUpdateException>(() => session.Unit.SaveAsync());
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.Unit.SaveAsync(cancellation.Token));
+        }
+        else
+        {
+            await Assert.ThrowsAsync<DbUpdateException>(() => session.Unit.SaveAsync());
+        }
+
         Assert.Equal(eventId, Assert.Single(payment.PendingEvents).EventId);
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
         await using var read = database.Session();
@@ -267,7 +310,7 @@ public sealed class PaymentSubmissionTests
         Assert.Equal(response, checkpoint.Marker is not null);
         var stored = (await read.Payments.FindAsync(id, default))!;
         Assert.Equal(TransactionStatus.Sending, stored.CurrentStatus);
-        Assert.Equal(claim.Token, read.Context.Entry(stored).Property<Guid?>("ClaimToken").CurrentValue);
+        Assert.Equal(claim.Token, read.Context.Metadata(stored).ClaimToken);
     }
 
     [Theory]
@@ -288,22 +331,44 @@ public sealed class PaymentSubmissionTests
         if (column == "SubmissionResponseJson" || edit != "insert")
         {
             repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
-            if (column == "SubmissionResponseJson" || edit != "alter-authorized") await session.Unit.SaveAsync();
+            if (column == "SubmissionResponseJson" || edit != "alter-authorized")
+            {
+                await session.Unit.SaveAsync();
+            }
         }
+
         if (column == "SubmissionResponseJson" && edit != "insert")
         {
             repository.StageResponse(payment, claim, Response, Now);
-            if (edit != "alter-authorized") await session.Unit.SaveAsync();
+            if (edit != "alter-authorized")
+            {
+                await session.Unit.SaveAsync();
+            }
         }
+
         // Even an authorized ownership operation is not permission to write arbitrary checkpoint data.
         session.Work.StageCompletion(payment, claim, Now, null);
         var direction = column == "SubmissionJson" ? OutgoingMessageDirection.Outbound : OutgoingMessageDirection.Response;
         var row = session.Context.Set<OutgoingMessageRow>().Local.SingleOrDefault(p => p.Direction == direction)
             ?? await session.Context.Set<OutgoingMessageRow>().SingleOrDefaultAsync(p => p.Direction == direction);
         if (row is null)
-            session.Context.Set<OutgoingMessageRow>().Add(new() { Id = Guid.NewGuid(), PaymentId = payment.Id, Direction = direction });
-        else if (direction == OutgoingMessageDirection.Outbound) row.SubmissionOwner = Guid.NewGuid();
-        else row.Content = edit == "clear" ? null! : "{}";
+        {
+            session.Context.Set<OutgoingMessageRow>().Add(new()
+            {
+                Id = Guid.NewGuid(),
+                PaymentId = payment.Id,
+                Direction = direction
+            });
+        }
+        else if (direction == OutgoingMessageDirection.Outbound)
+        {
+            row.SubmissionOwner = Guid.NewGuid();
+        }
+        else
+        {
+            row.Content = edit == "clear" ? null! : "{}";
+        }
+
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
     }
 
@@ -315,7 +380,7 @@ public sealed class PaymentSubmissionTests
         var repository = new PaymentSubmissionRepository(session.Context);
         var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "waiting", "{}").Request!, default)).Payment;
         var claim = new TransactionClaim(payment.Id, Guid.NewGuid(), Now.AddSeconds(45));
-        Assert.Equal(new PaymentSubmission(null, null), await repository.ReadAsync(payment.Id, default));
+        Assert.Equivalent(new PaymentSubmission(null, null), await repository.ReadAsync(payment.Id, default), strict: true);
         Assert.Throws<InvalidOperationException>(() => repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now));
         var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", "other", "{}").Request!, default)).Payment;
         Assert.Null(await repository.ReadAsync(other.Id, default));
@@ -331,17 +396,24 @@ public sealed class PaymentSubmissionTests
             var repository = new PaymentPreparationRepository(session.Context);
             repository.StageUnsignedXml(payment, claim, Xml, Now);
             await session.Unit.SaveAsync();
-            if (signed) repository.StageSignedXml(payment, claim, Signed, Now);
-            else repository.StageDevelopmentUnsigned(payment, claim, Now);
+            if (signed)
+            {
+                repository.StageSignedXml(payment, claim, Signed, Now);
+            }
+            else
+            {
+                repository.StageDevelopmentUnsigned(payment, claim, Now);
+            }
+
             await session.Unit.SaveAsync();
         }
+
         return (payment, claim);
     }
 
     private sealed class CancelAfterParent(CancellationTokenSource cancellation) : SaveChangesInterceptor
     {
-        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
-            CancellationToken cancellationToken = default)
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
             cancellation.Cancel();
             return ValueTask.FromResult(result);

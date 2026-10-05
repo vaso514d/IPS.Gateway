@@ -11,7 +11,10 @@ public sealed class InvestigationExecution(IServiceScopeFactory scopes)
     public async Task<PaymentOutcome?> RunAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         await using (var recovery = scopes.CreateAsyncScope())
+        {
             await recovery.ServiceProvider.GetRequiredService<OutgoingTransactionWork>().TryRecoverAsync(paymentId, cancellationToken);
+        }
+
         await using var processing = scopes.CreateAsyncScope();
         return await processing.ServiceProvider.GetRequiredService<OutgoingInvestigation>().ProcessAsync(paymentId, cancellationToken);
     }

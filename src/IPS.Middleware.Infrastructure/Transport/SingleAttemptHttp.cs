@@ -6,7 +6,21 @@ using Polly;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
-internal sealed record HttpClientProfile(HttpEndpointSettings Endpoint, int Connections, TimeSpan Timeout, SslClientAuthenticationOptions Tls);
+internal sealed class HttpClientProfile
+{
+    public HttpClientProfile(HttpEndpointSettings endpoint, int connections, TimeSpan timeout, SslClientAuthenticationOptions tls)
+    {
+        Endpoint = endpoint;
+        Connections = connections;
+        Timeout = timeout;
+        Tls = tls;
+    }
+
+    public HttpEndpointSettings Endpoint { get; init; }
+    public int Connections { get; init; }
+    public TimeSpan Timeout { get; init; }
+    public SslClientAuthenticationOptions Tls { get; init; }
+}
 
 internal static class SingleAttemptHttp
 {
@@ -18,24 +32,24 @@ internal static class SingleAttemptHttp
             http.Timeout = Timeout.InfiniteTimeSpan;
         }).ConfigurePrimaryHttpMessageHandler(sp =>
         {
-            var endpoint = profile(sp).Endpoint;
-            var connections = profile(sp).Connections;
+            var settings = profile(sp);
+            var endpoint = settings.Endpoint;
             return new SocketsHttpHandler
             {
                 AllowAutoRedirect = false,
                 UseCookies = false,
                 AutomaticDecompression = DecompressionMethods.GZip,
-                MaxConnectionsPerServer = connections,
+                MaxConnectionsPerServer = settings.Connections,
                 ConnectTimeout = endpoint.ConnectTimeout,
                 PooledConnectionLifetime = endpoint.PooledConnectionLifetime,
                 PooledConnectionIdleTimeout = endpoint.PooledConnectionIdleTimeout,
-                SslOptions = profile(sp).Tls
+                SslOptions = settings.Tls
             };
         }).SetHandlerLifetime(Timeout.InfiniteTimeSpan);
         client.AddResilienceHandler("single-attempt", (pipeline, context) =>
         {
-            var endpoint = profile(context.ServiceProvider).Endpoint;
-            var breaker = endpoint.CircuitBreaker;
+            var settings = profile(context.ServiceProvider);
+            var breaker = settings.Endpoint.CircuitBreaker;
             pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
             {
                 FailureRatio = breaker.FailureRatio,
@@ -44,7 +58,7 @@ internal static class SingleAttemptHttp
                 BreakDuration = breaker.BreakDuration
             }).AddTimeout(new HttpTimeoutStrategyOptions
             {
-                Timeout = profile(context.ServiceProvider).Timeout
+                Timeout = settings.Timeout
             });
         });
         // Buffer inside resilience so its timeout and circuit breaker include response-body failures.
@@ -61,7 +75,11 @@ internal static class SingleAttemptHttp
                 await response.Content.LoadIntoBufferAsync(cancellationToken);
                 return response;
             }
-            catch { response.Dispose(); throw; }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
         }
     }
 }

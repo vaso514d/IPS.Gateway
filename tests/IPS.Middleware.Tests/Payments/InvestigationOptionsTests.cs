@@ -10,7 +10,8 @@ public sealed class InvestigationOptionsTests
     {
         var input = new[] { TimeSpan.FromSeconds(30) };
         var options = new InvestigationOptions(retryDelays: input);
-        input[0] = TimeSpan.Zero; options.RetryDelays[0] = TimeSpan.Zero;
+        input[0] = TimeSpan.Zero;
+        options.RetryDelays[0] = TimeSpan.Zero;
         Assert.Equal(TimeSpan.FromSeconds(30), options.RetryDelay(1));
         Assert.Equal(TimeSpan.FromMinutes(15), options.RetryDelay(2));
         Assert.Equal(TimeSpan.FromSeconds(9), options.FirstDelay);

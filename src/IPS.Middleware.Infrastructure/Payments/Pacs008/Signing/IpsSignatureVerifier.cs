@@ -17,7 +17,10 @@ internal static class IpsSignatureVerifier
 
     internal static bool IsTrusted(string xml, IReadOnlyCollection<X509Certificate2> trusted)
     {
-        try { return Verify(xml, trusted); }
+        try
+        {
+            return Verify(xml, trusted);
+        }
         catch (Exception exception) when (exception is CryptographicException or FormatException or XmlException or InvalidOperationException)
         {
             return false;
@@ -27,7 +30,11 @@ internal static class IpsSignatureVerifier
     private static bool Verify(string xml, IReadOnlyCollection<X509Certificate2> trusted)
     {
         var document = Load(xml);
-        if (SingleSignature(document) is not { } signature) return false;
+        if (SingleSignature(document) is not { } signature)
+        {
+            return false;
+        }
+
         var names = new XmlNamespaceManager(document.NameTable);
         names.AddNamespace("ds", Ds);
         if (signature.SelectSingleNode("ds:SignedInfo", names) is not XmlElement signedInfo ||
@@ -39,12 +46,17 @@ internal static class IpsSignatureVerifier
             !reference.SelectNodes("ds:Transforms/ds:Transform", names)!.OfType<XmlElement>()
                 .Select(transform => transform.GetAttribute("Algorithm")).SequenceEqual(ReferenceTransforms) ||
             Algorithm(reference, "ds:DigestMethod", names) != SignedXml.XmlDsigSHA256Url)
+        {
             return false;
+        }
 
         var presented = Convert.FromBase64String(Text(signature, "ds:KeyInfo/ds:X509Data/ds:X509Certificate", names));
         var certificate = trusted.FirstOrDefault(candidate => candidate.RawData.AsSpan().SequenceEqual(presented));
         using var key = certificate?.GetECDsaPublicKey();
-        if (key is null) return false;
+        if (key is null)
+        {
+            return false;
+        }
 
         // The enveloped-signature transform removes ds:Signature; the reference covers the rest of the document.
         var unsigned = Load(xml);
@@ -52,7 +64,10 @@ internal static class IpsSignatureVerifier
         removed.ParentNode!.RemoveChild(removed);
         var digest = SHA256.HashData(SignedInfoCanonicalization.CanonicalizeInclusive10WithoutComments(unsigned));
         if (!CryptographicOperations.FixedTimeEquals(digest, Convert.FromBase64String(Text(reference, "ds:DigestValue", names))))
+        {
             return false;
+        }
+
         return key.VerifyData(SignedInfoCanonicalization.Canonicalize(signedInfo),
             Convert.FromBase64String(Text(signature, "ds:SignatureValue", names)),
             HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);

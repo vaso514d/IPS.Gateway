@@ -16,11 +16,10 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
     private const string Inquiry = "investigation-message";
     private static readonly InvestigationMessageContext Context = new(Inquiry, "request-identity", Created.AddMinutes(1));
     private static readonly XNamespace P = "urn:iso:std:iso:20022:tech:xsd:pacs.028.001.06";
-
     [Fact]
     public async Task Request_repeats_original_references_and_time_and_has_an_independently_verified_signature()
     {
-        var payment = ValidatedPacs008.Validate(Request() with { AcceptanceDateTime = Created.AddTicks(1234567) }, Policy).Payment!;
+        var payment = ValidatedPacs008.Validate(new Pacs008Request(Request()) { AcceptanceDateTime = Created.AddTicks(1234567) }, Policy).Payment!;
         var xml = new Pacs028Xml(new("NBGEGE22")).Build(payment, Original, Context);
         var document = XDocument.Parse(xml);
         Assert.Equal("original-message", document.Descendants(P + "OrgnlMsgId").Single().Value);
@@ -77,8 +76,15 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
     {
         var result = Interpret(new(200, evidence.Signed[fixture], status is null ? [] : [new("X-MONTRAN-IPS-ReqSts", status)]));
         Assert.Equal(expected, result.Outcome);
-        if (expected == InvestigationOutcome.NotFound) Assert.Equal(1016, result.Details.IpsInternalCode);
-        if (expected == InvestigationOutcome.OriginalRejected) Assert.Equal("AC01", result.Details.ReasonCode);
+        if (expected == InvestigationOutcome.NotFound)
+        {
+            Assert.Equal(1016, result.Details.IpsInternalCode);
+        }
+
+        if (expected == InvestigationOutcome.OriginalRejected)
+        {
+            Assert.Equal("AC01", result.Details.ReasonCode);
+        }
     }
 
     [Theory]
@@ -115,18 +121,34 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
             new(200, "<!DOCTYPE Message [<!ENTITY x 'y'>]><Message/>", []),
             new(200, "", [new("X-MONTRAN-IPS-ReqSts", "RJCT/1016")]),
             new(200, Unsigned(Evidence.InquiryRejected), [new("X-MONTRAN-IPS-ReqSts", "RJCT/1016")]),
-        }) Assert.Equal(InvestigationOutcome.Unresolved, Interpret(response).Outcome);
+        }
+
+        )
+        {
+            Assert.Equal(InvestigationOutcome.Unresolved, Interpret(response).Outcome);
+        }
     }
 
-    private InvestigationReply Interpret(IpsSubmissionResponse response) =>
-        new Pacs028ReplyInterpreter([evidence.Ips]).Interpret(response, Original, Inquiry);
-
+    private InvestigationReply Interpret(IpsSubmissionResponse response) => new Pacs028ReplyInterpreter([evidence.Ips]).Interpret(response, Original, Inquiry);
     public sealed class Evidence : IAsyncLifetime
     {
         public X509Certificate2 Ips { get; } = Certificate();
         public Dictionary<string, string> Signed { get; } = [];
-        internal static readonly Reply Payment = new() { MessageId = Original.MessageId, TransactionId = Original.TransactionId, EndToEndId = Original.EndToEndId };
-        internal static readonly Reply InquiryRejected = Payment with { MessageId = Inquiry, OriginalMessageName = "pacs.028.001.06", GroupStatus = "RJCT", IncludeTransaction = false, ReasonCode = "AG09" };
+
+        internal static readonly Reply Payment = new()
+        {
+            MessageId = Original.MessageId,
+            TransactionId = Original.TransactionId,
+            EndToEndId = Original.EndToEndId
+        };
+        internal static readonly Reply InquiryRejected = Payment with
+        {
+            MessageId = Inquiry,
+            OriginalMessageName = "pacs.028.001.06",
+            GroupStatus = "RJCT",
+            IncludeTransaction = false,
+            ReasonCode = "AG09"
+        };
         public async Task InitializeAsync()
         {
             var fixtures = new Dictionary<string, Reply>
@@ -149,7 +171,11 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
                 ["conflict"] = Payment with { TransactionStatus = "RJCT" },
             };
             var signed = await SignAsync(Ips, fixtures.Values.Select(Unsigned).ToArray());
-            foreach (var (name, xml) in fixtures.Keys.Zip(signed)) Signed[name] = xml;
+            foreach (var (name, xml) in fixtures.Keys.Zip(signed))
+            {
+                Signed[name] = xml;
+            }
+
             var extra = new Dictionary<string, string>
             {
                 ["mixed-payment"] = Unsigned(fixtures["payment-rejected"]).Replace("</pacs:StsRsnInf>", "</pacs:StsRsnInf><pacs:StsRsnInf><pacs:Rsn><pacs:Cd>AG09</pacs:Cd></pacs:Rsn></pacs:StsRsnInf>"),
@@ -162,13 +188,20 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
                 ["nested-inquiry-version"] = Nested(fixtures["inquiry-transaction"], Inquiry, "pacs.028.001.05"),
             };
             var additional = await SignAsync(Ips, extra.Values.ToArray());
-            foreach (var (name, xml) in extra.Keys.Zip(additional)) Signed[name] = xml;
+            foreach (var (name, xml) in extra.Keys.Zip(additional))
+            {
+                Signed[name] = xml;
+            }
+
             using var untrusted = Certificate("CN=Untrusted");
             Signed["untrusted"] = (await SignAsync(untrusted, Unsigned(InquiryRejected)))[0];
         }
-        private static string Nested(Reply reply, string messageId, string definition) =>
-            Unsigned(reply).Replace("</pacs:StsId>", $"</pacs:StsId><pacs:OrgnlGrpInf><pacs:OrgnlMsgId>{messageId}</pacs:OrgnlMsgId><pacs:OrgnlMsgNmId>{definition}</pacs:OrgnlMsgNmId></pacs:OrgnlGrpInf>");
 
-        public Task DisposeAsync() { Ips.Dispose(); return Task.CompletedTask; }
+        private static string Nested(Reply reply, string messageId, string definition) => Unsigned(reply).Replace("</pacs:StsId>", $"</pacs:StsId><pacs:OrgnlGrpInf><pacs:OrgnlMsgId>{messageId}</pacs:OrgnlMsgId><pacs:OrgnlMsgNmId>{definition}</pacs:OrgnlMsgNmId></pacs:OrgnlGrpInf>");
+        public Task DisposeAsync()
+        {
+            Ips.Dispose();
+            return Task.CompletedTask;
+        }
     }
 }

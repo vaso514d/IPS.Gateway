@@ -1,4 +1,5 @@
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using static IPS.Middleware.Infrastructure.Persistence.Events.EventRegistry;
@@ -23,28 +24,7 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         payment.Ignore(p => p.PendingEvents);
         payment.Ignore(p => p.Current);
         payment.Ignore(p => p.IsFinal);
-        payment.Property<string>(RequestJson).IsRequired();
-        payment.Property<string>(AcceptedJson);
-        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Accepted",
-            "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)"));
-        payment.Property<string>(MessageId).HasMaxLength(35);
-        payment.Property<string>(ProtocolTransactionId).HasMaxLength(35);
-        payment.Property<string>(UnsignedXml);
-        payment.HasIndex(MessageId).IsUnique().HasFilter("[MessageId] IS NOT NULL");
-        payment.HasIndex(ProtocolTransactionId).IsUnique().HasFilter("[ProtocolTransactionId] IS NOT NULL");
-        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Preparation",
-            "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR " +
-            "([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL " +
-            ")"));
-        payment.Property<TransactionDirection>(Direction);
-        payment.Property<Guid?>(ClaimToken);
-        payment.Property<DateTimeOffset?>(ClaimExpiresAtUtc);
-        payment.Property<DateTimeOffset?>(NextActionAtUtc);
         payment.Property<byte[]>(RowVersion).IsRequired().IsRowVersion();
-        payment.HasIndex(Direction, nameof(OutgoingPayment.CurrentStatus), nameof(OutgoingPayment.MessageType),
-            nameof(OutgoingPayment.CurrentStatusAtUtc), nameof(OutgoingPayment.Id));
-        payment.HasIndex(ClaimExpiresAtUtc);
-        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Claim",
-            "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)"));
+        payment.HasIndex(p => new { p.CurrentStatus, p.MessageType, p.CurrentStatusAtUtc, p.Id });
     }
 }

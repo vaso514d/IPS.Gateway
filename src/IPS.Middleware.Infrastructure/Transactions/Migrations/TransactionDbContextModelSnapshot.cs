@@ -35,19 +35,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("varchar(32)")
                         .HasComputedColumnSql("CONVERT(varchar(32), 'incoming-payment')", true);
 
-                    b.Property<long>("CheckpointVersion")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("ClaimToken")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ContextJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CoreDescription")
                         .HasColumnType("nvarchar(max)");
 
@@ -84,9 +71,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<int>("FollowUp")
                         .HasColumnType("int");
 
-                    b.Property<DateTimeOffset?>("FollowUpAtUtc")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<bool?>("IpsAccepted")
                         .HasColumnType("bit");
 
@@ -102,24 +86,14 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<string>("ManualReviewReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTimeOffset?>("NextActionAtUtc")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<string>("ParticipantBic")
                         .IsRequired()
                         .HasMaxLength(11)
                         .HasColumnType("nvarchar(11)")
                         .UseCollation("Latin1_General_100_BIN2");
 
-                    b.Property<DateTimeOffset?>("ReconciliationDeadlineUtc")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<DateTimeOffset>("RegisteredAtUtc")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("RequestJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Reversal")
                         .HasColumnType("int");
@@ -138,20 +112,12 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasIndex("Id", "AggregateKind")
                         .IsUnique();
 
-                    b.HasIndex("FollowUpAtUtc", "RegisteredAtUtc", "Id");
-
-                    b.HasIndex("NextActionAtUtc", "RegisteredAtUtc", "Id");
-
                     b.HasIndex("ParticipantBic", "EndToEndId", "EndToEndIdBytes")
                         .IsUnique();
 
                     b.ToTable("IncomingPayments", null, t =>
                         {
                             t.HasCheckConstraint("CK_IncomingPayments_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
-
-                            t.HasCheckConstraint("CK_IncomingPayments_Context", "ISJSON([ContextJson]) = 1");
-
-                            t.HasCheckConstraint("CK_IncomingPayments_FollowUpDeadline", "[FollowUpAtUtc] IS NULL OR ([ReconciliationDeadlineUtc] IS NOT NULL AND [FollowUpAtUtc] <= [ReconciliationDeadlineUtc])");
 
                             t.HasCheckConstraint("CK_IncomingPayments_Request", "ISJSON([RequestJson]) = 1");
                         });
@@ -162,9 +128,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AcceptedJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("AggregateKind")
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
@@ -172,12 +135,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(32)")
                         .HasComputedColumnSql("CONVERT(varchar(32), 'outgoing-payment')", true);
-
-                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<Guid?>("ClaimToken")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ClientReference")
                         .IsRequired()
@@ -210,32 +167,14 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<DateTimeOffset>("CurrentStatusAtUtc")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<int>("Direction")
-                        .HasColumnType("int");
-
                     b.Property<int>("EventSequence")
                         .HasColumnType("int")
                         .HasColumnName("LastSequence");
-
-                    b.Property<string>("MessageId")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("MessageType")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
-
-                    b.Property<DateTimeOffset?>("NextActionAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ProtocolTransactionId")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)");
-
-                    b.Property<string>("RequestJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -243,37 +182,17 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<string>("UnsignedXml")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("ClaimExpiresAtUtc");
 
                     b.HasIndex("ClientReference")
                         .IsUnique();
 
-                    b.HasIndex("MessageId")
-                        .IsUnique()
-                        .HasFilter("[MessageId] IS NOT NULL");
-
-                    b.HasIndex("ProtocolTransactionId")
-                        .IsUnique()
-                        .HasFilter("[ProtocolTransactionId] IS NOT NULL");
-
                     b.HasIndex("Id", "AggregateKind")
                         .IsUnique();
 
-                    b.HasIndex("Direction", "CurrentStatus", "MessageType", "CurrentStatusAtUtc", "Id");
+                    b.HasIndex("CurrentStatus", "MessageType", "CurrentStatusAtUtc", "Id");
 
-                    b.ToTable("Transactions", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_Transactions_Accepted", "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)");
-
-                            t.HasCheckConstraint("CK_Transactions_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
-
-                            t.HasCheckConstraint("CK_Transactions_Preparation", "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR ([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL )");
-                        });
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", b =>
@@ -482,6 +401,57 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                             t.HasCheckConstraint("CK_IncomingCoreCalls_Request", "([Kind] = 3 AND [RequestJson] IS NOT NULL AND ISJSON([RequestJson]) = 1) OR ([Kind] <> 3 AND [RequestJson] IS NULL)");
 
                             t.HasCheckConstraint("CK_IncomingCoreCalls_Result", "([CompletionJson] IS NULL AND [Consumed] = 0) OR ([CompletionJson] IS NOT NULL AND ISJSON([CompletionJson]) = 1)");
+                        });
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Inbound.IncomingPaymentMetadata", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("CheckpointVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ClaimToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContextJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("FollowUpAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("NextActionAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ReconciliationDeadlineUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RequestJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FollowUpAtUtc", "Id");
+
+                    b.HasIndex("NextActionAtUtc", "Id");
+
+                    b.ToTable("IncomingPayments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_IncomingPayments_Context", "ISJSON([ContextJson]) = 1");
+
+                            t.HasCheckConstraint("CK_IncomingPayments_FollowUpDeadline", "[FollowUpAtUtc] IS NULL OR ([ReconciliationDeadlineUtc] IS NOT NULL AND [FollowUpAtUtc] <= [ReconciliationDeadlineUtc])");
                         });
                 });
 
@@ -694,6 +664,69 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         });
                 });
 
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Outgoing.OutgoingPaymentMetadata", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AcceptedJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("ClaimExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ClaimToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<DateTimeOffset?>("NextActionAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ProtocolTransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("RequestJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("UnsignedXml")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimExpiresAtUtc");
+
+                    b.HasIndex("MessageId")
+                        .IsUnique()
+                        .HasFilter("[MessageId] IS NOT NULL");
+
+                    b.HasIndex("ProtocolTransactionId")
+                        .IsUnique()
+                        .HasFilter("[ProtocolTransactionId] IS NOT NULL");
+
+                    b.ToTable("Transactions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Transactions_Accepted", "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)");
+
+                            t.HasCheckConstraint("CK_Transactions_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Transactions_Preparation", "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR ([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL )");
+                        });
+                });
+
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Outgoing.OutgoingStatusDeliveryRow", b =>
                 {
                     b.Property<Guid>("PaymentId")
@@ -753,6 +786,12 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
             modelBuilder.Entity("IPS.Middleware.Domain.Inbound.IncomingPayment", b =>
                 {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Inbound.IncomingPaymentMetadata", null)
+                        .WithOne("Payment")
+                        .HasForeignKey("IPS.Middleware.Domain.Inbound.IncomingPayment", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
                         .WithOne()
                         .HasForeignKey("IPS.Middleware.Domain.Inbound.IncomingPayment", "Id", "AggregateKind")
@@ -763,6 +802,12 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
             modelBuilder.Entity("IPS.Middleware.Domain.Transactions.OutgoingPayment", b =>
                 {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Outgoing.OutgoingPaymentMetadata", null)
+                        .WithOne("Payment")
+                        .HasForeignKey("IPS.Middleware.Domain.Transactions.OutgoingPayment", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
                         .WithOne()
                         .HasForeignKey("IPS.Middleware.Domain.Transactions.OutgoingPayment", "Id", "AggregateKind")
@@ -852,6 +897,18 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .WithMany()
                         .HasForeignKey("PaymentId")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Inbound.IncomingPaymentMetadata", b =>
+                {
+                    b.Navigation("Payment")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Outgoing.OutgoingPaymentMetadata", b =>
+                {
+                    b.Navigation("Payment")
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

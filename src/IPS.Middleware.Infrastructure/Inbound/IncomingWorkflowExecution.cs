@@ -8,8 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
-public sealed class IncomingWorkflowExecution(IServiceScopeFactory scopes, InboundSchedulingOptions options,
-    InboundReplyChannel channel, TimeProvider time, IncomingReplyAdmission admission) : IIncomingWorkflowExecution
+public sealed class IncomingWorkflowExecution(
+        IServiceScopeFactory scopes,
+        InboundSchedulingOptions options,
+        InboundReplyChannel channel,
+        TimeProvider time,
+        IncomingReplyAdmission admission) : IIncomingWorkflowExecution
 {
     public async Task<IncomingReceiptState?> ReadAsync(Guid journalId, CancellationToken token)
     {
@@ -21,14 +25,24 @@ public sealed class IncomingWorkflowExecution(IServiceScopeFactory scopes, Inbou
     {
         InboundClaim? claim;
         await using (var scope = scopes.CreateAsyncScope())
+        {
             claim = await scope.ServiceProvider.GetRequiredService<InboundWork>().AcquireAsync(journalId, options.ClaimDuration, token);
-        if (claim is null) return new(IncomingCompositionStatus.OwnershipLost);
+        }
+
+        if (claim is null)
+        {
+            return new(IncomingCompositionStatus.OwnershipLost);
+        }
+
         try
         {
             return await scopes.RetryAsync<IncomingReceiptPreparation, IncomingCompositionResult>(
                 preparation => preparation.PrepareAsync(claim, token), options.RegistrationMaxAttempts, token);
         }
-        catch (PersistenceConcurrencyException) { return new(IncomingCompositionStatus.OwnershipLost); }
+        catch (PersistenceConcurrencyException)
+        {
+            return new(IncomingCompositionStatus.OwnershipLost);
+        }
     }
 
     public async Task<IncomingProcessingResult?> ProcessPaymentAsync(Guid paymentId, CancellationToken token)
@@ -43,11 +57,18 @@ public sealed class IncomingWorkflowExecution(IServiceScopeFactory scopes, Inbou
         try
         {
             if (!await scope.ServiceProvider.GetRequiredService<IIncomingCompositionRepository>()
-                .StageFirstReplyReadyAsync(journalId, time.GetUtcNow(), token)) return false;
+                .StageFirstReplyReadyAsync(journalId, time.GetUtcNow(), token))
+            {
+                return false;
+            }
+
             await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().SaveAsync(token);
             return true;
         }
-        catch (PersistenceConcurrencyException) { return false; }
+        catch (PersistenceConcurrencyException)
+        {
+            return false;
+        }
     }
 
     public Task DeliverReplyAsync(Guid journalId, CancellationToken token) => admission.RunAsync(async admitted =>

@@ -34,6 +34,9 @@ internal static class IncomingWorkerConfiguration
     {
         var options = services.GetRequiredService<IncomingWorkerOptions>();
         options.Validate(services.GetRequiredService<IncomingTransportSettings>());
-        if (options.Enabled) _ = services.GetRequiredService<Pacs008ProtocolProfile>();
+        if (options.Enabled)
+        {
+            _ = services.GetRequiredService<Pacs008ProtocolProfile>();
+        }
     }
 }

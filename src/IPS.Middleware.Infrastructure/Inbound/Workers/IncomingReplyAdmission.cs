@@ -8,8 +8,14 @@ public sealed class IncomingReplyAdmission(int capacity) : IDisposable
     public async Task RunAsync(Func<CancellationToken, Task> action, CancellationToken token)
     {
         await slots.WaitAsync(token);
-        try { await action(token); }
-        finally { slots.Release(); }
+        try
+        {
+            await action(token);
+        }
+        finally
+        {
+            slots.Release();
+        }
     }
 
     public void Dispose() => slots.Dispose();

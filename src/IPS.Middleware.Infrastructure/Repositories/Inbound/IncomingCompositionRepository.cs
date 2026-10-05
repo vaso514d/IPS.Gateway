@@ -18,7 +18,11 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
                 r.IncomingPaymentId,
                 HasReply = db.IncomingReplies.Any(reply => reply.JournalId == r.Id)
             }).SingleOrDefaultAsync(token);
-        if (row is null) return null;
+        if (row is null)
+        {
+            return null;
+        }
+
         var payment = row.IncomingPaymentId is { } id ? await db.IncomingPayments.AsNoTracking().SingleAsync(p => p.Id == id, token) : null;
         return new(row.Status, row.NextActionAtUtc, row.IncomingPaymentId, row.HasReply, payment?.IpsDecision is not null);
     }
@@ -28,14 +32,29 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
         db.RequireUsable();
         var row = await db.InboundJournal.SingleOrDefaultAsync(r => r.Id == journalId, token);
         if (row is null || row.Status != InboundProcessingStatus.Pending ||
-            row.ClaimToken is not null && row.ClaimExpiresAtUtc > now) return false;
+            row.ClaimToken is not null && row.ClaimExpiresAtUtc > now)
+        {
+            return false;
+        }
         // Existing reply scheduling belongs exclusively to its delivery workflow, including preparation deferrals.
-        if (await db.IncomingReplies.AnyAsync(r => r.JournalId == journalId, token)) return false;
-        if (row.IncomingPaymentId is not { } paymentId) return false;
+        if (await db.IncomingReplies.AnyAsync(r => r.JournalId == journalId, token))
+        {
+            return false;
+        }
+
+        if (row.IncomingPaymentId is not { } paymentId)
+        {
+            return false;
+        }
+
         var payment = await db.IncomingPayments.AsNoTracking().SingleAsync(p => p.Id == paymentId, token);
-        if (payment.IpsDecision is null) return false;
+        if (payment.IpsDecision is null)
+        {
+            return false;
+        }
+
         row.NextActionAtUtc = now.ToUniversalTime();
-        db.AuthorizedInboundWork.Add(journalId);
+        db.Changes.AuthorizedInboundWork.Add(journalId);
         return true;
     }
 }

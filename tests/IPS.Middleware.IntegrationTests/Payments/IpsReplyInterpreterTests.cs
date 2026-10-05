@@ -38,7 +38,10 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
     {
         var reply = Interpret(replies.Signed[fixture], requestStatus);
         Assert.True(expected == reply.Status, $"{reply.Status}: {reply.Details.Description}");
-        if (reason is not null) Assert.Contains(reason, reply.Details.Description);
+        if (reason is not null)
+        {
+            Assert.Contains(reason, reply.Details.Description);
+        }
     }
 
     [Fact]
@@ -70,14 +73,19 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
             signed.Replace("xmldsig-more#ecdsa-sha256", "xmldsig-more#rsa-sha256"),
             signed.Replace("<ds:Reference URI=\"\">", "<ds:Reference URI=\"#other\">"),
         })
+        {
             Assert.Equal(IpsReplyStatus.Unresolved, Interpret(body, "ACCP").Status);
+        }
+
         foreach (var response in new IpsSubmissionResponse[]
         {
             new(500, signed, [new("X-MONTRAN-IPS-ReqSts", "ACCP")]),
             new(200, "", [new("X-MONTRAN-IPS-ReqSts", "ACCP")]),
             new(200, signed, [new("X-MONTRAN-IPS-ReqSts", "ACCP"), new("X-MONTRAN-IPS-ReqSts", "RJCT/1009")]),
         })
+        {
             Assert.Equal(IpsReplyStatus.Unresolved, Interpreter(replies.Ips).Interpret(response, Sent).Status);
+        }
     }
 
     private IpsReply Interpret(string body, string? requestStatus) =>
@@ -121,7 +129,11 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
                 ["unsupported-original-version"] = Accepted with { OriginalMessageName = "pacs.008.001.11" },
             };
             var signed = await SignAsync(Ips, fixtures.Values.Select(Unsigned).ToArray());
-            foreach (var (name, xml) in fixtures.Keys.Zip(signed)) Signed[name] = xml;
+            foreach (var (name, xml) in fixtures.Keys.Zip(signed))
+            {
+                Signed[name] = xml;
+            }
+
             Signed["untrusted"] = (await SignAsync(Untrusted, Unsigned(Accepted)))[0];
         }
 

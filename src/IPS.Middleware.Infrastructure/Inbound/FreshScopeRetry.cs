@@ -9,8 +9,11 @@ internal static class FreshScopeRetry
     /// Runs each attempt in a new scope. A concurrent writer's uniqueness or rowversion win fails the scope, which is
     /// discarded, never replayed; the next attempt reads the committed state.
     /// </summary>
-    internal static async Task<TResult> RetryAsync<TService, TResult>(this IServiceScopeFactory scopes,
-        Func<TService, Task<TResult>> attempt, int maxAttempts, CancellationToken cancellationToken) where TService : notnull
+    internal static async Task<TResult> RetryAsync<TService, TResult>(
+        this IServiceScopeFactory scopes,
+        Func<TService, Task<TResult>> attempt,
+        int maxAttempts,
+        CancellationToken cancellationToken) where TService : notnull
     {
         for (var number = 1; ; number++)
         {

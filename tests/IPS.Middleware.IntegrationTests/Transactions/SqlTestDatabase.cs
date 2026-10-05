@@ -47,7 +47,10 @@ internal sealed class SqlTestDatabase : IAsyncDisposable
         var connection = new SqlConnectionStringBuilder(_connectionString);
         if (connection.DataSource != @"(localdb)\MSSQLLocalDB" ||
             connection.InitialCatalog != _databaseName || !_databaseName.StartsWith(Prefix, StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("Refusing to delete a database outside this test fixture.");
+        }
+
         await using var db = Context();
         await db.Database.EnsureDeletedAsync();
         using var poolConnection = new SqlConnection(_connectionString);
@@ -73,5 +76,8 @@ internal sealed class PaymentSession : IAsyncDisposable
     public OutgoingTransactionIntake Intake(DateTimeOffset now) => new(Payments, Unit, new FixedClock(now));
     public OutgoingTransactionWork Processing(DateTimeOffset now) => new(Payments, Work, Submissions, Unit, new FixedClock(now));
     public ValueTask DisposeAsync() => Context.DisposeAsync();
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 }

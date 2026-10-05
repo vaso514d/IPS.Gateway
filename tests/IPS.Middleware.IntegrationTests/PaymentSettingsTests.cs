@@ -103,7 +103,10 @@ public sealed class PaymentSettingsTests
     [InlineData("Payments:Incoming:Reconciliation:RetryUnsafeRequests", "true")]
     public void Invalid_configuration_fails_before_serving_requests(string key, string value)
     {
-        using var factory = new SettingsFactory(new() { [key] = value });
+        using var factory = new SettingsFactory(new()
+        {
+            [key] = value
+        });
         Assert.ThrowsAny<Exception>(() => factory.CreateClient());
     }
 

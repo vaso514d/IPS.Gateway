@@ -13,7 +13,9 @@ internal static class SignedInfoCanonicalization
         for (XmlNode? node = element; node is XmlElement ancestor; node = node.ParentNode)
         {
             if (ancestor.Attributes.Cast<XmlAttribute>().Any(attribute => attribute.NamespaceURI == XmlNamespace))
+            {
                 throw new InvalidOperationException("This signing profile does not support xml:* attributes on SignedInfo or its ancestors.");
+            }
         }
     }
 
@@ -28,7 +30,11 @@ internal static class SignedInfoCanonicalization
         var namespaces = signedInfo.CreateNavigator()!.GetNamespacesInScope(XmlNamespaceScope.All);
         foreach (var (prefix, uri) in namespaces)
         {
-            if (prefix == "xml") continue;
+            if (prefix == "xml")
+            {
+                continue;
+            }
+
             root.SetAttribute(prefix.Length == 0 ? "xmlns" : "xmlns:" + prefix, uri);
         }
         return CanonicalizeInclusive10WithoutComments(isolated);

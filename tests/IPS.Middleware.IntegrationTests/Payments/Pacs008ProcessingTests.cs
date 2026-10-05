@@ -16,7 +16,6 @@ public sealed class Pacs008ProcessingTests
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs008Xml.DocumentNamespace;
-
     [Fact]
     public async Task Accepted_payment_is_prepared_submitted_once_and_final_outcome_is_returned_unchanged()
     {
@@ -25,7 +24,6 @@ public sealed class Pacs008ProcessingTests
         var outcome = await harness.ProcessAsync(id);
         Assert.Equal(TransactionStatus.Accepted, outcome!.Status);
         Assert.Equal(StatusSource.Ips, outcome.Source);
-
         var stored = await harness.ReadAsync(id);
         Assert.Equal(stored.Message.SignedXml, Assert.Single(harness.Ips.Received));
         Assert.Equal(SubmissionMessageKind.Signed, stored.Submission.Marker!.MessageKind);
@@ -33,7 +31,6 @@ public sealed class Pacs008ProcessingTests
         Assert.Null(stored.ClaimToken);
         Assert.Equal(["payment.received", "payment.sending-started", "payment.processing-observed", "payment.processing-observed",
             "payment.processing-observed", "payment.accepted"], stored.Events);
-
         harness.Clock.Now = Start.AddMinutes(1);
         Assert.Equal(outcome, await harness.ProcessAsync(id));
         Assert.Single(harness.Ips.Received);
@@ -69,7 +66,6 @@ public sealed class Pacs008ProcessingTests
         Assert.Null(stored.Submission.Response);
         Assert.Null(stored.ClaimToken);
         Assert.Contains(id, await harness.FindDueAsync(TransactionStatus.Uncertain, harness.Clock.Now));
-
         harness.Clock.Now += Ownership;
         Assert.Equal(TransactionStatus.Uncertain, (await harness.ProcessAsync(id))!.Status);
         Assert.Equal(TransactionWorkResult.Unchanged, await harness.RecoverAsync(id));
@@ -103,7 +99,7 @@ public sealed class Pacs008ProcessingTests
         // Terminate the save that would commit the step after the checkpoint.
         var crash = new CrashOnSave(entry => checkpoint switch
         {
-            "accepted" => entry.Property("UnsignedXml").IsModified,
+            "accepted" => entry.Context.ChangeTracker.Entries<OutgoingPaymentMetadata>().Any(p => p.Property(r => r.UnsignedXml).IsModified),
             "unsigned" => entry.Context.ChangeTracker.Entries<OutgoingMessageRow>().Any(p => p.State == EntityState.Added && p.Entity.Direction == OutgoingMessageDirection.Outbound),
             "signed" => entry.Context.ChangeTracker.Entries<OutgoingMessageRow>().Any(p => p.Entity.Status == MessageJournalStatus.SendStarted && p.Property(r => r.Status).IsModified),
             _ => entry.Entity.IsFinal && entry.Property(nameof(OutgoingPayment.CurrentStatus)).IsModified
@@ -115,13 +111,11 @@ public sealed class Pacs008ProcessingTests
         Assert.Equal(checkpoint == "accepted", crashed.Message.UnsignedXml is null);
         Assert.Equal(checkpoint is "signed" or "response", crashed.Message.SignedXml is not null);
         Assert.Equal(checkpoint == "response", crashed.Submission.Response is not null);
-
         Assert.Equal(TransactionWorkResult.Unchanged, await harness.RecoverAsync(id));
         harness.Clock.Now += Ownership;
         Assert.Equal(TransactionWorkResult.Saved, await harness.RecoverAsync(id));
         Assert.Equal(TransactionStatus.Sending, (await harness.ReadAsync(id)).Payment.CurrentStatus);
         Assert.Contains(id, await harness.FindDueAsync(TransactionStatus.Sending, harness.Clock.Now));
-
         Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id))!.Status);
         var resumed = await harness.ReadAsync(id);
         Assert.Equal(crashed.Message.UnsignedXml ?? resumed.Message.UnsignedXml, resumed.Message.UnsignedXml);
@@ -138,13 +132,16 @@ public sealed class Pacs008ProcessingTests
         var id = await harness.AcceptAsync();
         harness.Ips.Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var owner = harness.ProcessAsync(id);
-        while (harness.Ips.Received.Count == 0) await Task.Delay(10);
+        while (harness.Ips.Received.Count == 0)
+        {
+            await Task.Delay(10);
+        }
+
         var excluded = await harness.ProcessAsync(id);
         Assert.Equal(TransactionStatus.Sending, excluded!.Status);
         harness.Ips.Gate.SetResult();
         Assert.Equal(TransactionStatus.Accepted, (await owner)!.Status);
         Assert.Single(harness.Ips.Received);
-
         var competing = await harness.AcceptAsync("competing");
         harness.Ips.Gate = null;
         var outcomes = await Task.WhenAll(harness.ProcessAsync(competing), harness.ProcessAsync(competing));
@@ -159,12 +156,15 @@ public sealed class Pacs008ProcessingTests
         var id = await harness.AcceptAsync();
         harness.Ips.Gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var stale = harness.ProcessAsync(id);
-        while (harness.Ips.Received.Count == 0) await Task.Delay(10);
+        while (harness.Ips.Received.Count == 0)
+        {
+            await Task.Delay(10);
+        }
+
         harness.Clock.Now += Ownership;
         Assert.Equal(TransactionWorkResult.Saved, await harness.RecoverAsync(id));
         harness.Ips.Gate.SetResult();
         Assert.Equal(TransactionStatus.Sending, (await stale)!.Status);
-
         var stored = await harness.ReadAsync(id);
         Assert.Equal(TransactionStatus.Uncertain, stored.Payment.CurrentStatus);
         Assert.NotNull(stored.Submission.Marker);
@@ -180,7 +180,12 @@ public sealed class Pacs008ProcessingTests
     {
         await using var harness = await CreateAsync();
         using var expired = Certificate(Start.AddDays(-2), Start.AddDays(-1));
-        harness.Certificates.Current = failure switch { "missing" => null, "expired" => expired, _ => harness.SigningCertificate };
+        harness.Certificates.Current = failure switch
+        {
+            "missing" => null,
+            "expired" => expired,
+            _ => harness.SigningCertificate
+        };
         harness.Certificates.Unavailable = failure == "unavailable";
         var id = await harness.AcceptAsync();
         Assert.Equal(TransactionStatus.Sending, (await harness.ProcessAsync(id))!.Status);
@@ -194,7 +199,6 @@ public sealed class Pacs008ProcessingTests
         Assert.Empty(await harness.FindDueAsync(TransactionStatus.Sending, Start));
         Assert.Equal(TransactionStatus.Sending, (await harness.ProcessAsync(id))!.Status);
         Assert.Equal(1, harness.Protocol.Signs);
-
         harness.Certificates.Current = harness.SigningCertificate;
         harness.Certificates.Unavailable = false;
         harness.Clock.Now = Start.AddSeconds(1);
@@ -217,6 +221,7 @@ public sealed class Pacs008ProcessingTests
             harness.Certificates.Current = null;
             Assert.Equal(TransactionStatus.Sending, (await harness.ProcessAsync(id))!.Status);
         }
+
         harness.Clock.Now = Pacs008Fixture.Request().AcceptanceDateTime!.Value.AddSeconds(20).AddTicks(1);
         var outcome = (await harness.ProcessAsync(id))!;
         Assert.Equal(TransactionStatus.NotSent, outcome.Status);
@@ -253,7 +258,6 @@ public sealed class Pacs008ProcessingTests
         var cancelled = await harness.ReadAsync(id);
         Assert.NotNull(cancelled.Message.UnsignedXml);
         Assert.Null(cancelled.Submission.Marker);
-
         harness.Clock.Now += Ownership;
         Assert.Equal(TransactionWorkResult.Saved, await harness.RecoverAsync(id));
         Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id))!.Status);
@@ -275,7 +279,6 @@ public sealed class Pacs008ProcessingTests
         };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => harness.ProcessAsync(id, cancellation.Token));
         Assert.NotNull((await harness.ReadAsync(id)).Submission.Marker);
-
         harness.Clock.Now += Ownership;
         Assert.Equal(TransactionWorkResult.Saved, await harness.RecoverAsync(id));
         Assert.Equal(TransactionStatus.Uncertain, (await harness.ProcessAsync(id))!.Status);
@@ -286,22 +289,51 @@ public sealed class Pacs008ProcessingTests
     public async Task Accepted_snapshot_fixes_payment_data_and_mapping_settings_at_intake()
     {
         await using var harness = await CreateAsync();
-        var request = Pacs008Fixture.Request() with
+        var request = new Pacs008Request(Pacs008Fixture.Request())
         {
             ClientReference = "snapshot",
             CategoryPurposeCode = "cash",
-            UltimateDebtor = new() { Type = 0, Name = "Ultimate debtor", Identifier = "UD-1" },
-            UltimateCreditor = new() { Type = 1, Name = "Ultimate creditor" },
-            Debtor = Pacs008Fixture.Request().Debtor! with
+            UltimateDebtor = new()
+            {
+                Type = 0,
+                Name = "Ultimate debtor",
+                Identifier = "UD-1"
+            },
+            UltimateCreditor = new()
+            {
+                Type = 1,
+                Name = "Ultimate creditor"
+            },
+            Debtor = new Pacs008DebtorInput(Pacs008Fixture.Request().Debtor!)
             {
                 Identifier = "01001000001",
                 BillIdentifier = "BILL-1",
                 IndirectParticipantBic = "MEMBER-1",
                 Address = new() { StreetName = "Rustaveli", TownName = "Tbilisi", Country = "GE", AddressLines = "Line one" }
             },
-            PaymentInitiation = new() { ChannelCode = "WEB", Geolocation = ["41.7", "44.8"] },
-            InitiationChannelInstrument = new() { ChannelCode = "MOBL", InstrumentCodes = ["CARD", "PRXY"], ElectronicAddress = "41.7,44.8" },
-            Remittance = new() { Unstructured = "Invoice 42", Structured = [new() { ReferenceType = "scor", Reference = "RF18", ReferenceIssuer = "Issuer" }] }
+            PaymentInitiation = new()
+            {
+                ChannelCode = "WEB",
+                Geolocation = ["41.7", "44.8"]
+            },
+            InitiationChannelInstrument = new()
+            {
+                ChannelCode = "MOBL",
+                InstrumentCodes = ["CARD", "PRXY"],
+                ElectronicAddress = "41.7,44.8"
+            },
+            Remittance = new()
+            {
+                Unstructured = "Invoice 42",
+                Structured = [new()
+                {
+                    ReferenceType = "scor",
+                    Reference = "RF18",
+                    ReferenceIssuer = "Issuer"
+                }
+
+                ]
+            }
         };
         var profile = new Pacs008ProtocolProfile("NBGEGE22", "SEPA", RemittanceDeliveryMethod.Email);
         var intake = await harness.AcceptAsync(request, profile);
@@ -312,7 +344,6 @@ public sealed class Pacs008ProcessingTests
         // XML from the in-memory validated payment must equal XML from the restored snapshot.
         var expected = new Pacs008Xml(profile).Build(ValidatedPacs008.Validate(request, Pacs008Fixture.Policy).Payment!,
             new(message.MessageId, message.TransactionId, Start));
-
         // Reloaded JSON must preserve the same immutable boundary as freshly validated input.
         var restored = accepted.Payment;
         Assert.Throws<NotSupportedException>(() => ((IList<string>)restored.PaymentInitiation!.Geolocation)[0] = "changed");
@@ -321,7 +352,6 @@ public sealed class Pacs008ProcessingTests
             new("SCOR", "changed", null, null));
         Assert.Equal(expected, new Pacs008Xml(accepted.Profile).Build(restored,
             new(message.MessageId, message.TransactionId, accepted.EnvelopeCreatedAtUtc)));
-
         // Processing has no access to current policy or mapping settings, and runs later than intake.
         harness.Clock.Now = Start.AddSeconds(3);
         Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id))!.Status);
@@ -341,12 +371,11 @@ public sealed class Pacs008ProcessingTests
     public async Task Duplicate_intake_returns_the_original_without_replacing_or_processing_and_invalid_input_stores_nothing()
     {
         await using var harness = await CreateAsync();
-        var first = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = "duplicate" });
+        var first = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = "duplicate" });
         var original = await harness.ReadAsync(first.Intake!.Payment.Id);
         harness.Clock.Now = Start.AddSeconds(2);
         // A retry is recognised before validation, so even a body current policy rejects returns the stored payment.
-        var duplicate = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = " duplicate ", Amount = -1m },
-            new("NBGEGE22", "SEPA"));
+        var duplicate = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = " duplicate ", Amount = -1m }, new("NBGEGE22", "SEPA"));
         Assert.False(duplicate.Intake!.Created);
         Assert.Equal(first.Intake.Payment.Id, duplicate.Intake.Payment.Id);
         var stored = await harness.ReadAsync(first.Intake.Payment.Id);
@@ -355,8 +384,7 @@ public sealed class Pacs008ProcessingTests
         Assert.Equal((original.Message.MessageId, original.Message.TransactionId), (stored.Message.MessageId, stored.Message.TransactionId));
         Assert.Equal(["payment.received"], stored.Events);
         Assert.Empty(harness.Ips.Received);
-
-        var invalid = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = "invalid", Amount = -1m });
+        var invalid = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = "invalid", Amount = -1m });
         Assert.Null(invalid.Intake);
         Assert.Contains(invalid.Errors, error => error.Field == "amount");
     }
@@ -429,14 +457,15 @@ public sealed class Pacs008ProcessingTests
     {
         public bool Armed { get; set; }
         public bool Triggered { get; private set; }
-        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
             if (Armed && (!afterResponse || eventData.Context!.ChangeTracker.Entries<OutgoingPayment>().Any(e => e.Entity.CurrentStatus == TransactionStatus.Accepted)))
             {
                 Triggered = true;
                 await Task.Delay(Timeout.Infinite, cancellationToken);
             }
+
             return result;
         }
     }

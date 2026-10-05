@@ -171,7 +171,10 @@ public sealed class OutgoingJournalTests
         public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
             if (eventData.Context!.ChangeTracker.Entries<OutgoingMessageRow>().Any(e => e.Entity.Status == MessageJournalStatus.Processed))
+            {
                 throw new SimulatedCrash();
+            }
+
             return ValueTask.FromResult(result);
         }
     }

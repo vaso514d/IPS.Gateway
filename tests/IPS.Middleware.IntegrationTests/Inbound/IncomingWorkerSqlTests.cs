@@ -51,12 +51,16 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
                     context.Response.Headers["X-MONTRAN-IPS-MessageType"] = message.Type;
                     await context.Response.WriteAsync(message.Xml);
                 }
-                else context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
+                else
+                {
+                    context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
+                }
             }
             else if (context.Request.Path == "/api/ips/pacs008/receive")
             {
                 Assert.Equal("E2E-1", context.Request.Headers["Idempotency-Key"]);
-                Interlocked.Increment(ref submissions); coreStarted.TrySetResult();
+                Interlocked.Increment(ref submissions);
+                coreStarted.TrySetResult();
                 await coreRelease.Task.WaitAsync(context.RequestAborted);
                 await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
             }
@@ -64,17 +68,25 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
             {
                 var xml = await new StreamReader(context.Request.Body).ReadToEndAsync(context.RequestAborted);
                 replies.Enqueue(xml);
-                if (!acceptReplies) { context.Response.StatusCode = 503; return; }
+                if (!acceptReplies)
+                {
+                    context.Response.StatusCode = 503;
+                    return;
+                }
                 var response = fixture.Response(xml.Contains("IN-GROUP-2", StringComparison.Ordinal) ? "alternative" : "accepted");
                 context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "ACCP";
                 await context.Response.WriteAsync(response.Body);
             }
-            else context.Response.StatusCode = 404;
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
         });
         using var certificates = new TransportCertificates();
         using var one = Host(database, server.Url, certificates, time);
         using var two = Host(database, server.Url, certificates, time);
-        await one.StartAsync(); await two.StartAsync();
+        await one.StartAsync();
+        await two.StartAsync();
         try
         {
             await coreStarted.Task.WaitAsync(TimeSpan.FromSeconds(15));
@@ -107,7 +119,11 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
             await using var final = database.Context();
             Assert.Equal(1, submissions);
             Assert.Equal(acceptReplies ? 2 : 4, replies.Count);
-            if (!acceptReplies) Assert.All(replies.GroupBy(xml => xml), group => Assert.Equal(2, group.Count()));
+            if (!acceptReplies)
+            {
+                Assert.All(replies.GroupBy(xml => xml), group => Assert.Equal(2, group.Count()));
+            }
+
             Assert.Single(await final.Set<IPS.Middleware.Domain.Inbound.IncomingPayment>().ToListAsync());
             Assert.Equal(2, await final.Database.SqlQueryRaw<long>("SELECT DuplicateCount AS Value FROM InboundMessageJournal WHERE Sequence = 1").SingleAsync());
             Assert.Equal(acceptReplies ? 2 : 4, await final.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM InboundMessageJournal WHERE Status = 2").SingleAsync());
@@ -143,19 +159,27 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         services.AddPersistence(db.Database.GetConnectionString()!);
         services.AddSingleton<TimeProvider>(time);
         services.AddInboundFoundations(new(capacity: 1, discoveryBatch: 1));
-        services.AddSingleton<InboundReplyChannel>(); services.AddSingleton<InboundDispatchDiscovery>();
+        services.AddSingleton<InboundReplyChannel>();
+        services.AddSingleton<InboundDispatchDiscovery>();
         await using var provider = services.BuildServiceProvider();
         var discovery = provider.GetRequiredService<InboundDispatchDiscovery>();
         var processing = provider.GetRequiredService<InboundProcessingChannel>();
         var reply = provider.GetRequiredService<InboundReplyChannel>();
-        await discovery.RefillAsync(false, default); await discovery.RefillAsync(true, default);
-        Assert.True(processing.TryRead(out var processingId)); Assert.Equal(b.JournalId, processingId);
-        Assert.True(reply.TryRead(out var replyId)); Assert.Equal(a.JournalId, replyId);
-        Assert.False(processing.TryRead(out _)); Assert.False(reply.TryRead(out _));
+        await discovery.RefillAsync(false, default);
+        await discovery.RefillAsync(true, default);
+        Assert.True(processing.TryRead(out var processingId));
+        Assert.Equal(b.JournalId, processingId);
+        Assert.True(reply.TryRead(out var replyId));
+        Assert.Equal(a.JournalId, replyId);
+        Assert.False(processing.TryRead(out _));
+        Assert.False(reply.TryRead(out _));
         // Throw away every in-memory notification; SQL reconstructs both routes.
-        await discovery.RefillAsync(false, default); await discovery.RefillAsync(true, default);
-        Assert.True(processing.TryRead(out processingId)); Assert.Equal(b.JournalId, processingId);
-        Assert.True(reply.TryRead(out replyId)); Assert.Equal(a.JournalId, replyId);
+        await discovery.RefillAsync(false, default);
+        await discovery.RefillAsync(true, default);
+        Assert.True(processing.TryRead(out processingId));
+        Assert.Equal(b.JournalId, processingId);
+        Assert.True(reply.TryRead(out replyId));
+        Assert.Equal(a.JournalId, replyId);
     }
 
     [Fact]
@@ -171,7 +195,8 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         services.AddDbContext<IPS.Middleware.Infrastructure.Transactions.TransactionDbContext>(o => o.AddInterceptors(failure));
         services.AddSingleton<IIncomingReceiveClient>(receiver);
         services.AddSingleton(new IncomingWorkerOptions { Enabled = true, EmptyDelay = TimeSpan.FromMilliseconds(10), ErrorDelay = TimeSpan.FromMilliseconds(10) });
-        services.AddInboundFoundations(); services.AddSingleton<IncomingReceiveWorker>();
+        services.AddInboundFoundations();
+        services.AddSingleton<IncomingReceiveWorker>();
         await using var provider = services.BuildServiceProvider();
         var channel = provider.GetRequiredService<InboundProcessingChannel>();
         var worker = provider.GetRequiredService<IncomingReceiveWorker>();
@@ -199,7 +224,11 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         public async Task<IncomingReceiveResponse> ReceiveAsync(CancellationToken cancellationToken)
         {
             var call = Interlocked.Increment(ref calls);
-            if (call > 3) await Task.Delay(Timeout.Infinite, cancellationToken);
+            if (call > 3)
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+
             return new("BAGAGE22", DateTimeOffset.UtcNow, new(call == 1 ? 503 : 200, call == 2 ? "" : "   ", []), null, null, 1, false);
         }
     }
@@ -215,7 +244,8 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         {
             if (Interlocked.Increment(ref calls) == 1)
             {
-                Entered.TrySetResult(); await Release.Task.WaitAsync(cancellationToken);
+                Entered.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
                 throw new InvalidOperationException("Injected receipt commit failure.");
             }
             return result;
@@ -232,7 +262,11 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         {
             if (context.Request.Method == "GET" && context.Request.Path == "/Message")
             {
-                if (Interlocked.Increment(ref receives) != 1) return;
+                if (Interlocked.Increment(ref receives) != 1)
+                {
+                    return;
+                }
+
                 context.Response.Headers["X-MONTRAN-IPS-MessageSeq"] = "1";
                 context.Response.Headers["X-MONTRAN-IPS-MessageType"] = "pacs.008";
                 await context.Response.WriteAsync(fixture.Input.Signed["valid"]);
@@ -247,7 +281,10 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
                 context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "ACCP";
                 await context.Response.WriteAsync(fixture.Response("accepted").Body);
             }
-            else context.Response.StatusCode = 404;
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
         });
         using var certificates = new TransportCertificates();
         var signing = certificates.SavePfx(fixture.Input.Certificate);
@@ -302,7 +339,8 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         builder.Services.AddSingleton(new Pacs008ProtocolProfile("NBGEGE22"));
         builder.Services.AddSingleton(new Pacs008SigningPolicy(false, false));
         builder.Services.AddSingleton<Pacs008MessageSigner>();
-        builder.Services.AddIncomingHttpClients(); builder.Services.AddIncomingWorkers();
+        builder.Services.AddIncomingHttpClients();
+        builder.Services.AddIncomingWorkers();
         builder.Services.Configure<HostOptions>(o => o.ServicesStopConcurrently = true);
         return builder.Build();
     }

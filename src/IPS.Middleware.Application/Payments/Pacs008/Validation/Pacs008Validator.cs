@@ -16,10 +16,16 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
         RuleFor(x => x.AcceptanceDateTime).NotNull().WithMessage("Acceptance time is required.");
         RuleFor(x => x.AcceptanceDateTime).Custom((accepted, context) =>
         {
-            if (accepted is null || context.InstanceToValidate.CreationDateTime is not { } created) return;
+            if (accepted is null || context.InstanceToValidate.CreationDateTime is not { } created)
+            {
+                return;
+            }
+
             var initiated = IsInitiated(context.InstanceToValidate.EndToEndId);
             if (initiated ? accepted > created : accepted < created || accepted - created > TimeSpan.FromSeconds(1))
+            {
                 context.AddFailure(initiated ? "Original request time cannot follow creation time." : "Acceptance must be within one second after creation.");
+            }
         });
         RuleFor(x => x.Currency).ProtocolText(Pacs008Text.Currency, required: true);
         RuleFor(x => x.Currency).Must(code => policy.FindCurrency(code) is { Enabled: true })
@@ -39,7 +45,9 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
         {
             if (!string.IsNullOrWhiteSpace(creditor?.Account) &&
                 string.Equals(creditor.Account.Trim(), context.InstanceToValidate.Debtor?.Account?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
                 context.AddFailure(nameof(Pacs008Request.Creditor) + "." + nameof(Pacs008CreditorInput.Account), "Debtor and creditor accounts must differ.");
+            }
         });
         RuleFor(x => x.UltimateDebtor).SetValidator(new PartyValidator<Pacs008UltimatePartyInput>()!);
         RuleFor(x => x.UltimateCreditor).SetValidator(new PartyValidator<Pacs008UltimatePartyInput>()!);
@@ -54,7 +62,11 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
     private static bool HasAllowedPrecision(decimal amount)
     {
         const decimal integerLimit = 10000000000000m;
-        if (amount <= -integerLimit || amount >= integerLimit) return false;
+        if (amount <= -integerLimit || amount >= integerLimit)
+        {
+            return false;
+        }
+
         var formatted = amount.ToString("0.############################", CultureInfo.InvariantCulture);
         var point = formatted.IndexOf('.');
         return point < 0 || formatted.Length - point - 1 <= 5;

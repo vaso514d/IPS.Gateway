@@ -47,11 +47,18 @@ public sealed class OutgoingSubmissionTests
         public OutgoingStatus Initial { get; } = new(Guid.NewGuid(), 1, "pacs.008", "ref", TransactionStatus.Received, DateTimeOffset.UtcNow, new(), "msg", "e2e");
         public Task<OutgoingAcceptance> AcceptAsync(Pacs008Request request, string json, CancellationToken token) =>
             Task.FromResult(new OutgoingAcceptance(new(Initial, Created, DateTimeOffset.UtcNow), []));
-        public bool TryStart(Guid id) { Started++; return true; }
+        public bool TryStart(Guid id)
+        {
+            Started++;
+            return true;
+        }
         public async Task<OutgoingStatus?> ReadAsync(string reference, CancellationToken token)
         {
             Reads++;
-            try { await Task.Delay(Timeout.Infinite, token); }
+            try
+            {
+                await Task.Delay(Timeout.Infinite, token);
+            }
             catch (OperationCanceledException) { ReadCancelled = true; throw; }
             return null;
         }

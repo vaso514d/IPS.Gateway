@@ -16,7 +16,6 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 public sealed class OutgoingStatusDeliveryTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
-
     [Theory]
     [InlineData(200)]
     [InlineData(204)]
@@ -57,7 +56,7 @@ public sealed class OutgoingStatusDeliveryTests
         Assert.Equal(StatusDeliveryResult.Exhausted, await Deliver(database, key, remote, now, options));
         Assert.Equal(StatusDeliveryResult.Unavailable, await Deliver(database, key, remote, now.AddDays(1), options));
         Assert.Equal(4, remote.Sent.Count);
-        Assert.Single(remote.Sent.Distinct());
+        Assert.All(remote.Sent, status => Assert.Equivalent(remote.Sent[0], status, strict: true));
         await using var read = database.Session();
         var repository = new OutgoingStatusRepository(read.Context);
         Assert.NotNull(await new OutgoingStatusReader(repository, read.Unit, new Clock(now)).ReadAsync("pacs.008", "CBS-1", default));
@@ -74,6 +73,7 @@ public sealed class OutgoingStatusDeliveryTests
             Assert.NotNull(await new OutgoingStatusRepository(owner.Context).StageClaimAsync(key, Now, TimeSpan.FromSeconds(45), default));
             await owner.Unit.SaveAsync();
         }
+
         var remote = new Receiver((_, _) => Task.FromResult(200));
         Assert.Equal(StatusDeliveryResult.Scheduled, await Deliver(database, key, remote, Now.AddSeconds(45)));
         Assert.Empty(remote.Sent);
@@ -122,7 +122,11 @@ public sealed class OutgoingStatusDeliveryTests
         await using var database = await SqlTestDatabase.CreateAsync();
         var old = await FinalizeAsync(database);
         OutgoingStatus? original;
-        await using (var read = database.Session()) original = await new OutgoingStatusRepository(read.Context).ReadAsync("CBS-1", default);
+        await using (var read = database.Session())
+        {
+            original = await new OutgoingStatusRepository(read.Context).ReadAsync("CBS-1", default);
+        }
+
         var remote = new Receiver(async (_, _) =>
         {
             await using var change = database.Session();
@@ -153,6 +157,7 @@ public sealed class OutgoingStatusDeliveryTests
             payment.RecordRejection(StatusSource.Ips, Now);
             await Assert.ThrowsAsync<DbUpdateException>(() => setup.Unit.SaveAsync());
         }
+
         await using (var fresh = database.Session())
         {
             Assert.Empty(await fresh.Context.Set<OutgoingStatusDeliveryRow>().ToListAsync());
@@ -173,12 +178,19 @@ public sealed class OutgoingStatusDeliveryTests
         await using var database = await SqlTestDatabase.CreateAsync();
         var key = await FinalizeAsync(database);
         using var stop = new CancellationTokenSource();
-        var remote = new Receiver((_, token) => { stop.Cancel(); token.ThrowIfCancellationRequested(); return Task.FromResult(200); });
+        var remote = new Receiver((_, token) =>
+        {
+            stop.Cancel();
+            token.ThrowIfCancellationRequested();
+            return Task.FromResult(200);
+        });
         await using (var session = database.Session())
         {
-            var delivery = new OutgoingStatusDelivery(new OutgoingStatusRepository(session.Context), remote, session.Unit, new(), new Clock(Now));
+            var delivery = new OutgoingStatusDelivery(
+            new OutgoingStatusRepository(session.Context), remote, session.Unit, new(), new Clock(Now));
             Assert.Equal(StatusDeliveryResult.Scheduled, await delivery.DeliverAsync(key, stop.Token));
         }
+
         Assert.Equal(StatusDeliveryResult.Delivered, await Deliver(database, key, new Receiver((_, _) => Task.FromResult(200)), Now.AddSeconds(5)));
     }
 
@@ -219,7 +231,9 @@ public sealed class OutgoingStatusDeliveryTests
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
         var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "manual", "{}").Request!, default)).Payment;
-        payment.BeginSending(Now); payment.MarkOutcomeUnknown(StatusSource.Ips, Now); payment.RequireManualReview(Now);
+        payment.BeginSending(Now);
+        payment.MarkOutcomeUnknown(StatusSource.Ips, Now);
+        payment.RequireManualReview(Now);
         await session.Unit.SaveAsync();
         var repository = new OutgoingStatusRepository(session.Context);
         var key = Assert.Single(await repository.FindDueAsync(Now, 50, default));
@@ -234,7 +248,8 @@ public sealed class OutgoingStatusDeliveryTests
         await using var database = await SqlTestDatabase.CreateAsync();
         var key = await FinalizeAsync(database);
         var remote = new Receiver((_, _) => Task.FromResult(200));
-        using var stop = new CancellationTokenSource(); stop.Cancel();
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
         await using var session = database.Session();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new OutgoingStatusDelivery(
             new OutgoingStatusRepository(session.Context), remote, session.Unit, new(), new Clock(Now)).DeliverAsync(key, stop.Token));
@@ -255,7 +270,6 @@ public sealed class OutgoingStatusDeliveryTests
         payment.ResolveManually(Now.AddSeconds(1), new(description: "Operator correction"));
         await session.Unit.SaveAsync();
         await session.Unit.SaveAsync();
-
         await using var read = database.Session();
         var rows = await read.Context.Set<OutgoingStatusDeliveryRow>().OrderBy(r => r.Sequence).ToListAsync();
         Assert.Equal(2, rows.Count);
@@ -296,8 +310,8 @@ public sealed class OutgoingStatusDeliveryTests
     private sealed class BeforeParentRead(Func<Task> change) : DbCommandInterceptor
     {
         public bool Triggered { get; private set; }
-        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
-            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
             if (!Triggered && command.CommandText.Contains("FROM [Transactions]", StringComparison.Ordinal) &&
                 !command.CommandText.Contains("[OutgoingStatusDeliveries]", StringComparison.Ordinal))
@@ -305,6 +319,7 @@ public sealed class OutgoingStatusDeliveryTests
                 Triggered = true;
                 await change();
             }
+
             return result;
         }
     }
@@ -313,7 +328,8 @@ public sealed class OutgoingStatusDeliveryTests
     {
         await using var session = database.Session();
         var payment = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "CBS-1", "{}").Request!, default)).Payment;
-        payment.BeginSending(Now); payment.RecordAcceptance(StatusSource.Ips, Now);
+        payment.BeginSending(Now);
+        payment.RecordAcceptance(StatusSource.Ips, Now);
         await session.Unit.SaveAsync();
         return new(payment.Id, payment.CurrentSequence);
     }
@@ -324,10 +340,15 @@ public sealed class OutgoingStatusDeliveryTests
         return await new OutgoingStatusDelivery(new OutgoingStatusRepository(session.Context), remote, session.Unit, options ?? new(), new Clock(now)).DeliverAsync(key, default);
     }
 
-    private sealed class Clock(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
+    private sealed class Clock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
     private sealed class Receiver(Func<OutgoingStatus, CancellationToken, Task<int>> send) : IOutgoingStatusReceiver
     {
         public List<OutgoingStatus> Sent { get; } = [];
+
         public Task<int> SendAsync(OutgoingStatus status, string idempotencyKey, CancellationToken cancellationToken)
         {
             Assert.Equal(status.IdempotencyKey, idempotencyKey);

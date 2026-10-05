@@ -13,7 +13,9 @@ internal abstract class SaveRuleInterceptor : SaveChangesInterceptor
     }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        DbContextEventData eventData,
+        InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
     {
         Run(eventData);
         return ValueTask.FromResult(result);
@@ -23,6 +25,9 @@ internal abstract class SaveRuleInterceptor : SaveChangesInterceptor
 
     private void Run(DbContextEventData eventData)
     {
-        if (eventData.Context is TransactionDbContext db) Apply(db);
+        if (eventData.Context is TransactionDbContext db)
+        {
+            Apply(db);
+        }
     }
 }

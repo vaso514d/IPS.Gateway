@@ -21,7 +21,10 @@ public sealed class IncomingPacs008SnapshotTests
         var snapshot = new IncomingPacs008(input, new("header", "group", "end", null, null, null, null, null, null, null));
         locations[0] = "changed";
         instruments[0] = "changed";
-        references[0] = new() { Reference = "changed" };
+        references[0] = new()
+        {
+            Reference = "changed"
+        };
         Assert.Equal("original location", snapshot.Payment.PaymentInitiation!.Geolocation![0]);
         Assert.Equal("original instrument", snapshot.Payment.InitiationChannelInstrument!.InstrumentCodes![0]);
         Assert.Equal("original reference", snapshot.Payment.Remittance!.Structured![0].Reference);

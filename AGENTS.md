@@ -12,3 +12,5 @@ Keep development and Git operations in this rebuilt repository. The original rep
 - For EF Core changes, generate migrations with the official EF CLI and verify the artifacts; never hand-write migrations or snapshots.
 
 - Before changing persistence or repository layout, read [the shared unit of work revision](docs/specs/001e-shared-unit-of-work.md). Keep shared save orchestration separate from payment persistence policy.
+
+- Before changing authored C# code, follow [coding style](docs/coding-style.md). During the owner-approved readability rewrite, follow [005](docs/specs/005-readability-refactor.md) and its inventory instead of starting the next capability.

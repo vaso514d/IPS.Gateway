@@ -55,19 +55,23 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         };
         return fixture;
     }
+
     public WebApplicationFactory<Program> Host() => new ConfiguredHost(Configuration);
     private sealed class ConfiguredHost(Dictionary<string, string?> settings) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseEnvironment("Development")
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
     }
+
     public static Pacs008InstantPaymentRequestDto Request(string reference = "outgoing")
     {
         var now = DateTimeOffset.UtcNow;
-        return IncomingPacs008CoreMapping.ToContract(Pacs008Fixture.Request() with
-        { CreationDateTime = now.AddMilliseconds(-500), AcceptanceDateTime = now }) with
-        { ClientReference = reference };
+        return IncomingPacs008CoreMapping.ToContract(new Application.Payments.Pacs008.Pacs008Request(Pacs008Fixture.Request()) { CreationDateTime = now.AddMilliseconds(-500), AcceptanceDateTime = now }) with
+        {
+            ClientReference = reference
+        };
     }
+
     private async Task RespondAsync(HttpContext context)
     {
         if (context.Request.Path == "/api/ips/transactions/status/receive")
@@ -76,12 +80,29 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             context.Response.StatusCode = 204;
             return;
         }
+
         AssertPath(context);
         var xml = await new StreamReader(context.Request.Body).ReadToEndAsync();
-        Submissions.Enqueue(xml); FirstSend.TrySetResult();
-        if (Block) await Release.Task.WaitAsync(context.RequestAborted);
-        if (LoseReply) { context.Abort(); return; }
-        if (Unresolved) { context.Response.StatusCode = 503; await context.Response.WriteAsync("raw upstream failure"); return; }
+        Submissions.Enqueue(xml);
+        FirstSend.TrySetResult();
+        if (Block)
+        {
+            await Release.Task.WaitAsync(context.RequestAborted);
+        }
+
+        if (LoseReply)
+        {
+            context.Abort();
+            return;
+        }
+
+        if (Unresolved)
+        {
+            context.Response.StatusCode = 503;
+            await context.Response.WriteAsync("raw upstream failure");
+            return;
+        }
+
         var document = XDocument.Parse(xml);
         string Value(string name) => document.Descendants().First(e => e.Name.LocalName == name).Value;
         var status = Reject ? "RJCT" : "ACCP";
@@ -97,18 +118,29 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = Reject ? "RJCT/1009" : "ACCP";
         await context.Response.WriteAsync((await IpsReplies.SignAsync(Certificates.Client, IpsReplies.Unsigned(reply)))[0]);
     }
+
     private static void AssertPath(HttpContext context)
     {
-        if (context.Request.Method != "POST" || context.Request.Path != "/Message") throw new InvalidOperationException("Unexpected simulator operation.");
+        if (context.Request.Method != "POST" || context.Request.Path != "/Message")
+        {
+            throw new InvalidOperationException("Unexpected simulator operation.");
+        }
     }
+
     public static async Task EventuallyAsync(Func<Task<bool>> ready)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        while (!await ready()) await Task.Delay(25, timeout.Token);
+        while (!await ready())
+        {
+            await Task.Delay(25, timeout.Token);
+        }
     }
+
     public async ValueTask DisposeAsync()
     {
         Release.TrySetResult();
-        await Server.DisposeAsync(); Certificates.Dispose(); await Database.DisposeAsync();
+        await Server.DisposeAsync();
+        Certificates.Dispose();
+        await Database.DisposeAsync();
     }
 }

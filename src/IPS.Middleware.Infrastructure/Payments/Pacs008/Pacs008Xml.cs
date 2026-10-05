@@ -13,7 +13,10 @@ public sealed class Pacs008Xml(Pacs008ProtocolProfile profile)
     {
         var output = new StringBuilder();
         using (var writer = XmlWriter.Create(output, new XmlWriterSettings { OmitXmlDeclaration = true, Indent = false }))
+        {
             Pacs008Message.Build(payment, context, profile).WriteTo(writer);
+        }
+
         var xml = output.ToString();
         Pacs008Schema.Validate(xml);
         return xml;

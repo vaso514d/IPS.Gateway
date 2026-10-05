@@ -62,7 +62,11 @@ internal static class IpsReplies
         {
             var keyPath = Path.Combine(directory, "key.p8");
             var certificatePath = Path.Combine(directory, "certificate.cer");
-            using (var key = certificate.GetECDsaPrivateKey()!) await File.WriteAllBytesAsync(keyPath, key.ExportPkcs8PrivateKey());
+            using (var key = certificate.GetECDsaPrivateKey()!)
+            {
+                await File.WriteAllBytesAsync(keyPath, key.ExportPkcs8PrivateKey());
+            }
+
             await File.WriteAllBytesAsync(certificatePath, certificate.Export(X509ContentType.Cert));
             var arguments = new List<string> { Path.Combine(AppContext.BaseDirectory, "Payments", "Fixtures", "SignXmlReply.java"), keyPath, certificatePath };
             for (var index = 0; index < messages.Length; index++)
@@ -83,12 +87,19 @@ internal static class IpsReplies
         var start = new ProcessStartInfo(string.IsNullOrWhiteSpace(javaHome) ? "java" :
             Path.Combine(javaHome, "bin", OperatingSystem.IsWindows() ? "java.exe" : "java"))
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
-        foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        foreach (var argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start Java. Reply tests require JDK17+.");
         var error = process.StandardError.ReadToEndAsync();
         _ = process.StandardOutput.ReadToEndAsync();
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        try { await process.WaitForExitAsync(timeout.Token); }
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
         catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
         Assert.True(process.ExitCode == 0, await error);
     }

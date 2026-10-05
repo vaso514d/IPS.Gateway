@@ -15,19 +15,23 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     public async Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         db.RequireUsable();
-        var stored = await db.Payments.AsNoTracking()
-            .Where(p => p.Id == paymentId && EF.Property<string?>(p, MessageId) != null)
+        var stored = await db.OutgoingMetadata.AsNoTracking()
+            .Where(p => p.Id == paymentId && p.MessageId != null)
             .Select(p => new
             {
-                MessageId = EF.Property<string>(p, MessageId),
-                TransactionId = EF.Property<string>(p, ProtocolTransactionId),
-                Unsigned = EF.Property<string?>(p, UnsignedXml),
-                Accepted = EF.Property<string?>(p, AcceptedJson)
+                MessageId = p.MessageId,
+                TransactionId = p.ProtocolTransactionId,
+                Unsigned = p.UnsignedXml,
+                Accepted = p.AcceptedJson
             }).SingleOrDefaultAsync(cancellationToken);
-        if (stored is null) return null;
+        if (stored is null)
+        {
+            return null;
+        }
+
         var ready = await db.OutgoingMessages.AsNoTracking()
             .SingleOrDefaultAsync(p => p.PaymentId == paymentId && p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Outbound, cancellationToken);
-        return new(stored.MessageId, stored.TransactionId, stored.Unsigned,
+        return new(stored.MessageId!, stored.TransactionId!, stored.Unsigned,
             ready?.Disposition == SubmissionMessageKind.Signed ? ready.Content : null, PaymentJson.ReadAccepted(stored.Accepted), ready?.Disposition);
     }
 
@@ -35,9 +39,12 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(xml);
         var entry = db.OwnedPacs008(payment, claim, now);
-        if (entry.TextOf(UnsignedXml).CurrentValue is null && OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound) is not null)
+        if (entry.Entity.UnsignedXml is null && OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound) is not null)
+        {
             throw new InvalidOperationException("Preparation cannot change after the wire message is frozen.");
-        db.WriteOnce(entry, UnsignedXml, xml);
+        }
+
+        db.WriteUnsignedXml(entry, xml);
     }
 
     public void StageSignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now) =>
@@ -46,7 +53,7 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     public void StageDevelopmentUnsigned(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now)
     {
         var entry = db.OwnedPacs008(payment, claim, now);
-        StageReady(payment, claim, entry.TextOf(UnsignedXml).OriginalValue
+        StageReady(payment, claim, entry.Property(p => p.UnsignedXml).OriginalValue
             ?? throw new InvalidOperationException("Commit unsigned XML before selecting it for development transmission."),
             SubmissionMessageKind.DevelopmentUnsigned, now);
     }
@@ -55,12 +62,18 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(xml);
         var entry = db.OwnedPacs008(payment, claim, now);
-        if (entry.TextOf(UnsignedXml).OriginalValue is null)
+        if (entry.Property(p => p.UnsignedXml).OriginalValue is null)
+        {
             throw new InvalidOperationException("Commit unsigned XML before freezing the wire message.");
+        }
+
         if (OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Outbound) is { } existing)
         {
             if (existing.Content != xml || existing.Disposition != kind)
+            {
                 throw new InvalidOperationException("The frozen wire message cannot be replaced or downgraded.");
+            }
+
             return;
         }
         var row = new OutgoingMessageRow

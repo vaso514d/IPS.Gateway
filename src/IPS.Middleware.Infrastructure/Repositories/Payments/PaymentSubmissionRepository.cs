@@ -24,7 +24,11 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
     public async Task<PaymentSubmission?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         db.RequireUsable();
-        if (!await db.Payments.AnyAsync(p => p.Id == paymentId && p.MessageType == Pacs008, cancellationToken)) return null;
+        if (!await db.Payments.AnyAsync(p => p.Id == paymentId && p.MessageType == Pacs008, cancellationToken))
+        {
+            return null;
+        }
+
         var rows = await ReadJournalAsync(paymentId, cancellationToken);
         return new(rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Outbound)?.Submission,
             rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Response)?.Response);
@@ -32,11 +36,18 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, SubmissionMessageKind messageKind, DateTimeOffset now)
     {
-        if (!Enum.IsDefined(messageKind)) throw new ArgumentOutOfRangeException(nameof(messageKind));
+        if (!Enum.IsDefined(messageKind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(messageKind));
+        }
+
         db.OwnedPacs008(payment, claim, now);
         var row = Committed(payment.Id, OutgoingMessageDirection.Outbound);
         if (row.Status != MessageJournalStatus.ReadyToSend || row.Disposition != messageKind)
+        {
             throw new InvalidOperationException("The committed message must be ready and must match the selected disposition.");
+        }
+
         row.Status = MessageJournalStatus.SendStarted;
         row.StartedAtUtc = now.ToUniversalTime();
         row.SubmissionOwner = claim.Token;
@@ -49,14 +60,23 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
         db.OwnedPacs008(payment, claim, now);
         var sent = Committed(payment.Id, OutgoingMessageDirection.Outbound);
         if (db.Entry(sent).Property(p => p.Status).OriginalValue != MessageJournalStatus.SendStarted)
+        {
             throw new InvalidOperationException("Commit submission before recording its response.");
+        }
+
         if (sent.SubmissionOwner != claim.Token)
+        {
             throw new PersistenceConcurrencyException("The response belongs to a different submission owner.");
+        }
+
         var headers = PaymentJson.Write(response.Headers);
         if (OutgoingJournal.Find(db, payment.Id, OutgoingMessageDirection.Response) is { } existing)
         {
             if (existing.Content != response.Body || existing.HttpStatusCode != response.HttpStatusCode || existing.HeadersJson != headers)
+            {
                 throw new InvalidOperationException("Response evidence cannot be replaced.");
+            }
+
             return;
         }
         var row = new OutgoingMessageRow
@@ -80,14 +100,21 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
         db.OwnedPacs008(payment, claim, now);
         var row = Committed(payment.Id, OutgoingMessageDirection.Response);
         if (row.Status != MessageJournalStatus.Received)
+        {
             throw new InvalidOperationException("Only unconsumed response evidence can be interpreted.");
+        }
+
         var conclusive = reply.Status is IpsReplyStatus.Accepted or IpsReplyStatus.Rejected;
         row.Status = conclusive ? MessageJournalStatus.Processed : MessageJournalStatus.Failed;
         // Only a validated, correlated response establishes its protocol definition.
         row.MessageDefinition = conclusive ? "pacs.002.001.14" : null;
         row.ProcessedAtUtc = now.ToUniversalTime();
         row.Failure = conclusive ? null : reply.Details.Description ?? "The response did not establish a valid correlated final outcome.";
-        if (row.Failure?.Length > 2000) row.Failure = row.Failure[..2000];
+        if (row.Failure?.Length > 2000)
+        {
+            row.Failure = row.Failure[..2000];
+        }
+
         OutgoingJournal.Authorize(db, payment, row);
     }
 
@@ -95,7 +122,10 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
     {
         var row = OutgoingJournal.Find(db, paymentId, direction);
         if (row is null || db.Entry(row).State == EntityState.Added)
+        {
             throw new InvalidOperationException("Commit the preceding journal checkpoint first.");
+        }
+
         return row;
     }
 }

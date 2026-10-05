@@ -10,8 +10,10 @@ using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
-public sealed class IncomingReplyProtocol(Pacs008MessageSigner signer, ISigningCertificateSource certificates,
-    IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingReplyProtocol
+public sealed class IncomingReplyProtocol(
+        Pacs008MessageSigner signer,
+        ISigningCertificateSource certificates,
+        IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingReplyProtocol
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
 
@@ -24,15 +26,29 @@ public sealed class IncomingReplyProtocol(Pacs008MessageSigner signer, ISigningC
 
     public ReplyDeliveryResult Interpret(ReplyAttemptCompletion completion, IncomingReplyEnvelope envelope)
     {
-        if (completion.Response is not { } response) return Unresolved(completion.Failure ?? "No IPS response.");
-        if (!HasDocumentedRequestStatus(response)) return Unresolved("Missing or unsupported IPS request status.");
+        if (completion.Response is not { } response)
+        {
+            return Unresolved(completion.Failure ?? "No IPS response.");
+        }
+
+        if (!HasDocumentedRequestStatus(response))
+        {
+            return Unresolved("Missing or unsupported IPS request status.");
+        }
         // Annex D: ReplyToPayment returns the final status of the original payment, including on replay.
         var original = envelope.Original;
         var result = new IpsReplyInterpreter(trustedIpsCertificates).Interpret(response,
             new(original.GroupMessageId, original.TransactionId!, original.EndToEndId));
-        if (result.Status == IpsReplyStatus.Unresolved) return Unresolved(result.Details.Description ?? "Unresolved IPS reply.");
+        if (result.Status == IpsReplyStatus.Unresolved)
+        {
+            return Unresolved(result.Details.Description ?? "Unresolved IPS reply.");
+        }
+
         if (!MatchesEnvelope(response.Body, envelope))
+        {
             return Unresolved("IPS reply envelope does not match the frozen participants or message definition.");
+        }
+
         return (result.Status == IpsReplyStatus.Accepted) == envelope.Decision.Accepted
             ? new(ReplyDeliveryOutcome.Delivered, "IPS confirmed the stored payment decision.")
             : new(ReplyDeliveryOutcome.Conflict, "IPS final status contradicts the immutable local decision.");

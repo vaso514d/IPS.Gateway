@@ -26,17 +26,27 @@ public sealed class IncomingWorkerTests
     public async Task Dispatcher_bounds_parallel_handlers_survives_failure_and_drains_on_shutdown()
     {
         var channel = new InboundProcessingChannel(new(capacity: 4, discoveryBatch: 4));
-        var first = Guid.NewGuid(); var second = Guid.NewGuid(); var third = Guid.NewGuid();
-        channel.TryNotify(first); channel.TryNotify(second); channel.TryNotify(third);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+        channel.TryNotify(first);
+        channel.TryNotify(second);
+        channel.TryNotify(third);
         var started = Channel.CreateUnbounded<Guid>();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = new ConcurrentQueue<Guid>();
-        using var worker = new Dispatcher(channel, new() { Enabled = true }, async (id, token) =>
+        using var worker = new Dispatcher(channel, new()
+        {
+            Enabled = true
+        }, async (id, token) =>
         {
             calls.Enqueue(id);
             await started.Writer.WriteAsync(id, token);
             await release.Task.WaitAsync(token);
-            if (id == first) throw new InvalidOperationException("Injected handler failure");
+            if (id == first)
+            {
+                throw new InvalidOperationException("Injected handler failure");
+            }
         });
         await worker.StartAsync(default);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -48,20 +58,23 @@ public sealed class IncomingWorkerTests
         release.SetResult();
         await stop.WaitAsync(timeout.Token);
         Assert.Equal(new[] { first, second }, calls.ToArray());
-        Assert.True(channel.TryRead(out var remaining)); Assert.Equal(third, remaining);
+        Assert.True(channel.TryRead(out var remaining));
+        Assert.Equal(third, remaining);
         Assert.True(worker.ExecuteTask!.IsCompletedSuccessfully);
     }
 
     [Fact]
     public async Task Shutdown_cancels_and_awaits_handlers_after_drain_budget()
     {
-        var channel = new InboundProcessingChannel(new()); channel.TryNotify(Guid.NewGuid());
+        var channel = new InboundProcessingChannel(new());
+        channel.TryNotify(Guid.NewGuid());
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var finished = false;
         using var worker = new Dispatcher(channel, new() { Enabled = true, ShutdownBudget = TimeSpan.FromMilliseconds(50) }, async (_, token) =>
         {
             started.SetResult();
-            try { await Task.Delay(Timeout.Infinite, token); }
+            try
+            { await Task.Delay(Timeout.Infinite, token); }
             finally { finished = true; }
         });
         await worker.StartAsync(default);
@@ -85,7 +98,8 @@ public sealed class IncomingWorkerTests
         await cancelled.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting);
         Assert.False(reached);
-        release.SetResult(); await first;
+        release.SetResult();
+        await first;
         await admission.RunAsync(_ => { reached = true; return Task.CompletedTask; }, default);
         Assert.True(reached);
     }

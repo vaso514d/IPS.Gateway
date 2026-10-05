@@ -6,7 +6,10 @@ namespace IPS.Middleware.Infrastructure.Transport;
 internal static class HttpEvidence
 {
     internal static async Task<(int Status, string Body, IEnumerable<(string Name, string Value)> Headers)> SendAsync(
-        IHttpClientFactory clients, string name, HttpRequestMessage request, CancellationToken cancellationToken)
+        IHttpClientFactory clients,
+        string name,
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
         using var client = clients.CreateClient(name);
         using var response = await client.SendAsync(request, cancellationToken);

@@ -6,7 +6,6 @@ namespace IPS.Middleware.Tests.Transactions;
 public sealed class OutgoingPaymentTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public void Receive_normalizes_and_collects_one_immutable_event()
     {
@@ -207,20 +206,28 @@ public sealed class OutgoingPaymentTests
             [TransactionStatus.ManuallyResolved] = new()
         };
         foreach (var state in allowed.Keys)
+        {
             foreach (var operation in Enum.GetValues<PaymentOperation>())
             {
                 var observation = state is TransactionStatus.Accepted or TransactionStatus.Rejected or TransactionStatus.NotSent or TransactionStatus.ManuallyResolved
                     && operation is PaymentOperation.Accept or PaymentOperation.Reject or PaymentOperation.NotSent;
                 observation |= state == TransactionStatus.ManuallyResolved && operation == PaymentOperation.ResolveManually;
                 var permitted = allowed[state].TryGetValue(operation, out var target);
-                yield return new object[] { state, operation, permitted, observation, permitted ? target : state };
+                yield return new object[]
+                {
+                    state,
+                    operation,
+                    permitted,
+                    observation,
+                    permitted ? target : state
+                };
             }
+        }
     }
 
     [Theory]
     [MemberData(nameof(TransitionCases))]
-    public void Every_business_operation_obeys_the_approved_transition_table(
-        TransactionStatus state, PaymentOperation operation, bool permitted, bool observation, TransactionStatus target)
+    public void Every_business_operation_obeys_the_approved_transition_table(TransactionStatus state, PaymentOperation operation, bool permitted, bool observation, TransactionStatus target)
     {
         var payment = In(state);
         var outcome = payment.Current;
@@ -234,50 +241,105 @@ public sealed class OutgoingPaymentTests
             Assert.Equal(count, payment.PendingEvents.Count);
             return;
         }
+
         Operate(payment, operation);
         Assert.Equal(target, payment.CurrentStatus);
         Assert.Equal(sequence + 1, payment.EventSequence);
         Assert.Equal(count + 1, payment.PendingEvents.Count);
-        if (observation) Assert.Equal(outcome, payment.Current);
-        else if (operation == PaymentOperation.ResolveManually) Assert.Equal(StatusSource.Operator, payment.CurrentSource);
+        if (observation)
+        {
+            Assert.Equal(outcome, payment.Current);
+        }
+        else if (operation == PaymentOperation.ResolveManually)
+        {
+            Assert.Equal(StatusSource.Operator, payment.CurrentSource);
+        }
     }
 
     private static void Operate(OutgoingPayment payment, PaymentOperation operation)
     {
         switch (operation)
         {
-            case PaymentOperation.BeginSending: payment.BeginSending(Now); break;
-            case PaymentOperation.Accept: payment.RecordAcceptance(StatusSource.Ips, Now); break;
-            case PaymentOperation.Reject: payment.RecordRejection(StatusSource.Ips, Now); break;
-            case PaymentOperation.RetryConnection: payment.ScheduleConnectionRetry(Now); break;
-            case PaymentOperation.NotSent: payment.RecordNotSent(Now); break;
-            case PaymentOperation.OutcomeUnknown: payment.MarkOutcomeUnknown(StatusSource.Recovery, Now); break;
-            case PaymentOperation.BeginInvestigation: payment.BeginInvestigation(Now); break;
-            case PaymentOperation.BeginResending: payment.BeginResending(StatusSource.Investigation, Now); break;
-            case PaymentOperation.RequireManualReview: payment.RequireManualReview(Now); break;
-            case PaymentOperation.ResolveManually: payment.ResolveManually(Now); break;
-            default: throw new ArgumentOutOfRangeException(nameof(operation));
+            case PaymentOperation.BeginSending:
+                payment.BeginSending(Now);
+                break;
+            case PaymentOperation.Accept:
+                payment.RecordAcceptance(StatusSource.Ips, Now);
+                break;
+            case PaymentOperation.Reject:
+                payment.RecordRejection(StatusSource.Ips, Now);
+                break;
+            case PaymentOperation.RetryConnection:
+                payment.ScheduleConnectionRetry(Now);
+                break;
+            case PaymentOperation.NotSent:
+                payment.RecordNotSent(Now);
+                break;
+            case PaymentOperation.OutcomeUnknown:
+                payment.MarkOutcomeUnknown(StatusSource.Recovery, Now);
+                break;
+            case PaymentOperation.BeginInvestigation:
+                payment.BeginInvestigation(Now);
+                break;
+            case PaymentOperation.BeginResending:
+                payment.BeginResending(StatusSource.Investigation, Now);
+                break;
+            case PaymentOperation.RequireManualReview:
+                payment.RequireManualReview(Now);
+                break;
+            case PaymentOperation.ResolveManually:
+                payment.ResolveManually(Now);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation));
         }
     }
 
     private static OutgoingPayment New() => OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "CBS-1", Now);
-
     private static OutgoingPayment In(TransactionStatus status)
     {
         var payment = New();
-        if (status == TransactionStatus.Received) return payment;
-        if (status == TransactionStatus.Rejected) { payment.RecordRejection(StatusSource.Gateway, Now); return payment; }
+        if (status == TransactionStatus.Received)
+        {
+            return payment;
+        }
+
+        if (status == TransactionStatus.Rejected)
+        {
+            payment.RecordRejection(StatusSource.Gateway, Now);
+            return payment;
+        }
+
         payment.BeginSending(Now);
         switch (status)
         {
-            case TransactionStatus.Uncertain: payment.MarkOutcomeUnknown(StatusSource.Gateway, Now); break;
-            case TransactionStatus.ManualReview: payment.MarkOutcomeUnknown(StatusSource.Gateway, Now); payment.RequireManualReview(Now); break;
-            case TransactionStatus.Accepted: payment.RecordAcceptance(StatusSource.Ips, Now); break;
-            case TransactionStatus.NotSent: payment.RecordNotSent(Now); break;
-            case TransactionStatus.ManuallyResolved: payment.RecordNotSent(Now); payment.ResolveManually(Now); break;
-            case TransactionStatus.Investigating: payment.MarkOutcomeUnknown(StatusSource.Gateway, Now); payment.BeginInvestigation(Now); break;
-            case TransactionStatus.Resending: payment.MarkOutcomeUnknown(StatusSource.Gateway, Now); payment.BeginResending(StatusSource.Recovery, Now); break;
+            case TransactionStatus.Uncertain:
+                payment.MarkOutcomeUnknown(StatusSource.Gateway, Now);
+                break;
+            case TransactionStatus.ManualReview:
+                payment.MarkOutcomeUnknown(StatusSource.Gateway, Now);
+                payment.RequireManualReview(Now);
+                break;
+            case TransactionStatus.Accepted:
+                payment.RecordAcceptance(StatusSource.Ips, Now);
+                break;
+            case TransactionStatus.NotSent:
+                payment.RecordNotSent(Now);
+                break;
+            case TransactionStatus.ManuallyResolved:
+                payment.RecordNotSent(Now);
+                payment.ResolveManually(Now);
+                break;
+            case TransactionStatus.Investigating:
+                payment.MarkOutcomeUnknown(StatusSource.Gateway, Now);
+                payment.BeginInvestigation(Now);
+                break;
+            case TransactionStatus.Resending:
+                payment.MarkOutcomeUnknown(StatusSource.Gateway, Now);
+                payment.BeginResending(StatusSource.Recovery, Now);
+                break;
         }
+
         return payment;
     }
 }

@@ -15,11 +15,24 @@ public sealed class IncomingWorkerOptions
     {
         if (CbsFollowUpCapacity <= 0 || MessageDelay < TimeSpan.Zero || EmptyDelay <= TimeSpan.Zero ||
             ErrorDelay <= TimeSpan.Zero || ShutdownBudget <= TimeSpan.Zero)
+        {
             throw new InvalidOperationException("Incoming worker capacities and delays must be positive (message delay may be zero).");
-        if (!Enabled) return;
-        if (!transport.Enabled) throw new InvalidOperationException("Incoming workers require enabled transport.");
+        }
+
+        if (!Enabled)
+        {
+            return;
+        }
+
+        if (!transport.Enabled)
+        {
+            throw new InvalidOperationException("Incoming workers require enabled transport.");
+        }
+
         if (transport.Ips.ConnectionLimit <= 1 || transport.Cbs.ConnectionLimit <= CbsFollowUpCapacity)
+        {
             throw new InvalidOperationException("Incoming connections must leave capacity after receive and CBS follow-up reservations.");
+        }
     }
 
     public int ProcessingCapacity(IncomingTransportSettings transport) =>

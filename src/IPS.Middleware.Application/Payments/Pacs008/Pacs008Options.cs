@@ -2,12 +2,20 @@ namespace IPS.Middleware.Application.Payments.Pacs008;
 
 public sealed class Pacs008Options
 {
-    public Pacs008Options(TimeSpan? submissionWindow = null, TimeSpan? ownership = null, TimeSpan? preparationRetryDelay = null, TimeSpan? persistenceBudget = null)
+    public Pacs008Options(
+        TimeSpan? submissionWindow = null,
+        TimeSpan? ownership = null,
+        TimeSpan? preparationRetryDelay = null,
+        TimeSpan? persistenceBudget = null)
     {
         SubmissionWindow = Positive(submissionWindow ?? TimeSpan.FromSeconds(20), nameof(submissionWindow));
         Ownership = Positive(ownership ?? TimeSpan.FromSeconds(45), nameof(ownership));
         PersistenceBudget = Positive(persistenceBudget ?? TimeSpan.FromSeconds(2), nameof(persistenceBudget));
-        if (PersistenceBudget >= Ownership) throw new ArgumentException("Persistence budget must be below ownership.");
+        if (PersistenceBudget >= Ownership)
+        {
+            throw new ArgumentException("Persistence budget must be below ownership.");
+        }
+
         PreparationRetryDelay = Positive(preparationRetryDelay ?? TimeSpan.FromSeconds(1), nameof(preparationRetryDelay));
     }
 

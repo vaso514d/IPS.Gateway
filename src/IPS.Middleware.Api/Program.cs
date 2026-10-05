@@ -1,5 +1,4 @@
 using IPS.Middleware.Api.Configuration;
-using IPS.Middleware.Api.Payments;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,6 +10,7 @@ builder.Services.AddIncomingTransportConfiguration();
 builder.Services.AddOutgoingTransportConfiguration();
 builder.Services.AddIncomingWorkerConfiguration();
 builder.Services.AddOutgoingExecutionConfiguration();
+builder.Services.AddOutgoingApi();
 builder.Services.AddSingleton(services => new Pacs008SigningPolicy(
     services.GetRequiredService<IConfiguration>().GetValue<bool>(Pacs008SigningPolicy.AllowUnsignedConfigurationKey),
     services.GetRequiredService<IHostEnvironment>().IsDevelopment()));
@@ -32,7 +32,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapGet("/health/live", () => TypedResults.Text("Healthy")).WithName("Liveness");
-app.MapOutgoing();
+app.MapControllers();
 app.Run();
 
 public partial class Program;

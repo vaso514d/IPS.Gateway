@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Domain;
+using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,11 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!db.ChangeTracker.HasChanges()) return 0;
+            if (!db.ChangeTracker.HasChanges())
+            {
+                return 0;
+            }
+
             var pending = db.ChangeTracker.Entries<AggregateRoot>()
                 .Where(entry => entry.Entity.PendingEvents.Count > 0)
                 .Select(entry => (Aggregate: entry.Entity, EventIds: entry.Entity.PendingEvents.Select(e => e.EventId).ToArray()))
@@ -23,26 +28,34 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
             int written;
             await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
             {
-                db.Phase = SavePhase.Entities;
+                db.Changes.Phase = SavePhase.Entities;
                 written = await db.SaveChangesAsync(cancellationToken);
-                db.Phase = SavePhase.Events;
+                db.Changes.Phase = SavePhase.Evidence;
                 written += await db.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
             }
 
-            foreach (var snapshot in pending) snapshot.Aggregate.AcknowledgeCommittedEvents(snapshot.EventIds);
-            db.CompleteSave();
+            foreach (var snapshot in pending)
+            {
+                snapshot.Aggregate.AcknowledgeCommittedEvents(snapshot.EventIds);
+            }
+
+            db.Changes.Complete();
             return written;
         }
         catch (Exception exception)
         {
-            db.Failed = true;
-            if (Translate(exception) is { } persistence) throw persistence;
+            db.Changes.Failed = true;
+            if (Translate(exception) is { } persistence)
+            {
+                throw persistence;
+            }
+
             throw;
         }
         finally
         {
-            db.Phase = SavePhase.Idle;
+            db.Changes.Phase = SavePhase.Idle;
         }
     }
 

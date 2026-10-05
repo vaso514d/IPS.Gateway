@@ -5,8 +5,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Workers;
 
-public sealed class InboundDispatchDiscovery(IServiceScopeFactory scopes, InboundProcessingChannel processing,
-    InboundReplyChannel reply, InboundSchedulingOptions options, TimeProvider time)
+public sealed class InboundDispatchDiscovery(
+        IServiceScopeFactory scopes,
+        InboundProcessingChannel processing,
+        InboundReplyChannel reply,
+        InboundSchedulingOptions options,
+        TimeProvider time)
 {
     public async Task RefillAsync(bool replies, CancellationToken token)
     {
@@ -17,6 +21,9 @@ public sealed class InboundDispatchDiscovery(IServiceScopeFactory scopes, Inboun
             .OrderBy(row => row.NextActionAtUtc).ThenBy(row => row.ReceivedAtUtc).ThenBy(row => row.Id)
             .Take(options.DiscoveryBatch).Select(row => row.Id).ToListAsync(token);
         InboundJournalChannel channel = replies ? reply : processing;
-        foreach (var id in ids) channel.TryNotify(id);
+        foreach (var id in ids)
+        {
+            channel.TryNotify(id);
+        }
     }
 }

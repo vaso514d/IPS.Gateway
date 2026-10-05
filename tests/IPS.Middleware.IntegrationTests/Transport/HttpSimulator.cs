@@ -19,7 +19,9 @@ internal sealed class HttpSimulator(WebApplication app) : IAsyncDisposable
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(server => server.Listen(IPAddress.Loopback, 0, listen =>
         {
-            if (certificate is not null) listen.UseHttps(https =>
+            if (certificate is not null)
+            {
+                listen.UseHttps(https =>
             {
                 https.ServerCertificate = certificate;
                 if (expectedClient is not null)
@@ -28,6 +30,7 @@ internal sealed class HttpSimulator(WebApplication app) : IAsyncDisposable
                     https.ClientCertificateValidation = (client, _, _) => client.RawData.SequenceEqual(expectedClient.RawData);
                 }
             });
+            }
         }));
         var app = builder.Build();
         app.Run(handler);

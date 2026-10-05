@@ -41,8 +41,10 @@ public sealed class IncomingTransportConfigurationTests
         Assert.ThrowsAny<CryptographicException>(() => new CertificateSettings { Path = fixture.Identity.Path, Password = "wrong" }.Load(true, DateTimeOffset.UtcNow));
         Assert.Throws<InvalidOperationException>(() => new CertificateSettings { Path = fixture.Trust.Path, Thumbprint = "123" }.Load(false, DateTimeOffset.UtcNow));
         if (OperatingSystem.IsWindows())
+        {
             Assert.Throws<InvalidOperationException>(() => new CertificateSettings
             { Thumbprint = new string('0', 40), StoreLocation = StoreLocation.CurrentUser }.Load(false, DateTimeOffset.UtcNow));
+        }
     }
 
     [Theory]

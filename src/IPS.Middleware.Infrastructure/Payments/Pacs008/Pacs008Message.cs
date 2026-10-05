@@ -92,13 +92,20 @@ internal static class Pacs008Message
             party.BillIdentifier is { } bill ? new XElement(P + "Othr", new XElement(P + "Id", bill),
                 Code("SchmeNm", BillIdentificationScheme)) : null
         }.OfType<XElement>().ToArray();
-        if (identifiers.Length == 0) return null;
+        if (identifiers.Length == 0)
+        {
+            return null;
+        }
+
         return new(P + "Id", new XElement(P + (party.Kind == PaymentPartyKind.Organisation ? "OrgId" : "PrvtId"), identifiers));
     }
 
     private static XElement? Address(PaymentAddress? address)
     {
-        if (address is null) return null;
+        if (address is null)
+        {
+            return null;
+        }
         // Source profile splits raw address text before trimming individual lines.
         var lines = Chunks(address.AddressLines, AddressLineLength)
             .Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => new XElement(P + "AdrLine", line.Trim()));
@@ -179,8 +186,14 @@ internal static class Pacs008Message
 
     private static IEnumerable<string> Chunks(string? text, int length)
     {
-        if (string.IsNullOrWhiteSpace(text)) yield break;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            yield break;
+        }
+
         for (var offset = 0; offset < text.Length; offset += length)
+        {
             yield return text.Substring(offset, Math.Min(length, text.Length - offset));
+        }
     }
 }

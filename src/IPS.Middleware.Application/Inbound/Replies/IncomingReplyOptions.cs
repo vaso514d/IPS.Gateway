@@ -2,8 +2,13 @@ namespace IPS.Middleware.Application.Inbound.Replies;
 
 public sealed class IncomingReplyOptions
 {
-    public IncomingReplyOptions(int maxAttempts = 2, TimeSpan? retryDelay = null, TimeSpan? callTimeout = null,
-        TimeSpan? persistenceBudget = null, TimeSpan? ownership = null, TimeSpan? preparationRetryDelay = null)
+    public IncomingReplyOptions(
+        int maxAttempts = 2,
+        TimeSpan? retryDelay = null,
+        TimeSpan? callTimeout = null,
+        TimeSpan? persistenceBudget = null,
+        TimeSpan? ownership = null,
+        TimeSpan? preparationRetryDelay = null)
     {
         MaxAttempts = maxAttempts;
         RetryDelay = retryDelay ?? TimeSpan.FromMilliseconds(200);
@@ -13,7 +18,9 @@ public sealed class IncomingReplyOptions
         PreparationRetryDelay = preparationRetryDelay ?? TimeSpan.FromSeconds(5);
         if (MaxAttempts <= 0 || RetryDelay <= TimeSpan.Zero || CallTimeout <= TimeSpan.Zero || PersistenceBudget <= TimeSpan.Zero ||
             PreparationRetryDelay <= TimeSpan.Zero || Ownership <= CallTimeout + PersistenceBudget)
+        {
             throw new ArgumentException("Positive reply attempts and budgets must fit within ownership.");
+        }
     }
     public int MaxAttempts { get; }
     public TimeSpan RetryDelay { get; }

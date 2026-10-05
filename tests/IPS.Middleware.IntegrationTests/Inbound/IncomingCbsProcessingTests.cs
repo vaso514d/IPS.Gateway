@@ -38,7 +38,7 @@ public sealed class IncomingCbsProcessingTests
         Assert.True(stored.Calls[0].Consumed);
         Assert.Null(stored.FollowUpAtUtc);
         Assert.Empty(await new IncomingPaymentWorkRepository(db).FindDueAsync(Now.AddDays(1), 100, default));
-        Assert.Equal(result, await test.ProcessAsync(id));
+        Assert.Equivalent(result, await test.ProcessAsync(id), strict: true);
         Assert.Equal(1, test.Cbs.Submissions);
     }
 
@@ -222,7 +222,11 @@ public sealed class IncomingCbsProcessingTests
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (++_calls == phase) throw new Crash();
+            if (++_calls == phase)
+            {
+                throw new Crash();
+            }
+
             return ValueTask.FromResult(result);
         }
     }
@@ -232,7 +236,11 @@ public sealed class IncomingCbsProcessingTests
         public override Task TransactionCommittedAsync(DbTransaction transaction, TransactionEndEventData eventData,
             CancellationToken cancellationToken = default)
         {
-            if (++_commits == commit) throw new Crash();
+            if (++_commits == commit)
+            {
+                throw new Crash();
+            }
+
             return Task.CompletedTask;
         }
     }
@@ -279,7 +287,7 @@ public sealed class IncomingCbsProcessingTests
         var stored = (await new IncomingProcessingRepository(db).ReadAsync(id, default))!;
         Assert.Equal(Now.AddSeconds(19), stored.Context.DeadlineUtc);
         Assert.Empty(stored.Calls);
-        db.Entry(stored.Payment).Property("ContextJson").CurrentValue = "{}";
+        db.Metadata(stored.Payment).ContextJson = "{}";
         await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
     }
 
@@ -427,7 +435,11 @@ public sealed class IncomingCbsProcessingTests
         public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request payment, CancellationToken cancellationToken)
         {
             Submissions++;
-            if (Submit is not null) return Submit(cancellationToken);
+            if (Submit is not null)
+            {
+                return Submit(cancellationToken);
+            }
+
             _credits.Add(payment.EndToEndId!);
             return Task.FromResult(new CoreResponse(200, "{\"Status\":\"ACCP\",\"CoreReference\":\"credit-1\"}"));
         }

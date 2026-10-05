@@ -3,8 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
-public sealed class InboundWorkDiscovery(IServiceScopeFactory scopes, InboundProcessingChannel channel,
-    InboundSchedulingOptions options, TimeProvider timeProvider)
+public sealed class InboundWorkDiscovery(
+        IServiceScopeFactory scopes,
+        InboundProcessingChannel channel,
+        InboundSchedulingOptions options,
+        TimeProvider timeProvider)
 {
     /// <summary>Queues one batch of due IDs from SQL; ownership is still acquired per ID by the processor.</summary>
     public async Task<int> RefillAsync(CancellationToken cancellationToken)

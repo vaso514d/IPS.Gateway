@@ -2,8 +2,12 @@ namespace IPS.Middleware.Infrastructure.Inbound;
 
 public sealed class InboundSchedulingOptions
 {
-    public InboundSchedulingOptions(int capacity = 256, int discoveryBatch = 100,
-        TimeSpan? discoveryInterval = null, TimeSpan? claimDuration = null, int registrationMaxAttempts = 8)
+    public InboundSchedulingOptions(
+        int capacity = 256,
+        int discoveryBatch = 100,
+        TimeSpan? discoveryInterval = null,
+        TimeSpan? claimDuration = null,
+        int registrationMaxAttempts = 8)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(discoveryBatch);

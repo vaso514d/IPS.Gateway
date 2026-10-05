@@ -26,7 +26,6 @@ public sealed class IncomingPaymentTests
     private const string Participant = "BAGAGE22";
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 12, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan Lease = TimeSpan.FromSeconds(45);
-
     [Fact]
     public void Inbound_foundations_register_default_processing_options_without_replacing_a_host_choice()
     {
@@ -45,15 +44,9 @@ public sealed class IncomingPaymentTests
         var second = await test.ReceiveAsync(2);
         var created = await test.RegisterAsync(first, Incoming(message: "MSG-1"));
         // Equal contents restated: numerically equal amount, the same instant at another offset, and fresh lists.
-        var existing = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => r with
-        {
-            Amount = 12.5m,
-            AcceptanceDateTime = Now.ToOffset(TimeSpan.FromHours(4)),
-            InitiationChannelInstrument = r.InitiationChannelInstrument! with { InstrumentCodes = new List<string> { "QR", "NFC" } }
-        }));
-
+        var existing = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => new Pacs008Request(r) { Amount = 12.5m, AcceptanceDateTime = Now.ToOffset(TimeSpan.FromHours(4)), InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(r.InitiationChannelInstrument!) { InstrumentCodes = new List<string> { "QR", "NFC" } } }));
         Assert.Equal(IncomingRegistrationOutcome.Created, created.Outcome);
-        Assert.Equal(new IncomingRegistration(IncomingRegistrationOutcome.Existing, created.PaymentId), existing);
+        Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Existing, created.PaymentId), existing, strict: true);
         await using var read = test.Database.Context();
         var payments = new IncomingPaymentRepository(read);
         Assert.Equal((created.PaymentId, "MSG-1"), await Attachment(read, first.JournalId));
@@ -61,8 +54,16 @@ public sealed class IncomingPaymentTests
         var stored = (await payments.FindAsync(Participant, "E2E-1", default))!;
         Assert.Equal(TimeSpan.Zero, stored.Request.AcceptanceDateTime!.Value.Offset); // The canonical snapshot is not replaced.
         Assert.Equal(new[] { "incoming-payment.registered" }, await Events(read, created.PaymentId!.Value));
-        foreach (var claim in new[] { first, second }) // Attachment alone never completes a receipt.
+        foreach (var claim in new[]
+        {
+            first,
+            second
+        }
+
+        ) // Attachment alone never completes a receipt.
+        {
             Assert.Equal(InboundProcessingStatus.Pending, (await new InboundReceiptRepository(read).ReadAsync(claim.JournalId, default))!.Status);
+        }
     }
 
     [Theory]
@@ -79,13 +80,12 @@ public sealed class IncomingPaymentTests
         var created = await test.RegisterAsync(first, original);
         var conflict = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => change switch
         {
-            "amount" => r with { Amount = 12.51m },
-            "order" => r with { InitiationChannelInstrument = r.InitiationChannelInstrument! with { InstrumentCodes = ["NFC", "QR"] } },
-            "missing" => r with { PaymentInitiation = r.PaymentInitiation! with { Geolocation = null } },
-            _ => r with { Creditor = r.Creditor! with { Name = "creditor" } }
+            "amount" => new Pacs008Request(r) { Amount = 12.51m },
+            "order" => new Pacs008Request(r) { InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(r.InitiationChannelInstrument!) { InstrumentCodes = ["NFC", "QR"] } },
+            "missing" => new Pacs008Request(r) { PaymentInitiation = new Pacs008PaymentInitiationInput(r.PaymentInitiation!) { Geolocation = null } },
+            _ => new Pacs008Request(r) { Creditor = new Pacs008CreditorInput(r.Creditor!) { Name = "creditor" } }
         }));
-
-        Assert.Equal(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, created.PaymentId), conflict);
+        Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, created.PaymentId), conflict, strict: true);
         await using var read = test.Database.Context();
         var receipt = (await new InboundReceiptRepository(read).ReadAsync(second.JournalId, default))!;
         Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
@@ -104,7 +104,13 @@ public sealed class IncomingPaymentTests
     public async Task Participant_case_and_trailing_characters_identify_distinct_payments()
     {
         await using var test = await Harness.CreateAsync();
-        var identities = new[] { (Participant, "E2E-1"), ("OTHERBIC", "E2E-1"), (Participant, "E2E-1 "), (Participant, "e2e-1") };
+        var identities = new[]
+        {
+            (Participant, "E2E-1"),
+            ("OTHERBIC", "E2E-1"),
+            (Participant, "E2E-1 "),
+            (Participant, "e2e-1")
+        };
         var ids = new List<Guid>();
         foreach (var (participant, reference) in identities)
         {
@@ -112,14 +118,16 @@ public sealed class IncomingPaymentTests
             Assert.Equal(IncomingRegistrationOutcome.Created, result.Outcome);
             ids.Add(result.PaymentId!.Value);
         }
-        Assert.Equal(4, ids.Distinct().Count());
-        Assert.Equal(new IncomingRegistration(IncomingRegistrationOutcome.Existing, ids[2]),
-            await test.RegisterAsync(await test.ReceiveAsync(9), Incoming("E2E-1 ")));
 
+        Assert.Equal(4, ids.Distinct().Count());
+        Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Existing, ids[2]), await test.RegisterAsync(await test.ReceiveAsync(9), Incoming("E2E-1 ")), strict: true);
         await using var read = test.Database.Context();
         var payments = new IncomingPaymentRepository(read);
         foreach (var ((participant, reference), id) in identities.Zip(ids))
+        {
             Assert.Equal(id, (await payments.FindAsync(participant, reference, default))!.Payment.Id);
+        }
+
         Assert.Null(await payments.FindAsync(Participant, "E2E-1  ", default));
     }
 
@@ -128,16 +136,21 @@ public sealed class IncomingPaymentTests
     {
         await using var test = await Harness.CreateAsync();
         var claims = new List<InboundClaim>();
-        for (var sequence = 1; sequence <= 8; sequence++) claims.Add(await test.ReceiveAsync(sequence));
-        var results = await Task.WhenAll(claims.Select((claim, index) => test.RegisterAsync(claim, Incoming(message: $"MSG-{index}"))));
+        for (var sequence = 1; sequence <= 8; sequence++)
+        {
+            claims.Add(await test.ReceiveAsync(sequence));
+        }
 
+        var results = await Task.WhenAll(claims.Select((claim, index) => test.RegisterAsync(claim, Incoming(message: $"MSG-{index}"))));
         Assert.Single(results, result => result.Outcome == IncomingRegistrationOutcome.Created);
         Assert.All(results, result => Assert.Equal(results[0].PaymentId, result.PaymentId));
         await using var read = test.Database.Context();
         Assert.Equal(1, await Count(read, "SELECT COUNT(*) AS Value FROM IncomingPayments"));
         Assert.Single(await Events(read, results[0].PaymentId!.Value));
         foreach (var claim in claims)
+        {
             Assert.Equal(results[0].PaymentId, (await Attachment(read, claim.JournalId)).PaymentId);
+        }
     }
 
     [Theory]
@@ -147,11 +160,18 @@ public sealed class IncomingPaymentTests
     {
         var barrier = new SaveBarrier(2);
         await using var test = await Harness.CreateAsync(barrier);
-        var claims = new[] { await test.ReceiveAsync(1), await test.ReceiveAsync(2) };
-        var contents = new[] { Incoming(), conflicting ? Incoming(change: r => r with { Amount = 99m }) : Incoming(message: "MSG-2") };
+        var claims = new[]
+        {
+            await test.ReceiveAsync(1),
+            await test.ReceiveAsync(2)
+        };
+        var contents = new[]
+        {
+            Incoming(),
+            conflicting ? Incoming(change: r => new Pacs008Request(r) { Amount = 99m }) : Incoming(message: "MSG-2")
+        };
         barrier.Armed = true;
         var results = await Task.WhenAll(claims.Select((claim, index) => test.RegisterAsync(claim, contents[index])));
-
         var winner = Array.FindIndex(results, result => result.Outcome == IncomingRegistrationOutcome.Created);
         var loser = 1 - winner;
         Assert.InRange(winner, 0, 1);
@@ -171,11 +191,10 @@ public sealed class IncomingPaymentTests
         await using var test = await Harness.CreateAsync();
         var claim = await test.ReceiveAsync(1);
         var created = await test.RegisterAsync(claim, Incoming());
-        Assert.Equal(new IncomingRegistration(IncomingRegistrationOutcome.Existing, created.PaymentId), await test.RegisterAsync(claim, Incoming()));
+        Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Existing, created.PaymentId), await test.RegisterAsync(claim, Incoming()), strict: true);
         await test.RegisterAsync(await test.ReceiveAsync(2), Incoming("E2E-2"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => test.RegisterAsync(claim, Incoming("E2E-2")));
         await Assert.ThrowsAsync<InvalidOperationException>(() => test.RegisterAsync(claim, Incoming(message: "REPLACEMENT")));
-
         await using var read = test.Database.Context();
         Assert.Equal((created.PaymentId, "MSG-1"), await Attachment(read, claim.JournalId));
         Assert.Equal(Incoming().Original, await new InboundReceiptRepository(read).ReadOriginalReferencesAsync(claim.JournalId, default));
@@ -190,14 +209,21 @@ public sealed class IncomingPaymentTests
         await using var test = await Harness.CreateAsync();
         var canonical = await test.RegisterNewAsync(1, "E2E-1");
         var claim = await test.ReceiveAsync(2);
-        var conflict = Incoming(message: "CONFLICT", change: r => r with { Amount = 99m });
+        var conflict = Incoming(message: "CONFLICT", change: r => new Pacs008Request(r) { Amount = 99m });
         using var cancellation = new CancellationTokenSource();
         await using (var db = test.Database.Context(cancel ? new CancelAfterEntities(cancellation) : new FailEventSave()))
         {
             var intake = Intake(db, Now);
-            if (cancel) await Assert.ThrowsAnyAsync<OperationCanceledException>(() => intake.RegisterAsync(claim, conflict, cancellation.Token));
-            else await Assert.ThrowsAsync<InvalidOperationException>(() => intake.RegisterAsync(claim, conflict, default));
+            if (cancel)
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => intake.RegisterAsync(claim, conflict, cancellation.Token));
+            }
+            else
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => intake.RegisterAsync(claim, conflict, default));
+            }
         }
+
         await using (var read = test.Database.Context())
         {
             var receipts = new InboundReceiptRepository(read);
@@ -208,8 +234,7 @@ public sealed class IncomingPaymentTests
             Assert.Null(await receipts.ReadOriginalReferencesAsync(claim.JournalId, default));
             Assert.Single(await Events(read, canonical));
         }
-        // The rolled-back hold has not consumed the original owner or replaced the canonical payment.
-        Assert.Equal(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, canonical), await test.RegisterAsync(claim, conflict));
+        Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, canonical), await test.RegisterAsync(claim, conflict), strict: true);
         await using var committed = test.Database.Context();
         var stored = new InboundReceiptRepository(committed);
         Assert.Equal(conflict.Original, await stored.ReadOriginalReferencesAsync(claim.JournalId, default));
@@ -233,7 +258,10 @@ public sealed class IncomingPaymentTests
         Guid? paymentId = attached ? payment : null;
         Task<int> Update() => sql.Database.ExecuteSqlAsync(
             $"UPDATE InboundMessageJournal SET IncomingPaymentId = {paymentId}, OriginalJson = {json} WHERE Id = {receipt.JournalId}");
-        if (allowed) Assert.Equal(1, await Update());
+        if (allowed)
+        {
+            Assert.Equal(1, await Update());
+        }
         else
         {
             var error = await Assert.ThrowsAsync<SqlException>(Update);
@@ -251,18 +279,18 @@ public sealed class IncomingPaymentTests
         await using (var db = test.Database.Context())
         {
             var work = new InboundWorkRepository(db);
-            Assert.False(await work.StageOriginalReferencesAsync(claim with { Token = Guid.NewGuid() }, original, Now, default));
+            Assert.False(await work.StageOriginalReferencesAsync(new InboundClaim(claim) { Token = Guid.NewGuid() }, original, Now, default));
             Assert.False(await work.StageOriginalReferencesAsync(claim, original, Now + Lease, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
             Assert.Null(await new InboundReceiptRepository(db).ReadOriginalReferencesAsync(claim.JournalId, default));
             Assert.True(await work.StageOriginalReferencesAsync(claim, original, Now, default));
             await new UnitOfWork(db).SaveAsync();
-            Assert.True(await work.StageOriginalReferencesAsync(claim, original with { }, Now, default));
+            Assert.True(await work.StageOriginalReferencesAsync(claim, new IncomingPacs008Reference(original) { }, Now, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                work.StageOriginalReferencesAsync(claim, original with { BusinessMessageId = "CHANGED" }, Now, default));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => work.StageOriginalReferencesAsync(claim, new IncomingPacs008Reference(original) { BusinessMessageId = "CHANGED" }, Now, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
         }
+
         await using var read = test.Database.Context();
         var receipts = new InboundReceiptRepository(read);
         Assert.Equal(original, await receipts.ReadOriginalReferencesAsync(claim.JournalId, default));
@@ -296,13 +324,13 @@ public sealed class IncomingPaymentTests
             await new UnitOfWork(left).SaveAsync();
             await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => new UnitOfWork(right).SaveAsync());
         }
-        Assert.Null(await test.AcquireAsync(id));
 
+        Assert.Null(await test.AcquireAsync(id));
         test.Clock.Now = Now + Lease;
         await using var owner = test.Database.Context();
         var ownerWork = Work(owner, Now + Lease);
         var claim = (await ownerWork.AcquireAsync(id, Lease, default))!;
-        Assert.False(await test.ReleaseAsync(claim with { Token = Guid.NewGuid() }, Now.AddMinutes(5)));
+        Assert.False(await test.ReleaseAsync(new IncomingPaymentClaim(claim) { Token = Guid.NewGuid() }, Now.AddMinutes(5)));
         test.Clock.Now = Now + Lease + Lease;
         Assert.False(await test.ReleaseAsync(claim, Now.AddMinutes(5)));
         var replacement = (await test.AcquireAsync(id))!;
@@ -310,7 +338,6 @@ public sealed class IncomingPaymentTests
         // The expired owner still believes its claim is live; the row version rejects its stale write.
         Assert.False(await ownerWork.ReleaseAsync(claim, Now.AddMinutes(5), default));
         Assert.True(await test.ReleaseAsync(replacement, Now.AddMinutes(5)));
-
         await using var read = test.Database.Context();
         var work = new IncomingPaymentWorkRepository(read);
         Assert.Empty(await work.FindDueAsync(Now.AddMinutes(4), 10, default));
@@ -324,12 +351,15 @@ public sealed class IncomingPaymentTests
         test.Clock.Now = Now.AddSeconds(-2);
         var older = await test.RegisterNewAsync(1, "E2E-1");
         test.Clock.Now = Now.AddSeconds(-1);
-        var sameTime = new[] { await test.RegisterNewAsync(2, "E2E-2"), await test.RegisterNewAsync(3, "E2E-3") };
+        var sameTime = new[]
+        {
+            await test.RegisterNewAsync(2, "E2E-2"),
+            await test.RegisterNewAsync(3, "E2E-3")
+        };
         var future = await test.RegisterNewAsync(4, "E2E-4");
         test.Clock.Now = Now;
         Assert.NotNull(await test.AcquireAsync(sameTime[1]));
         Assert.True(await test.ReleaseAsync((await test.AcquireAsync(future))!, Now.AddMinutes(1)));
-
         await using var read = test.Database.Context();
         var work = new IncomingPaymentWorkRepository(read);
         Assert.Equal(new[] { older, sameTime[0] }, await work.FindDueAsync(Now, 10, default));
@@ -348,7 +378,10 @@ public sealed class IncomingPaymentTests
         var claim = (await work.AcquireAsync(id, Lease, default))!;
         Assert.Equal(IncomingRegistrationOutcome.Existing, (await test.RegisterAsync(await test.ReceiveAsync(2), Incoming())).Outcome);
         await using (var read = test.Database.Context())
+        {
             Assert.Empty(await new IncomingPaymentWorkRepository(read).FindDueAsync(Now, 10, default));
+        }
+
         Assert.True(await work.ReleaseAsync(claim, Now.AddMinutes(1), default)); // The owner's loaded row version is still current.
     }
 
@@ -363,10 +396,18 @@ public sealed class IncomingPaymentTests
         await using (var db = test.Database.Context(cancel ? new CancelAfterEntities(cancellation) : new FailEventSave()))
         {
             var intake = Intake(db, Now);
-            if (cancel) await Assert.ThrowsAnyAsync<OperationCanceledException>(() => intake.RegisterAsync(claim, Incoming(), cancellation.Token));
-            else await Assert.ThrowsAsync<InvalidOperationException>(() => intake.RegisterAsync(claim, Incoming(), default));
+            if (cancel)
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => intake.RegisterAsync(claim, Incoming(), cancellation.Token));
+            }
+            else
+            {
+                await Assert.ThrowsAsync<InvalidOperationException>(() => intake.RegisterAsync(claim, Incoming(), default));
+            }
+
             await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
         }
+
         await using (var read = test.Database.Context())
         {
             Assert.Equal(0, await Count(read, "SELECT COUNT(*) AS Value FROM IncomingPayments"));
@@ -374,6 +415,7 @@ public sealed class IncomingPaymentTests
             Assert.Equal(0, await Count(read, "SELECT COUNT(*) AS Value FROM TransactionEvents"));
             Assert.Equal((null, null), await Attachment(read, claim.JournalId));
         }
+
         Assert.Equal(IncomingRegistrationOutcome.Created, (await test.RegisterAsync(claim, Incoming())).Outcome);
     }
 
@@ -388,6 +430,7 @@ public sealed class IncomingPaymentTests
             await Intake(db, Now.ToOffset(TimeSpan.FromHours(4))).RegisterAsync(claim, incoming, default);
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync()); // Committed events are acknowledged, never written twice.
         }
+
         await using var read = test.Database.Context();
         var stored = (await new IncomingPaymentRepository(read).FindAsync(" bagage22 ", "E2E-1", default))!;
         Assert.Empty(stored.Payment.PendingEvents);
@@ -397,13 +440,12 @@ public sealed class IncomingPaymentTests
         Assert.Throws<NotSupportedException>(() => ((IList<string>)stored.Request.InitiationChannelInstrument!.InstrumentCodes!)[0] = "changed");
         Assert.Throws<NotSupportedException>(() => ((IList<Pacs008StructuredRemittanceInput>)stored.Request.Remittance!.Structured!).Clear());
         Assert.Single(await Events(read, stored.Payment.Id));
-
-        read.Entry(stored.Payment).Property("RequestJson").CurrentValue = "{}";
+        read.Metadata(stored.Payment).RequestJson = "{}";
         await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(read).SaveAsync());
         await using var tamper = test.Database.Context();
         var payment = (await new IncomingPaymentRepository(tamper).FindAsync(Participant, "E2E-1", default))!.Payment;
-        tamper.Entry(payment).Property("ClaimToken").CurrentValue = Guid.NewGuid();
-        tamper.Entry(payment).Property("ClaimExpiresAtUtc").CurrentValue = Now.AddHours(1);
+        tamper.Metadata(payment).ClaimToken = Guid.NewGuid();
+        tamper.Metadata(payment).ClaimExpiresAtUtc = Now.AddHours(1);
         await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(tamper).SaveAsync());
     }
 
@@ -418,6 +460,7 @@ public sealed class IncomingPaymentTests
             new OutgoingPaymentRepository(db).Add(outgoing, "{}", null);
             await new UnitOfWork(db).SaveAsync();
         }
+
         await using var sql = test.Database.Context();
         var sequence = 10; // Distinct keys, so only ownership can reject these rows.
         Task<int> Event(Guid owner, string kind, string name) => sql.Database.ExecuteSqlAsync(
@@ -425,7 +468,6 @@ public sealed class IncomingPaymentTests
             INSERT INTO TransactionEvents (EventId, TransactionId, AggregateKind, Sequence, Name, SchemaVersion, OccurredAtUtc, PayloadJson)
             VALUES ({Guid.NewGuid()}, {owner}, {kind}, {sequence++}, {name}, 1, {Now}, {"{}"})
             """);
-
         Assert.Equal(1, await Event(incoming, "incoming-payment", "incoming-payment.test-control"));
         await Assert.ThrowsAsync<SqlException>(() => Event(Guid.NewGuid(), "incoming-payment", "incoming-payment.registered"));
         await Assert.ThrowsAsync<SqlException>(() => Event(outgoing.Id, "incoming-payment", "incoming-payment.registered"));
@@ -462,10 +504,20 @@ public sealed class IncomingPaymentTests
             var identity = (await db.FindAsync(identityType, id))!;
             // Both identity columns are keys, so EF refuses to stage a change before the save rules are reached.
             if (change == "modify")
+            {
                 Assert.Throws<InvalidOperationException>(() => db.Entry(identity).Property("Kind").CurrentValue = "outgoing-payment");
-            else db.Remove(identity);
+            }
+            else
+            {
+                db.Remove(identity);
+            }
         }
-        if (change != "modify") await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
+
+        if (change != "modify")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
+        }
+
         await using var read = test.Database.Context();
         Assert.Equal(1, await Count(read, "SELECT COUNT(*) AS Value FROM AggregateIdentities WHERE Kind = 'incoming-payment'"));
     }
@@ -480,8 +532,7 @@ public sealed class IncomingPaymentTests
         Assert.False(await test.HoldAsync(held, "Held entries have no owner."));
         test.Clock.Now = Now + Lease;
         Assert.False(await test.HoldAsync(expired, "Expired owner."));
-        Assert.Equal(IncomingRegistration.LostOwnership, await test.RegisterAsync(expired, Incoming()));
-
+        Assert.Equivalent(IncomingRegistration.LostOwnership, await test.RegisterAsync(expired, Incoming()), strict: true);
         await using var read = test.Database.Context();
         var receipt = (await new InboundReceiptRepository(read).ReadAsync(held.JournalId, default))!;
         Assert.Equal(1, receipt.Receipt.Sequence);
@@ -513,12 +564,9 @@ public sealed class IncomingPaymentTests
             new(message, "GROUP-" + message, endToEndId, "TX-1", null, Now, new DateOnly(2026, 10, 4), "NBGEGE22", "INST", "INST"));
     }
 
-    private static IncomingPaymentIntake Intake(TransactionDbContext db, DateTimeOffset now) =>
-        new(new IncomingPaymentRepository(db), new InboundWorkRepository(db), new UnitOfWork(db), new Clock { Now = now }, new IncomingProcessingOptions());
-    private static IncomingPaymentWork Work(TransactionDbContext db, DateTimeOffset now) =>
-        new(new IncomingPaymentWorkRepository(db), new UnitOfWork(db), new Clock { Now = now });
-    private static Task<List<string>> Events(TransactionDbContext db, Guid id) =>
-        db.Database.SqlQuery<string>($"SELECT Name AS Value FROM TransactionEvents WHERE TransactionId = {id} ORDER BY Sequence").ToListAsync();
+    private static IncomingPaymentIntake Intake(TransactionDbContext db, DateTimeOffset now) => new(new IncomingPaymentRepository(db), new InboundWorkRepository(db), new UnitOfWork(db), new Clock { Now = now }, new IncomingProcessingOptions());
+    private static IncomingPaymentWork Work(TransactionDbContext db, DateTimeOffset now) => new(new IncomingPaymentWorkRepository(db), new UnitOfWork(db), new Clock { Now = now });
+    private static Task<List<string>> Events(TransactionDbContext db, Guid id) => db.Database.SqlQuery<string>($"SELECT Name AS Value FROM TransactionEvents WHERE TransactionId = {id} ORDER BY Sequence").ToListAsync();
     private static Task<int> Count(TransactionDbContext db, string sql) => db.Database.SqlQueryRaw<int>(sql).SingleAsync();
     private static async Task<(Guid? PaymentId, string? BusinessMessageId)> Attachment(TransactionDbContext db, Guid journalId)
     {
@@ -538,10 +586,17 @@ public sealed class IncomingPaymentTests
         {
             var database = await SqlTestDatabase.CreateAsync();
             await using var db = database.Context();
-            var clock = new Clock { Now = Now };
+            var clock = new Clock
+            {
+                Now = Now
+            };
             var services = new ServiceCollection().AddSingleton<TimeProvider>(clock)
                 .AddPersistence(db.Database.GetConnectionString()!).AddInboundFoundations();
-            if (interceptor is not null) services.AddDbContext<TransactionDbContext>(builder => builder.AddInterceptors(interceptor));
+            if (interceptor is not null)
+            {
+                services.AddDbContext<TransactionDbContext>(builder => builder.AddInterceptors(interceptor));
+            }
+
             var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
             return new(database, provider, clock);
         }
@@ -553,24 +608,19 @@ public sealed class IncomingPaymentTests
             return (await InScope<InboundWork, InboundClaim?>(work => work.AcquireAsync(receipt.JournalId, Lease, default)))!;
         }
 
-        public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming) =>
-            provider.GetRequiredService<IncomingPaymentRegistration>().RegisterAsync(claim, incoming, default);
-        public async Task<Guid> RegisterNewAsync(long sequence, string endToEndId) =>
-            (await RegisterAsync(await ReceiveAsync(sequence), Incoming(endToEndId))).PaymentId!.Value;
-        public Task<bool> HoldAsync(InboundClaim claim, string reason) =>
-            InScope<InboundWork, bool>(work => work.HoldAsync(claim, reason, default));
-        public Task<IncomingPaymentClaim?> AcquireAsync(Guid paymentId) =>
-            InScope<IncomingPaymentWork, IncomingPaymentClaim?>(work => work.AcquireAsync(paymentId, Lease, default));
-        public Task<bool> ReleaseAsync(IncomingPaymentClaim claim, DateTimeOffset nextActionAtUtc) =>
-            InScope<IncomingPaymentWork, bool>(work => work.ReleaseAsync(claim, nextActionAtUtc, default));
-
+        public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming) => provider.GetRequiredService<IncomingPaymentRegistration>().RegisterAsync(claim, incoming, default);
+        public async Task<Guid> RegisterNewAsync(long sequence, string endToEndId) => (await RegisterAsync(await ReceiveAsync(sequence), Incoming(endToEndId))).PaymentId!.Value;
+        public Task<bool> HoldAsync(InboundClaim claim, string reason) => InScope<InboundWork, bool>(work => work.HoldAsync(claim, reason, default));
+        public Task<IncomingPaymentClaim?> AcquireAsync(Guid paymentId) => InScope<IncomingPaymentWork, IncomingPaymentClaim?>(work => work.AcquireAsync(paymentId, Lease, default));
+        public Task<bool> ReleaseAsync(IncomingPaymentClaim claim, DateTimeOffset nextActionAtUtc) => InScope<IncomingPaymentWork, bool>(work => work.ReleaseAsync(claim, nextActionAtUtc, default));
         public async ValueTask DisposeAsync()
         {
             await provider.DisposeAsync();
             await Database.DisposeAsync();
         }
 
-        private async Task<T> InScope<TService, T>(Func<TService, Task<T>> run) where TService : notnull
+        private async Task<T> InScope<TService, T>(Func<TService, Task<T>> run)
+            where TService : notnull
         {
             await using var scope = provider.CreateAsyncScope();
             return await run(scope.ServiceProvider.GetRequiredService<TService>());
@@ -590,13 +640,24 @@ public sealed class IncomingPaymentTests
         private int _count;
         public bool Armed { get; set; }
 
-        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
-            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (!Armed) return result;
+            if (!Armed)
+            {
+                return result;
+            }
+
             var arrival = Interlocked.Increment(ref _count);
-            if (arrival == parties) _arrived.SetResult();
-            if (arrival <= parties) await _arrived.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            if (arrival == parties)
+            {
+                _arrived.SetResult();
+            }
+
+            if (arrival <= parties)
+            {
+                await _arrived.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            }
+
             return result;
         }
     }
@@ -604,24 +665,27 @@ public sealed class IncomingPaymentTests
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; set; }
+
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed class FailEventSave : SaveChangesInterceptor
     {
         private int _calls;
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
-            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            if (Interlocked.Increment(ref _calls) == 2) throw new InvalidOperationException("Fail after entity writes, before commit.");
+            if (Interlocked.Increment(ref _calls) == 2)
+            {
+                throw new InvalidOperationException("Fail after entity writes, before commit.");
+            }
+
             return ValueTask.FromResult(result);
         }
     }
 
     private sealed class CancelAfterEntities(CancellationTokenSource cancellation) : SaveChangesInterceptor
     {
-        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
-            CancellationToken cancellationToken = default)
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
             cancellation.Cancel();
             return ValueTask.FromResult(result);

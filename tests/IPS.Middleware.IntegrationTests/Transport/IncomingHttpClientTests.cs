@@ -139,7 +139,8 @@ public sealed class IncomingHttpClientTests
             await context.Response.WriteAsync("partial");
             await context.Response.Body.FlushAsync();
             started.TrySetResult();
-            try { await Task.Delay(Timeout.Infinite, context.RequestAborted); }
+            try
+            { await Task.Delay(Timeout.Infinite, context.RequestAborted); }
             catch (OperationCanceledException) { }
         });
         using var certificates = new TransportCertificates();
@@ -152,7 +153,11 @@ public sealed class IncomingHttpClientTests
             cancellation.Cancel();
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
         }
-        else await Assert.ThrowsAsync<TimeoutRejectedException>(() => call);
+        else
+        {
+            await Assert.ThrowsAsync<TimeoutRejectedException>(() => call);
+        }
+
         Assert.Equal(1, calls);
     }
 
@@ -188,8 +193,14 @@ public sealed class IncomingHttpClientTests
             wrongHost ? certificates.Leaf(true, true) : certificates.Server, certificates.Client);
         using var services = Services(Settings(server.Url, certificates, tls: true, untrusted: untrusted, tlsIdentity: source == "pfx" ? certificates.Identity : certificates.SavePem(source == "encrypted-pem")));
         var call = services.GetRequiredService<IIncomingReplyClient>().SendAsync(Participant, "<test/>", default);
-        if (succeeds) Assert.Equal("verified", (await call).Body);
-        else await Assert.ThrowsAsync<HttpRequestException>(() => call);
+        if (succeeds)
+        {
+            Assert.Equal("verified", (await call).Body);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<HttpRequestException>(() => call);
+        }
     }
 
     internal static IncomingTransportSettings Settings(string url, TransportCertificates certificates, TimeSpan? timeout = null,

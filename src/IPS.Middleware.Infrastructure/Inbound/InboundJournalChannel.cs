@@ -13,7 +13,11 @@ public abstract class InboundJournalChannel(int capacity)
     {
         lock (_gate)
         {
-            if (_queued.Contains(journalId) || !_channel.Writer.TryWrite(journalId)) return false;
+            if (_queued.Contains(journalId) || !_channel.Writer.TryWrite(journalId))
+            {
+                return false;
+            }
+
             _queued.Add(journalId);
             return true;
         }
@@ -23,7 +27,11 @@ public abstract class InboundJournalChannel(int capacity)
     {
         lock (_gate)
         {
-            if (!_channel.Reader.TryRead(out journalId)) return false;
+            if (!_channel.Reader.TryRead(out journalId))
+            {
+                return false;
+            }
+
             _queued.Remove(journalId);
             return true;
         }
@@ -32,7 +40,13 @@ public abstract class InboundJournalChannel(int capacity)
     public async ValueTask<Guid> ReadAsync(CancellationToken cancellationToken)
     {
         while (await _channel.Reader.WaitToReadAsync(cancellationToken))
-            if (TryRead(out var id)) return id;
+        {
+            if (TryRead(out var id))
+            {
+                return id;
+            }
+        }
+
         throw new ChannelClosedException();
     }
 }

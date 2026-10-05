@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence;
+using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
@@ -14,7 +15,7 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
     public async Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken)
     {
         db.RequireUsable();
-        return await db.Payments.SingleOrDefaultAsync(p => p.Id == id, cancellationToken);
+        return (await db.OutgoingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == id, cancellationToken))?.Payment;
     }
 
     public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
@@ -25,22 +26,29 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
         db.RequireUsable();
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1 || payment.CurrentStatus != TransactionStatus.Received)
-            throw new ArgumentException("Intake requires a new Received payment.", nameof(payment));
-        if (accepted is not null && payment.MessageType != Pacs008)
-            throw new ArgumentException("Only pacs.008 payments carry an accepted snapshot.", nameof(accepted));
-        var entry = db.Payments.Add(payment);
-        entry.Property<string>(RequestJson).CurrentValue = requestJson;
-        if (accepted is not null) entry.TextOf(AcceptedJson).CurrentValue = PaymentJson.WriteAccepted(accepted);
-        entry.Property<TransactionDirection>(Direction).CurrentValue = TransactionDirection.Outgoing;
-        if (payment.MessageType == Pacs008)
         {
-            entry.TextOf(MessageId).CurrentValue = Guid.NewGuid().ToString("N");
-            entry.TextOf(ProtocolTransactionId).CurrentValue = Guid.NewGuid().ToString("N");
+            throw new ArgumentException("Intake requires a new Received payment.", nameof(payment));
         }
+
+        if (accepted is not null && payment.MessageType != Pacs008)
+        {
+            throw new ArgumentException("Only pacs.008 payments carry an accepted snapshot.", nameof(accepted));
+        }
+
+        db.OutgoingMetadata.Add(new OutgoingPaymentMetadata
+        {
+            Id = payment.Id,
+            Payment = payment,
+            RequestJson = requestJson,
+            AcceptedJson = accepted is null ? null : PaymentJson.WriteAccepted(accepted),
+            Direction = TransactionDirection.Outgoing,
+            MessageId = payment.MessageType == Pacs008 ? Guid.NewGuid().ToString("N") : null,
+            ProtocolTransactionId = payment.MessageType == Pacs008 ? Guid.NewGuid().ToString("N") : null
+        });
     }
 
     public Task<string?> ReadRequestAsync(Guid id, CancellationToken cancellationToken) =>
-        db.Payments.AsNoTracking().Where(p => p.Id == id).Select(p => EF.Property<string>(p, RequestJson))
+        db.OutgoingMetadata.AsNoTracking().Where(p => p.Id == id).Select(p => p.RequestJson)
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<StoredPaymentEvent>> ReadEventsAsync(Guid id, CancellationToken cancellationToken) =>

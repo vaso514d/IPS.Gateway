@@ -31,9 +31,14 @@ public sealed class Pacs008SigningTests
         {
             var document = XDocument.Parse(unsigned);
             if (namespaceContext == "extra-prefix")
+            {
                 document.Root!.SetAttributeValue(XNamespace.Xmlns + "extra", "urn:independent:namespace");
+            }
             else
+            {
                 document.Descendants(Head + "AppHdr").Single().SetAttributeValue("xmlns", Head.NamespaceName);
+            }
+
             unsigned = document.ToString(SaveOptions.DisableFormatting);
         }
         var result = Signer().Prepare(unsigned, certificate);
@@ -62,8 +67,14 @@ public sealed class Pacs008SigningTests
     {
         using var certificate = Certificate();
         var signed = XDocument.Parse(Signer().Prepare(Unsigned(), certificate).Xml);
-        if (target == "header") signed.Descendants(Head + "BizMsgIdr").Single().Value = "tampered";
-        else if (target == "amount") signed.Descendants(Pacs + "IntrBkSttlmAmt").Single().Value = "999";
+        if (target == "header")
+        {
+            signed.Descendants(Head + "BizMsgIdr").Single().Value = "tampered";
+        }
+        else if (target == "amount")
+        {
+            signed.Descendants(Pacs + "IntrBkSttlmAmt").Single().Value = "999";
+        }
         else
         {
             var value = signed.Descendants(Ds + "SignatureValue").Single();
@@ -186,7 +197,9 @@ public sealed class Pacs008SigningTests
         var result = Signer().Prepare(Unsigned(), certificate);
         Assert.True(await JavaSignatureVerifier.VerifyAsync(result.Xml, certificate));
         if (kind == "p384")
+        {
             Assert.Equal(96, Convert.FromBase64String(XDocument.Parse(result.Xml).Descendants(Ds + "SignatureValue").Single().Value).Length);
+        }
     }
 
     private static Pacs008MessageSigner Signer(bool allowUnsigned = false) => new(new(allowUnsigned, isDevelopment: true), new FixedClock());
@@ -210,8 +223,15 @@ public sealed class Pacs008SigningTests
         var start = kind == "future" ? Now.AddDays(1) : Now.AddDays(-2);
         var end = kind == "expired" ? Now.AddDays(-1) : Now.AddDays(2);
         var certificate = request.CreateSelfSigned(start, end);
-        if (kind != "public-only") return certificate;
-        using (certificate) return X509CertificateLoader.LoadCertificate(certificate.RawData);
+        if (kind != "public-only")
+        {
+            return certificate;
+        }
+
+        using (certificate)
+        {
+            return X509CertificateLoader.LoadCertificate(certificate.RawData);
+        }
     }
 
     private sealed class FixedClock : TimeProvider

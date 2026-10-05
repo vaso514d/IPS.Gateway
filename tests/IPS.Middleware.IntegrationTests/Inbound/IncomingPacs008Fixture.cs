@@ -24,7 +24,9 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
         Add("minimal", d =>
         {
             foreach (var name in new[] { "PmtTpInf", "InstrId", "UETR", "AccptncDtTm", "UltmtDbtr", "UltmtCdtr", "RgltryRptg", "RltdRmtInf", "RmtInf", "PstlAdr", "ClrSysMmbId" })
+            {
                 d.Descendants(Pacs + name).Remove();
+            }
         });
         Add("batch", d => d.Descendants(Pacs + "CdtTrfTxInf").Single().AddAfterSelf(new XElement(d.Descendants(Pacs + "CdtTrfTxInf").Single())));
         Add("count-supplement", d =>
@@ -58,9 +60,16 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
         Add("extra-header", d => { var extra = new XElement(d.Root!.Elements().First()); extra.Element(Head + "Sgntr")!.Remove(); d.Root.AddFirst(extra); });
         Add("batch-bad-second", d => { var second = new XElement(d.Descendants(Pacs + "CdtTrfTxInf").Single()); second.Element(Pacs + "IntrBkSttlmAmt")!.Value = "bad"; d.Descendants(Pacs + "CdtTrfTxInf").Single().AddAfterSelf(second); });
         var signed = await IpsReplies.SignAsync(Certificate, inputs.Values.ToArray());
-        foreach (var pair in inputs.Keys.Zip(signed)) Signed.Add(pair.First, pair.Second);
+        foreach (var pair in inputs.Keys.Zip(signed))
+        {
+            Signed.Add(pair.First, pair.Second);
+        }
     }
-    public Task DisposeAsync() { Certificate.Dispose(); return Task.CompletedTask; }
+    public Task DisposeAsync()
+    {
+        Certificate.Dispose();
+        return Task.CompletedTask;
+    }
 
     // Hand-authored protocol fixture, independent of the production outgoing XML builder.
     internal const string Xml = """

@@ -21,21 +21,46 @@ public sealed class IncomingTransportSettings
 
     public void Validate(bool development)
     {
-        if (!Enabled) return;
+        if (!Enabled)
+        {
+            return;
+        }
+
         if (ParticipantBic.Length is not (8 or 11) || ParticipantBic.Any(c => !char.IsAsciiLetterOrDigit(c)))
+        {
             throw new InvalidOperationException("Incoming transport requires an 8 or 11 character participant BIC.");
+        }
+
         if (string.IsNullOrWhiteSpace(IpsVersion) || IpsVersion.Any(c => c < 33 || c > 126))
+        {
             throw new InvalidOperationException("IPS version must be a nonempty ASCII header value.");
+        }
+
         Ips.Validate(development);
         Cbs.Validate(development);
-        foreach (var path in new[] { MessagePath, SubmissionPath, StatusPath, ReversalPath }) TransportPath.Validate(path);
+        foreach (var path in new[] { MessagePath, SubmissionPath, StatusPath, ReversalPath })
+        {
+            TransportPath.Validate(path);
+        }
+
         if (ReceiveTimeout <= Ips.ConnectTimeout || ReceiveTimeout > TimeSpan.FromDays(1))
+        {
             throw new InvalidOperationException("Receive timeout must exceed the IPS connection timeout and be at most one day.");
+        }
+
         if (Ips.ConnectionLimit < 2 || Cbs.ConnectionLimit < 3)
+        {
             throw new InvalidOperationException("IPS requires a receive reservation; CBS requires two follow-up reservations.");
+        }
+
         if (IpsSignatureTrust.Length == 0)
+        {
             throw new InvalidOperationException("IPS signature trust certificates are required.");
+        }
+
         if (!development && Ips.ClientCertificate is null)
+        {
             throw new InvalidOperationException("IPS mutual TLS requires a client certificate.");
+        }
     }
 }

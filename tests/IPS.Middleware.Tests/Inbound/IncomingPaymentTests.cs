@@ -8,7 +8,6 @@ namespace IPS.Middleware.Tests.Inbound;
 public sealed class IncomingPaymentTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 16, 0, 0, TimeSpan.FromHours(4));
-
     [Fact]
     public void Registration_raises_one_event_with_normalized_participant_exact_reference_and_utc_time()
     {
@@ -27,14 +26,12 @@ public sealed class IncomingPaymentTests
     [Theory]
     [InlineData(" ", "E2E-1")]
     [InlineData("BAGAGE22", "")]
-    public void Registration_requires_participant_and_reference(string participant, string endToEndId) =>
-        Assert.ThrowsAny<ArgumentException>(() => IncomingPayment.Register(Guid.NewGuid(), participant, endToEndId, Now));
-
+    public void Registration_requires_participant_and_reference(string participant, string endToEndId) => Assert.ThrowsAny<ArgumentException>(() => IncomingPayment.Register(Guid.NewGuid(), participant, endToEndId, Now));
     [Fact]
     public void Equal_contents_compare_numerically_by_instant_and_by_ordered_list_values()
     {
         var incoming = Incoming(Request());
-        var restated = Request() with
+        var restated = new Pacs008Request(Request())
         {
             Amount = 12.5m,
             AcceptanceDateTime = Now.ToUniversalTime(),
@@ -56,12 +53,48 @@ public sealed class IncomingPaymentTests
         var request = Request();
         var changed = change switch
         {
-            "amount" => request with { Amount = 12.51m },
-            "case" => request with { Currency = "gel" },
-            "trailing" => request with { Debtor = request.Debtor! with { Name = "Debtor " } },
-            "order" => request with { InitiationChannelInstrument = request.InitiationChannelInstrument! with { InstrumentCodes = ["NFC", "QR"] } },
-            "empty" => request with { PaymentInitiation = request.PaymentInitiation! with { Geolocation = [] } },
-            _ => request with { Remittance = request.Remittance! with { Structured = [new() { ReferenceType = "MCC", Reference = "5412" }] } }
+            "amount" => new Pacs008Request(request)
+            {
+                Amount = 12.51m
+            },
+            "case" => new Pacs008Request(request)
+            {
+                Currency = "gel"
+            },
+            "trailing" => new Pacs008Request(request)
+            {
+                Debtor = new Pacs008DebtorInput(request.Debtor!)
+                {
+                    Name = "Debtor "
+                }
+            },
+            "order" => new Pacs008Request(request)
+            {
+                InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(request.InitiationChannelInstrument!)
+                {
+                    InstrumentCodes = ["NFC", "QR"]
+                }
+            },
+            "empty" => new Pacs008Request(request)
+            {
+                PaymentInitiation = new Pacs008PaymentInitiationInput(request.PaymentInitiation!)
+                {
+                    Geolocation = []
+                }
+            },
+            _ => new Pacs008Request(request)
+            {
+                Remittance = new Pacs008RemittanceInput(request.Remittance!)
+                {
+                    Structured = [new()
+                    {
+                        ReferenceType = "MCC",
+                        Reference = "5412"
+                    }
+
+                    ]
+                }
+            }
         };
         Assert.False(Incoming(request).HasSameContents(changed));
     }
@@ -69,13 +102,17 @@ public sealed class IncomingPaymentTests
     [Fact]
     public void Missing_list_differs_from_an_empty_list()
     {
-        var withoutLocation = Request() with { PaymentInitiation = new() { ChannelCode = "WEB" } };
-        Assert.False(Incoming(withoutLocation).HasSameContents(withoutLocation with { PaymentInitiation = new() { ChannelCode = "WEB", Geolocation = [] } }));
+        var withoutLocation = new Pacs008Request(Request())
+        {
+            PaymentInitiation = new()
+            {
+                ChannelCode = "WEB"
+            }
+        };
+        Assert.False(Incoming(withoutLocation).HasSameContents(new Pacs008Request(withoutLocation) { PaymentInitiation = new() { ChannelCode = "WEB", Geolocation = [] } }));
     }
 
-    private static IncomingPacs008 Incoming(Pacs008Request request) =>
-        new(request, new("header", "group", request.EndToEndId!, null, null, null, null, null, null, null));
-
+    private static IncomingPacs008 Incoming(Pacs008Request request) => new(request, new("header", "group", request.EndToEndId!, null, null, null, null, null, null, null));
     private static Pacs008Request Request() => new()
     {
         EndToEndId = "E2E-1",

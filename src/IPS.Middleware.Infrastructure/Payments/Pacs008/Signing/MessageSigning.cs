@@ -7,11 +7,17 @@ namespace IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 internal static class MessageSigning
 {
-    internal static async Task<SigningResult> PrepareAsync(string xml, ISigningCertificateSource certificates,
-        Func<string, X509Certificate2?, Pacs008SigningResult> prepare, CancellationToken cancellationToken)
+    internal static async Task<SigningResult> PrepareAsync(
+        string xml,
+        ISigningCertificateSource certificates,
+        Func<string, X509Certificate2?, Pacs008SigningResult> prepare,
+        CancellationToken cancellationToken)
     {
         X509Certificate2? certificate;
-        try { certificate = await certificates.GetCurrentAsync(cancellationToken); }
+        try
+        {
+            certificate = await certificates.GetCurrentAsync(cancellationToken);
+        }
         catch (Exception error) when (error is not OperationCanceledException)
         {
             return new SigningDeferred($"The signing certificate is unavailable: {error.Message}");

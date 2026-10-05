@@ -102,6 +102,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             await new UnitOfWork(db).SaveAsync();
             h.Time.Now += TimeSpan.FromMinutes(1);
         }
+
         h.Client.Response = fixture.Response("accepted");
         await h.RunAsync(id);
         Assert.Equal(2, (await h.ReadAsync(id)).Attempts.Count);
@@ -126,7 +127,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         h.Client.Response = fixture.Response("accepted");
         await h.RunAsync(id);
         var after = await h.ReadAsync(id);
-        Assert.Equal(before.Envelope.Context, after.Envelope.Context);
+        Assert.Equivalent(before.Envelope.Context, after.Envelope.Context, strict: true);
         Assert.Equal(before.UnsignedXml, after.UnsignedXml);
         Assert.Equal("NBGEGE22", after.Envelope.Profile.IpsBic);
         Assert.Equal(IncomingReplyStatus.Delivered, after.Status);
@@ -179,7 +180,11 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         var id = await h.SeedAsync();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        h.Client.Wait = async () => { entered.SetResult(); await release.Task; };
+        h.Client.Wait = async () =>
+        {
+            entered.SetResult();
+            await release.Task;
+        };
         var first = h.RunAsync(id);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await h.RunAsync(id);
@@ -264,9 +269,18 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
     [Fact]
     public void Http_success_unsigned_or_empty_body_never_proves_delivery()
     {
-        foreach (var body in new[] { "", "not-xml", IpsReplies.Unsigned(IncomingReplyFixture.Reference) })
+        foreach (var body in new[]
+        {
+            "",
+            "not-xml",
+            IpsReplies.Unsigned(IncomingReplyFixture.Reference)
+        }
+
+        )
+        {
             Assert.Equal(ReplyDeliveryOutcome.Unresolved, Protocol().Interpret(new(new(200, body, [new("X-MONTRAN-IPS-ReqSts", "ACCP")]), null,
                 DateTimeOffset.UtcNow), Envelope()).Outcome);
+        }
     }
 
     [Theory]
@@ -284,10 +298,17 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         await h.RunAsync(id);
         var after = await h.ReadAsync(id);
         Assert.Equal(IncomingReplyStatus.Delivered, after.Status);
-        Assert.Equal(before.Envelope.Context, after.Envelope.Context);
+        Assert.Equivalent(before.Envelope.Context, after.Envelope.Context, strict: true);
         Assert.Equal(before.Envelope.Profile.IpsBic, after.Envelope.Profile.IpsBic);
-        if (before.UnsignedXml is not null) Assert.Equal(before.UnsignedXml, after.UnsignedXml);
-        if (before.MessageXml is not null) Assert.Equal(before.MessageXml, after.MessageXml);
+        if (before.UnsignedXml is not null)
+        {
+            Assert.Equal(before.UnsignedXml, after.UnsignedXml);
+        }
+
+        if (before.MessageXml is not null)
+        {
+            Assert.Equal(before.MessageXml, after.MessageXml);
+        }
     }
 
     [Fact]
@@ -365,13 +386,20 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
     private IncomingReplyProtocol Protocol() => new(new(new(false, false), TimeProvider.System), new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]);
     private IncomingReplyEnvelope Envelope() => new("BAGAGE22", ((IncomingPacs008ReadResult.Ready)Protocol().Read(fixture.Input.Signed["valid"])).Payment.Original,
         new(true, DateTimeOffset.UtcNow), new("REPLY", "STATUS", DateTimeOffset.UtcNow), new("NBGEGE22"), 2);
+    private sealed class Clock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
 
-    private sealed class Clock : TimeProvider { public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow; public override DateTimeOffset GetUtcNow() => Now; }
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
     private sealed class Certificates(X509Certificate2? certificate) : ISigningCertificateSource
     {
         public X509Certificate2? Certificate { get; set; } = certificate;
+
         public ValueTask<X509Certificate2?> GetCurrentAsync(CancellationToken token) => ValueTask.FromResult(Certificate);
     }
+
     private sealed class Remote : IIncomingReplyClient
     {
         public List<string> Messages { get; } = [];
@@ -379,15 +407,25 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         public bool LoseReply { get; set; }
         public Action? AfterSend { get; set; }
         public Func<Task>? Wait { get; set; }
+
         public async Task<IpsSubmissionResponse> SendAsync(string bic, string xml, CancellationToken token)
         {
             Messages.Add(xml); // The independent remote receives the message before a simulated lost response.
-            if (Wait is not null) await Wait();
+            if (Wait is not null)
+            {
+                await Wait();
+            }
+
             AfterSend?.Invoke();
-            if (LoseReply) throw new IOException("Reply lost after remote receipt.");
+            if (LoseReply)
+            {
+                throw new IOException("Reply lost after remote receipt.");
+            }
+
             return Response;
         }
     }
+
     private sealed class Harness(SqlTestDatabase database, IncomingReplyFixture fixture) : IAsyncDisposable
     {
         public SqlTestDatabase Database { get; } = database;
@@ -397,6 +435,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         public IncomingReplyOptions Options { get; set; } = new();
         public Pacs008ProtocolProfile Profile { get; set; } = new("NBGEGE22");
         public IncomingReplyProtocol Protocol => new(new(new(false, false), Time), Certificates, [fixture.Input.Certificate]);
+
         public static async Task<Harness> CreateAsync(IncomingReplyFixture fixture) => new(await SqlTestDatabase.CreateAsync(), fixture);
         public async Task<Guid> SeedAsync(long sequence = 1, bool accepted = true, string input = "valid")
         {
@@ -404,7 +443,11 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             var xml = input == "untrusted" ? IncomingPacs008Fixture.Xml : fixture.Input.Signed[input];
             var registered = await new InboundReceiptRepository(db).StageRegistrationAsync(new("BAGAGE22", sequence, "pacs.008", xml, false, Time.Now), default);
             await new UnitOfWork(db).SaveAsync();
-            if (!registered.Created || sequence <= 0 || input is not ("valid" or "alternative")) return registered.JournalId;
+            if (!registered.Created || sequence <= 0 || input is not ("valid" or "alternative"))
+            {
+                return registered.JournalId;
+            }
+
             var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(xml)).Payment;
             var work = new InboundWorkRepository(db);
             var claim = await ClaimAsync(db, registered.JournalId);
@@ -415,15 +458,17 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             {
                 payments.Add(payment, incoming.Payment, new(registered.JournalId, Time.Now, Time.Now.AddSeconds(20), incoming.Original));
                 payment.BeginSubmission(Time.Now);
-                payment.RecordCoreResult(new(accepted ? CoreOutcome.Accepted : CoreOutcome.Rejected, Time.Now, ReasonCode: accepted ? null : "AC01"), Time.Now);
+                payment.RecordCoreResult(new(accepted ? CoreOutcome.Accepted : CoreOutcome.Rejected, Time.Now, reasonCode: accepted ? null : "AC01"), Time.Now);
                 payment.DecideIps(true, Time.Now);
             }
+
             await work.StageOriginalReferencesAsync(claim, incoming.Original, Time.Now, default);
             await work.StageAttachmentAsync(claim, payment.Id, Time.Now, default);
             await work.StageFinishAsync(claim, Time.Now, Time.Now, default);
             await new UnitOfWork(db).SaveAsync();
             return registered.JournalId;
         }
+
         public async Task<InboundClaim> ClaimAsync(TransactionDbContext db, Guid id)
         {
             var claim = await new InboundWorkRepository(db).StageClaimAsync(id, Time.Now, Options.Ownership, default);
@@ -431,6 +476,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             await new UnitOfWork(db).SaveAsync();
             return claim;
         }
+
         public async Task StageEnvelopeAsync(TransactionDbContext db, InboundClaim claim)
         {
             var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(fixture.Input.Signed["valid"])).Payment;
@@ -438,6 +484,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             await repo.StageEnvelopeAsync(claim, new("BAGAGE22", incoming.Original, (await repo.ReadDecisionAsync(claim.JournalId, default))!,
                 new(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), Time.Now), Profile, Options.MaxAttempts), Time.Now, default);
         }
+
         // Commits preparation up to the checkpoint: 0 envelope, 1 unsigned XML, 2 signed message.
         public async Task<IncomingReplySnapshot> PrepareOnlyAsync(Guid id, int checkpoint = 2, bool release = true)
         {
@@ -458,29 +505,35 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
                     await unit.SaveAsync();
                 }
             }
+
             if (release)
             {
                 await new InboundWorkRepository(db).StageFinishAsync(claim, Time.Now, Time.Now, default);
                 await unit.SaveAsync();
             }
+
             return (await repo.ReadAsync(id, default))!;
         }
+
         public async Task RunAsync(Guid id, CancellationToken token = default)
         {
             await using var db = Database.Context();
             await new IncomingReplyProcessing(new InboundReceiptRepository(db), new InboundWorkRepository(db), new IncomingReplyRepository(db),
                 new UnitOfWork(db), Protocol, Client, Profile, Options, Time).ProcessAsync(id, token);
         }
+
         public async Task<IncomingReplySnapshot> ReadAsync(Guid id)
         {
             await using var db = Database.Context();
             return (await new IncomingReplyRepository(db).ReadAsync(id, default))!;
         }
+
         public async Task<StoredInboundReceipt> ReceiptAsync(Guid id)
         {
             await using var db = Database.Context();
             return (await new InboundReceiptRepository(db).ReadAsync(id, default))!;
         }
+
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 }
@@ -488,8 +541,15 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
 public sealed class IncomingReplyFixture : IAsyncLifetime
 {
     internal IncomingPacs008Fixture Input { get; } = new();
+
     private readonly Dictionary<string, string> _responses = [];
-    internal static IpsReplies.Reply Reference => new() { MessageId = "IN-GROUP-1", TransactionId = "TX-1", EndToEndId = "E2E-1" };
+    internal static IpsReplies.Reply Reference => new()
+    {
+        MessageId = "IN-GROUP-1",
+        TransactionId = "TX-1",
+        EndToEndId = "E2E-1"
+    };
+
     public async Task InitializeAsync()
     {
         await Input.InitializeAsync();
@@ -505,8 +565,12 @@ public sealed class IncomingReplyFixture : IAsyncLifetime
             ["wrong-version"] = Reference with { OriginalMessageName = "pacs.008.001.11" }
         };
         var signed = await IpsReplies.SignAsync(Input.Certificate, fixtures.Values.Select(IpsReplies.Unsigned).ToArray());
-        foreach (var pair in fixtures.Keys.Zip(signed)) _responses.Add(pair.First, pair.Second);
+        foreach (var pair in fixtures.Keys.Zip(signed))
+        {
+            _responses.Add(pair.First, pair.Second);
+        }
     }
+
     internal IpsSubmissionResponse Response(string name, string? status = null) => new(200, _responses[name],
         [new("X-MONTRAN-IPS-ReqSts", status ?? (name == "rejected" ? "RJCT/100" : "ACCP"))]);
     public Task DisposeAsync() => Input.DisposeAsync();

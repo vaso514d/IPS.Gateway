@@ -2,4 +2,14 @@ using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Transactions;
 
-public sealed record TransactionIntakeResult(OutgoingPayment Payment, bool Created);
+public sealed class TransactionIntakeResult
+{
+    public TransactionIntakeResult(OutgoingPayment payment, bool created)
+    {
+        Payment = payment;
+        Created = created;
+    }
+
+    public OutgoingPayment Payment { get; init; }
+    public bool Created { get; init; }
+}

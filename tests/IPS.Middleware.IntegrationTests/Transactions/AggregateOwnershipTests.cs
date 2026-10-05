@@ -10,7 +10,6 @@ public sealed class AggregateOwnershipTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 9, 0, 0, TimeSpan.Zero);
     private static readonly TimeSpan Lease = TimeSpan.FromSeconds(45);
-
     [Fact]
     public async Task Competing_claims_write_the_parent_before_any_event_is_inserted()
     {
@@ -57,14 +56,18 @@ public sealed class AggregateOwnershipTests
         var id = await Intake(database, "complete");
         TransactionClaim claim;
         await using (var start = database.Session())
+        {
             claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));
+        }
+
         await using (var invalid = database.Session())
         {
             var payment = Assert.IsType<OutgoingPayment>(await invalid.Payments.FindAsync(id, default));
-            Assert.False(invalid.Work.StageCompletion(payment, claim with { Token = Guid.NewGuid() }, Now, null));
+            Assert.False(invalid.Work.StageCompletion(payment, new TransactionClaim(claim) { Token = Guid.NewGuid() }, Now, null));
             Assert.False(invalid.Work.StageCompletion(payment, claim, Now.Add(Lease), null));
             Assert.Equal(0, await invalid.Unit.SaveAsync(default));
         }
+
         await using var completion = database.Session();
         var aggregate = Assert.IsType<OutgoingPayment>(await completion.Payments.FindAsync(id, default));
         aggregate.RecordAcceptance(StatusSource.Ips, Now.AddSeconds(1));
@@ -80,7 +83,10 @@ public sealed class AggregateOwnershipTests
         await using var database = await SqlTestDatabase.CreateAsync();
         var id = await Intake(database, "fenced");
         await using (var start = database.Session())
+        {
             Assert.NotNull(await start.Processing(Now).TryStartAsync(id, Lease, default));
+        }
+
         await using var wrongOwner = database.Session();
         var payment = Assert.IsType<OutgoingPayment>(await wrongOwner.Payments.FindAsync(id, default));
         payment.RecordAcceptance(StatusSource.Ips, Now.AddSeconds(1));
@@ -97,7 +103,10 @@ public sealed class AggregateOwnershipTests
         var id = await Intake(database, "recovery-race");
         TransactionClaim claim;
         await using (var start = database.Session())
+        {
             claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));
+        }
+
         await using var old = database.Session();
         await using var recovery = database.Session();
         var a = Assert.IsType<OutgoingPayment>(await old.Payments.FindAsync(id, default));
@@ -124,17 +133,22 @@ public sealed class AggregateOwnershipTests
         var id = await Intake(database, "expired", "pacs.009");
         TransactionClaim claim;
         await using (var start = database.Session())
+        {
             claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));
+        }
+
         await using (var early = database.Session())
         {
             Assert.Empty(await early.Work.FindExpiredAsync(Now.AddSeconds(44), 10, default));
             Assert.Equal(TransactionWorkResult.Unchanged, await early.Processing(Now.AddSeconds(44)).TryRecoverAsync(id, default));
         }
+
         await using (var recovery = database.Session())
         {
             Assert.Equal(new[] { id }, await recovery.Work.FindExpiredAsync(Now.AddSeconds(45), 10, default));
             Assert.Equal(TransactionWorkResult.Saved, await recovery.Processing(Now.AddSeconds(45)).TryRecoverAsync(id, default));
         }
+
         await using var next = database.Session();
         var payment = Assert.IsType<OutgoingPayment>(await next.Payments.FindAsync(id, default));
         Assert.Equal(TransactionStatus.Uncertain, payment.CurrentStatus);
@@ -161,8 +175,12 @@ public sealed class AggregateOwnershipTests
             Assert.True(start.Work.StageCompletion(payment, claim, Now.AddSeconds(1), Now.AddSeconds(20)));
             Assert.True(await start.Unit.SaveAsync(default) > 0);
         }
+
         await using (var start = database.Session())
+        {
             Assert.NotNull(await start.Processing(Now).TryStartAsync(active, Lease, default));
+        }
+
         await using var discovery = database.Session();
         Assert.Equal(new[] { priority, transfer },
             await discovery.Work.FindDueAsync(TransactionStatus.Received, Now.AddSeconds(19), 10, default));
@@ -193,15 +211,24 @@ public sealed class AggregateOwnershipTests
                 Assert.True(await start.Unit.SaveAsync(default) > 0);
             }
         }
+
         if (state != TransactionStatus.Sending)
         {
             await using var next = database.Session();
             var payment = Assert.IsType<OutgoingPayment>(await next.Payments.FindAsync(id, default));
             Assert.NotNull(next.Work.StageClaim(payment, Now.AddSeconds(2), Lease));
-            if (state == TransactionStatus.Investigating) payment.BeginInvestigation(Now.AddSeconds(2));
-            else payment.BeginResending(StatusSource.Recovery, Now.AddSeconds(2));
+            if (state == TransactionStatus.Investigating)
+            {
+                payment.BeginInvestigation(Now.AddSeconds(2));
+            }
+            else
+            {
+                payment.BeginResending(StatusSource.Recovery, Now.AddSeconds(2));
+            }
+
             Assert.True(await next.Unit.SaveAsync(default) > 0);
         }
+
         await using var recovery = database.Session();
         Assert.Equal(TransactionWorkResult.Saved, await recovery.Processing(Now.AddSeconds(47)).TryRecoverAsync(id, default));
         await using var read = database.Session();
@@ -209,7 +236,7 @@ public sealed class AggregateOwnershipTests
         Assert.Equal(TransactionStatus.Uncertain, stored.CurrentStatus);
         Assert.Equal(StatusSource.Recovery, stored.CurrentSource);
         Assert.Equal(Now.AddSeconds(47), stored.CurrentStatusAtUtc);
-        Assert.Null(read.Context.Entry(stored).Property<Guid?>("ClaimToken").CurrentValue);
+        Assert.Null(read.Context.Metadata(stored).ClaimToken);
         Assert.Contains(id, await read.Work.FindDueAsync(TransactionStatus.Uncertain, Now.AddSeconds(47), 10, default));
     }
 
@@ -222,7 +249,10 @@ public sealed class AggregateOwnershipTests
         var id = await Intake(database, "release-rollback");
         TransactionClaim claim;
         await using (var start = database.Session())
+        {
             claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));
+        }
+
         await using var change = database.Session();
         await change.Context.Database.ExecuteSqlRawAsync(
             "ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_OnlyStarted CHECK (Sequence <= 2)");
@@ -237,26 +267,34 @@ public sealed class AggregateOwnershipTests
             payment.RecordAcceptance(StatusSource.Ips, Now.AddSeconds(1));
             Assert.True(change.Work.StageCompletion(payment, claim, Now.AddSeconds(1), Now.AddSeconds(60)));
         }
+
         var pending = Assert.Single(payment.PendingEvents);
         await Assert.ThrowsAsync<DbUpdateException>(() => change.Unit.SaveAsync(default));
-        Assert.Equal(pending, Assert.Single(payment.PendingEvents));
+        Assert.Equivalent(pending, Assert.Single(payment.PendingEvents), strict: true);
         await Assert.ThrowsAsync<InvalidOperationException>(() => change.Unit.SaveAsync(default));
         await using var read = database.Session();
         var persisted = Assert.IsType<OutgoingPayment>(await read.Payments.FindAsync(id, default));
         Assert.Equal(TransactionStatus.Sending, persisted.CurrentStatus);
         Assert.Equal(Now, persisted.CurrentStatusAtUtc);
         Assert.Equal(2, persisted.EventSequence);
-        Assert.Equal(claim.Token, read.Context.Entry(persisted).Property<Guid?>("ClaimToken").CurrentValue);
-        Assert.Equal(claim.ExpiresAtUtc, read.Context.Entry(persisted).Property<DateTimeOffset?>("ClaimExpiresAtUtc").CurrentValue);
-        Assert.Null(read.Context.Entry(persisted).Property<DateTimeOffset?>("NextActionAtUtc").CurrentValue);
+        Assert.Equal(claim.Token, read.Context.Metadata(persisted).ClaimToken);
+        Assert.Equal(claim.ExpiresAtUtc, read.Context.Metadata(persisted).ClaimExpiresAtUtc);
+        Assert.Null(read.Context.Metadata(persisted).NextActionAtUtc);
         Assert.Equal(2, (await read.Payments.ReadEventsAsync(id, default)).Count);
         Assert.Contains(id, await read.Work.FindExpiredAsync(Now.AddSeconds(45), 10, default));
     }
 
     private static async Task<bool> TrySave(PaymentSession session)
     {
-        try { await session.Unit.SaveAsync(); return true; }
-        catch (PersistenceConcurrencyException) { return false; }
+        try
+        {
+            await session.Unit.SaveAsync();
+            return true;
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return false;
+        }
     }
 
     private static async Task<Guid> Intake(SqlTestDatabase database, string reference, string type = "pacs.008")

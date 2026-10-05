@@ -33,7 +33,10 @@ internal static class JavaSignatureVerifier
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
-            try { await process.WaitForExitAsync(timeout.Token); }
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
             catch (OperationCanceledException)
             {
                 process.Kill(entireProcessTree: true);

@@ -14,7 +14,10 @@ public sealed class IncomingWorkerConfigurationTests
     [Fact]
     public void Host_deadline_includes_configured_worker_drain_and_evidence_persistence()
     {
-        using var factory = new ConfiguredHost(new() { ["Payments:Incoming:Workers:ShutdownBudget"] = "00:01:00" });
+        using var factory = new ConfiguredHost(new()
+        {
+            ["Payments:Incoming:Workers:ShutdownBudget"] = "00:01:00"
+        });
         Assert.False(factory.Services.GetRequiredService<IncomingWorkerOptions>().Enabled);
         var settings = factory.Services.GetRequiredService<IOptions<HostOptions>>().Value;
         Assert.Equal(TimeSpan.FromSeconds(62), settings.ShutdownTimeout);
@@ -30,7 +33,10 @@ public sealed class IncomingWorkerConfigurationTests
     [InlineData("Payments:Incoming:Workers:ShutdownBudget", "00:00:00")]
     public void Invalid_worker_configuration_fails_before_starting(string key, string value)
     {
-        using var factory = new ConfiguredHost(new() { [key] = value });
+        using var factory = new ConfiguredHost(new()
+        {
+            [key] = value
+        });
         Assert.Throws<InvalidOperationException>(() => factory.CreateClient());
     }
 

@@ -58,14 +58,21 @@ internal sealed class TransportCertificates : IDisposable
     {
         var path = System.IO.Path.Combine(directory, name);
         File.WriteAllText(path, certificate.ExportCertificatePem());
-        return new() { Path = path };
+        return new()
+        {
+            Path = path
+        };
     }
 
     public CertificateSettings SavePfx(X509Certificate2 certificate)
     {
         var path = System.IO.Path.Combine(directory, Guid.NewGuid() + ".pfx");
         File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, "test-only"));
-        return new() { Path = path, Password = "test-only" };
+        return new()
+        {
+            Path = path,
+            Password = "test-only"
+        };
     }
 
     public CertificateSettings SavePem(bool encrypted)
@@ -77,12 +84,21 @@ internal sealed class TransportCertificates : IDisposable
         File.WriteAllText(keyPath, encrypted
             ? key.ExportEncryptedPkcs8PrivateKeyPem("test-only", new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 1000))
             : key.ExportPkcs8PrivateKeyPem());
-        return new() { Path = path, KeyPath = keyPath, Password = encrypted ? "test-only" : null };
+        return new()
+        {
+            Path = path,
+            KeyPath = keyPath,
+            Password = encrypted ? "test-only" : null
+        };
     }
 
     public void Dispose()
     {
-        foreach (var certificate in certificates) certificate.Dispose();
+        foreach (var certificate in certificates)
+        {
+            certificate.Dispose();
+        }
+
         Directory.Delete(directory, recursive: true);
     }
 }

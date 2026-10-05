@@ -15,8 +15,8 @@ internal static class OutgoingJournal
     internal static void Authorize(TransactionDbContext db, OutgoingPayment payment, OutgoingMessageRow row)
     {
         // Force a version-checked parent UPDATE even when only a technical record changed.
-        db.Entry(payment).Property(NextActionAtUtc).IsModified = true;
-        db.AuthorizedOwnership.Add(payment.Id);
-        db.AuthorizedOutgoingMessages[row.Id] = PaymentJson.Write(row);
+        db.Entry(db.Metadata(payment)).Property(p => p.NextActionAtUtc).IsModified = true;
+        db.Changes.AuthorizedOwnership.Add(payment.Id);
+        db.Changes.MessageChanges.Authorize(db.Entry(row));
     }
 }

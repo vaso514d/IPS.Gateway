@@ -13,7 +13,6 @@ namespace IPS.Middleware.IntegrationTests.Transactions;
 public sealed class AggregatePersistenceTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 4, 9, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public async Task Complete_migration_chain_can_be_recreated_on_a_fresh_database()
     {
@@ -42,6 +41,7 @@ public sealed class AggregatePersistenceTests
             Assert.Empty(result.Payment.PendingEvents);
             Assert.Equal(0, await session.Unit.SaveAsync(default));
         }
+
         await using var read = database.Session();
         var payment = Assert.IsType<OutgoingPayment>(await read.Payments.FindAsync(id, default));
         Assert.Empty(payment.PendingEvents);
@@ -54,7 +54,11 @@ public sealed class AggregatePersistenceTests
         var events = await read.Payments.ReadEventsAsync(id, default);
         Assert.Equal(new[] { 1, 2, 3, 4 }, events.Select(e => e.Sequence));
         Assert.Equal(4, events.Select(e => e.EventId).Distinct().Count());
-        Assert.All(events, e => { Assert.Equal(1, e.SchemaVersion); Assert.Equal(id, e.TransactionId); });
+        Assert.All(events, e =>
+        {
+            Assert.Equal(1, e.SchemaVersion);
+            Assert.Equal(id, e.TransactionId);
+        });
         var rejected = events[2];
         Assert.Equal("payment.rejected", rejected.Name);
         using var payload = JsonDocument.Parse(rejected.PayloadJson);
@@ -64,7 +68,6 @@ public sealed class AggregatePersistenceTests
         Assert.Equal("Sending", payload.RootElement.GetProperty("previousStatus").GetString());
         Assert.Equal(123, payload.RootElement.GetProperty("details").GetProperty("ipsInternalCode").GetInt32());
         Assert.Equal(Now.AddSeconds(2), payload.RootElement.GetProperty("occurredAtUtc").GetDateTimeOffset());
-
         // An unreadable historical payload must not participate in materializing authoritative current state.
         await read.Context.Database.ExecuteSqlRawAsync("UPDATE TransactionEvents SET PayloadJson = 'unknown-version' WHERE Sequence = 3");
         await using var another = database.Session();
@@ -155,7 +158,10 @@ public sealed class AggregatePersistenceTests
         await using var database = await SqlTestDatabase.CreateAsync();
         Guid id;
         await using (var intake = database.Session())
+        {
             id = (await intake.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "cancel", "{}").Request!, default)).Payment.Id;
+        }
+
         using var cancellation = new CancellationTokenSource();
         await using var session = database.Session(new CancelAfterParent(cancellation));
         var payment = Assert.IsType<OutgoingPayment>(await session.Payments.FindAsync(id, default));
@@ -177,13 +183,17 @@ public sealed class AggregatePersistenceTests
         await using var database = await SqlTestDatabase.CreateAsync();
         Guid id;
         await using (var intake = database.Session())
+        {
             id = (await intake.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "immutable", "{}").Request!, default)).Payment.Id;
+        }
+
         await using (var direct = database.Session())
         {
             var payment = Assert.IsType<OutgoingPayment>(await direct.Payments.FindAsync(id, default));
             payment.BeginSending(Now);
             await Assert.ThrowsAsync<InvalidOperationException>(() => direct.Context.SaveChangesAsync());
         }
+
         await using var tamper = database.Session();
         var eventType = tamper.Context.Model.GetEntityTypes().Single(t => t.GetTableName() == "TransactionEvents").ClrType;
         var row = await tamper.Context.FindAsync(eventType, id, 1);
@@ -253,7 +263,7 @@ public sealed class AggregatePersistenceTests
         {
             Assert.DoesNotContain("$type", stored[index].PayloadJson, StringComparison.Ordinal);
             var decoded = JsonSerializer.Deserialize(stored[index].PayloadJson, expected[index].GetType(), jsonOptions);
-            Assert.Equal(expected[index], decoded);
+            Assert.Equivalent(expected[index], decoded, strict: true);
             Assert.Equal(expected[index].EventId, stored[index].EventId);
             Assert.Equal(expected[index].OccurredAtUtc, stored[index].OccurredAtUtc);
         }
@@ -261,8 +271,7 @@ public sealed class AggregatePersistenceTests
 
     private sealed class CancelAfterParent(CancellationTokenSource cancellation) : SaveChangesInterceptor
     {
-        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
-            CancellationToken cancellationToken = default)
+        public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
             cancellation.Cancel();
             return ValueTask.FromResult(result);
