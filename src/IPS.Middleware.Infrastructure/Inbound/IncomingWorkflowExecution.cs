@@ -3,12 +3,13 @@ using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Infrastructure.Inbound.Workers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
 public sealed class IncomingWorkflowExecution(IServiceScopeFactory scopes, InboundSchedulingOptions options,
-    InboundReplyChannel channel, TimeProvider time) : IIncomingWorkflowExecution
+    InboundReplyChannel channel, TimeProvider time, IncomingReplyAdmission admission) : IIncomingWorkflowExecution
 {
     public async Task<IncomingReceiptState?> ReadAsync(Guid journalId, CancellationToken token)
     {
@@ -49,11 +50,11 @@ public sealed class IncomingWorkflowExecution(IServiceScopeFactory scopes, Inbou
         catch (PersistenceConcurrencyException) { return false; }
     }
 
-    public async Task DeliverReplyAsync(Guid journalId, CancellationToken token)
+    public Task DeliverReplyAsync(Guid journalId, CancellationToken token) => admission.RunAsync(async admitted =>
     {
         await using var scope = scopes.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<IncomingReplyProcessing>().ProcessAsync(journalId, token);
-    }
+        await scope.ServiceProvider.GetRequiredService<IncomingReplyProcessing>().ProcessAsync(journalId, admitted);
+    }, token);
 
     public bool TryNotifyReply(Guid journalId) => channel.TryNotify(journalId);
 }

@@ -16,8 +16,11 @@ namespace IPS.Middleware.Infrastructure.Persistence;
 public static class PersistenceRegistration
 {
     public static IServiceCollection AddPersistence(this IServiceCollection services, string connectionString)
+        => services.AddPersistence(_ => connectionString);
+
+    public static IServiceCollection AddPersistence(this IServiceCollection services, Func<IServiceProvider, string> connectionString)
     {
-        services.AddDbContext<TransactionDbContext>(options => options.UseSqlServer(connectionString));
+        services.AddDbContext<TransactionDbContext>((sp, options) => options.UseSqlServer(connectionString(sp)));
         services.AddScoped<IOutgoingPaymentRepository, OutgoingPaymentRepository>();
         services.AddScoped<ITransactionWorkRepository, TransactionWorkRepository>();
         services.AddScoped<IPaymentPreparationRepository, PaymentPreparationRepository>();

@@ -78,7 +78,7 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
     }
 
     // Discovery and acquisition share one definition: pending, due and without a live owner.
-    private static Expression<Func<InboundJournalEntry, bool>> DueAt(DateTimeOffset now) =>
+    internal static Expression<Func<InboundJournalEntry, bool>> DueAt(DateTimeOffset now) =>
         e => e.Status == InboundProcessingStatus.Pending && e.NextActionAtUtc <= now && (e.ClaimToken == null || e.ClaimExpiresAtUtc <= now);
 
     private async Task<InboundJournalEntry?> OwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken)

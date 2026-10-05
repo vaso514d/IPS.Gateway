@@ -11,6 +11,8 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 | Payments:Incoming:Composition | IncomingCompositionOptions | Receipt continuation delay while awaiting a payment decision (default 1 second) |
 | Payments:Incoming:Scheduling | InboundSchedulingOptions | Channel capacity, discovery batch/interval, receipt claim duration, registration conflict retry limit |
 | Payments:Incoming:Transport | IncomingTransportSettings | Opt-in URLs, routes, pools, timeouts, breakers and separate certificate sources |
+| Payments:Incoming:Workers | IncomingWorkerOptions | Explicit activation, polling delays, CBS reservation, shutdown drain budget |
+| Payments:Incoming:Protocol | Pacs008ProtocolProfile | Required IPS BIC and reply mapping profile when workers are enabled |
 | Payments:Signing | Pacs008SigningPolicy | AllowUnsignedInDevelopment, rejected outside Development |
 
 Durations use .NET TimeSpan notation, for example `00:00:20` (20 seconds), `00:15:00` (15 minutes) and `1.00:00:00` (one day). All implemented defaults are listed in appsettings.json. Unit tests and direct library consumers retain the same constructor defaults.
@@ -21,7 +23,7 @@ The reconciliation RetryDelays array selects the delay after the first, second, 
 
 Validation rejects nonpositive budgets/counts, queue discovery batches larger than capacity, processing reserves that exhaust the payment window, ownership that cannot cover processing/call plus persistence, invalid retry delays, malformed duration values and unknown keys inside these typed sections. No switch enables unsafe automatic submission/reversal retries or treats reversal acceptance as completion.
 
-Incoming HTTP adapters and their validated settings are implemented below. No polling worker or payment endpoint is enabled by binding settings. Signing remains explicitly opt-in for unsigned Development messages.
+Incoming HTTP adapters and their validated settings are implemented below. Workers are disabled by default and require their own explicit activation switch; no payment endpoint is exposed. Signing remains explicitly opt-in for unsigned Development messages.
 
 Frozen intake deadlines, request data, stored notifications and IPS decisions do not change when configuration changes. The reconciliation cutoff is frozen atomically with the first IPS decision and follow-up obligation. A changed Window applies only to new obligations; it never extends or shortens existing work. Pending due times remain persisted, and subsequent scheduling uses the new retry policy. Keep the default business time limits unless an operational/protocol change is intended.
 
@@ -35,7 +37,7 @@ Settings are bound from finalized host configuration and validated once. Restart
 
 Transport paths: `MessagePath` = `Message`; `SubmissionPath` = `/api/ips/pacs008/receive`; `StatusPath` = `/api/ips/payments/status`; `ReversalPath` = `/api/ips/transactions/status/receive`. Leading slashes are removed before resolving against the base URL, preserving its application prefix, as in the source. `IpsVersion` defaults to `1`. `ReceiveTimeout` defaults to 10 seconds.
 
-Both `Ips` and `Cbs` sections expose `BaseUrl`, `ConnectionLimit` (100), `ConnectTimeout` (2 seconds), `RequestTimeout` (20 seconds), `PooledConnectionLifetime` (5 minutes), `PooledConnectionIdleTimeout` (1 minute), and `CircuitBreaker` (`FailureRatio` 0.5, `MinimumThroughput` 10, `SamplingDuration` 30 seconds, `BreakDuration` 5 seconds). IPS uses one receive connection and the remaining limit for replies. CBS shares its pool between submission/status/reversal; dispatcher admission and the two-slot follow-up reservation arrive in Review 3. Settings are per instance. The shorter caller workflow budget still wins.
+Both `Ips` and `Cbs` sections expose `BaseUrl`, `ConnectionLimit` (100), `ConnectTimeout` (2 seconds), `RequestTimeout` (20 seconds), `PooledConnectionLifetime` (5 minutes), `PooledConnectionIdleTimeout` (1 minute), and `CircuitBreaker` (`FailureRatio` 0.5, `MinimumThroughput` 10, `SamplingDuration` 30 seconds, `BreakDuration` 5 seconds). IPS uses one receive connection and the remaining limit for replies. CBS shares its pool between submission/status/reversal; dispatcher admission reserves two CBS slots for follow-up by default. Settings are per instance. The shorter caller workflow budget still wins.
 
 Microsoft resilience wraps one HTTP attempt with a circuit breaker and timeout. Response buffering occurs inside that pipeline so slow/failing body reads count. There are no HTTP retries, hedging, redirects, cookies or fallback business responses. SQL retains responsibility for retries. Non-success status, content and headers reach the interpreters unchanged; transport/cancellation/circuit-open failures stay exceptions.
 
@@ -45,4 +47,14 @@ Configure sources independently at `SigningCertificate`, `IpsSignatureTrust` (ar
 
 Put passwords and SQL credentials in environment/user-secret/deployment secret providers, never tracked appsettings. For example the password key is `Payments__Incoming__Transport__SigningCertificate__Password`. The existing `Payments:Signing:AllowUnsignedInDevelopment` remains the only unsigned switch and is forbidden outside Development.
 
-Review 004c.2 binds `Payments:Incoming:Composition:ContinuationDelay` as a positive duration, default `00:00:01`. Callable composition releases receipt ownership and persists this due time before entering CBS processing; another owner or unresolved payment does not cause an inline loop. Once a committed decision exists, an eligible first reply may be made immediately due without shortening an existing reply retry/preparation schedule. Composition registration is explicit and is not activated by the Api.
+Review 004c.2 binds `Payments:Incoming:Composition:ContinuationDelay` as a positive duration, default `00:00:01`. Callable composition releases receipt ownership and persists this due time before entering CBS processing; another owner or unresolved payment does not cause an inline loop. Once a committed decision exists, an eligible first reply may be made immediately due without shortening an existing reply retry/preparation schedule. Review 004c.3 connects composition to the opt-in hosted workers.
+
+## Incoming workers
+
+Set `Payments:Incoming:Workers:Enabled=true` only alongside complete enabled transport configuration, `ConnectionStrings:Middleware`, and `Payments:Incoming:Protocol:IpsBic`. Protocol settings also accept `ServiceLevelCode` (INST) and `RemittanceMethod` (Uri). Settings/certificates are loaded at startup and require restart to change. The host never creates or migrates its database. Disabled workers do not resolve persistence or remote clients; ordinary liveness still needs no external services.
+
+Every instance runs one receive worker, one concurrent processing dispatcher, one reply/retry dispatcher, and one CBS follow-up scheduler. Each instance may poll independently. SQL claims and rowversion, not dequeue order, decide ownership. Two bounded ID-only channels provide notifications; SQL discovery rebuilds their contents at startup and every Scheduling:DiscoveryInterval (default one second). Processing discovery excludes stored replies; reply discovery includes unsent envelopes. A retry never runs before its stored due time; actual dispatch can be later according to discovery cadence and available capacity.
+
+Worker defaults: MessageDelay=0, EmptyDelay=250ms, ErrorDelay=1s, ShutdownBudget=30s, CbsFollowUpCapacity=2. IPS reserves one connection for receive. Concurrent processing handlers are limited to min(IPS ConnectionLimit - 1, CBS ConnectionLimit - CbsFollowUpCapacity). Initial replies and retries share the IPS send admission pool before claiming receipts. Follow-up uses its reserved CBS capacity. These limits apply per instance; operator deployment limits must accommodate the total.
+
+Shutdown stops receive/admission, drains tracked handlers for ShutdownBudget, then cancels remaining work and awaits bounded response persistence. The host stops roles concurrently and allows the drain plus the largest configured workflow persistence budget. Abandoned SQL claims remain recoverable after expiry. Raw nonempty response bodies, including whitespace, are preserved; unsuccessful HTTP responses use ErrorDelay. A failed receipt commit is retried before another receive is issued. No pacs.008 MessageAck is sent.

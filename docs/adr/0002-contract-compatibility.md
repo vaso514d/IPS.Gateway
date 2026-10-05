@@ -39,3 +39,5 @@ Review 004c.1 keeps imported Contracts and baselines unchanged. CBS receive/stat
 ## Incoming composition (2026-10-05)
 
 Review 004c.2 changes no Contracts, endpoints, wire formats, payment identity, CBS outcomes or durable reply policy. It composes the reviewed workflows, preserving FF01 without CBS, no pacs.008 MessageAck, immutable per-receipt correlation and completed duplicates without another send. One-second configurable continuation scheduling and first-reply readiness are internal orchestration behavior. Live activation and IPS late-reply verification remain deferred.
+
+Review 004c.3 activates incoming processing only through explicit worker configuration. HTTP methods, imported DTOs/routes, message correlation, two durable reply attempts and completed-duplicate behavior remain unchanged. Successful nonempty polling bodies are retained even when transport metadata is unsupported; they are held by existing processing rules. Incoming pacs.008 sends its stored pacs.002 and never MessageAck. Provisional late-reply retention/acceptance remains an IPS verification gate before production activation.

@@ -2,7 +2,7 @@
 
 A fresh foundation for rebuilding the IPS middleware in reviewed capability increments.
 
-**Status:** foundation, transaction lifecycle, durable intake, pending-work ownership, and the aggregate/event refactor are implemented on review branches; owner merge approval is pending. The executable exposes liveness and development OpenAPI. Payment operations and workers have not been implemented.
+**Status:** incoming pacs.008 workflows are implemented, and the opt-in worker increment is ready for review on codex/incoming-workers. The executable exposes liveness and development OpenAPI; incoming processing stays disabled by default. No outgoing payment endpoint is exposed. See the [resume checkpoint](docs/migration-ledger.md) for the current branch, verification and approval status.
 
 ## Start
 
@@ -21,7 +21,8 @@ The local profile listens on `http://localhost:5080`:
 
 - `GET /health/live` returns `Healthy`.
 - `GET /openapi/v1.json` describes the foundation endpoint in Development.
-- The host requires no database, certificates, IPS connection, or core banking connection.
+- With incoming workers and transport disabled (the default), the host requires no database, certificates, IPS connection, or core banking connection.
+- Opt-in incoming processing requires the explicit [worker configuration](docs/configuration.md#incoming-workers).
 
 ## Structure
 
@@ -56,7 +57,7 @@ Reporting, standalone generator/mock hosts, and document tools are outside the r
 
 ## Signing preparation
 
-`Payments:Signing:AllowUnsignedInDevelopment` defaults to false. Only an explicitly enabled value in the Development environment allows missing-certificate unsigned preparation. Enabling it in any other environment prevents startup. A supplied unusable certificate always fails; it never triggers unsigned fallback. The signer currently accepts a caller-owned certificate; certificate-source loading/rotation and workflow integration are separate upcoming work. No payment endpoint or sender is exposed yet.
+`Payments:Signing:AllowUnsignedInDevelopment` defaults to false. Only an explicitly enabled value in the Development environment allows missing-certificate unsigned preparation. Enabling it in any other environment prevents startup. A supplied unusable certificate always fails; it never triggers unsigned fallback. Configured signing and trust certificates load at startup; rotation requires restart. No payment endpoint or sender is exposed yet.
 
 Signing integration tests require JDK17+ (`JAVA_HOME` or `java` on PATH) for independent XMLDSig verification. Java is not used by the production host. Test certificates are ephemeral; no real certificates are required.
 

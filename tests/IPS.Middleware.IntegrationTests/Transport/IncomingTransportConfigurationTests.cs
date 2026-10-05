@@ -78,8 +78,10 @@ public sealed class IncomingTransportConfigurationTests
         var certificates = factory.Services.GetRequiredService<IncomingTransportCertificates>();
         Assert.Equal(fixture.Client.RawData, (await certificates.GetCurrentAsync(default))!.RawData);
         Assert.Equal(fixture.Client.RawData, Assert.Single(certificates.IpsSignatureTrust).RawData);
-        Assert.DoesNotContain(factory.Services.GetServices<IHostedService>(),
-            service => service.GetType().Assembly.GetName().Name!.StartsWith("IPS.Middleware", StringComparison.Ordinal));
+        var workers = factory.Services.GetServices<IHostedService>()
+            .OfType<IPS.Middleware.Infrastructure.Inbound.Workers.IncomingWorker>().ToArray();
+        Assert.Equal(4, workers.Length);
+        await Task.WhenAll(workers.Select(worker => worker.ExecuteTask!));
     }
 
     [Theory]
