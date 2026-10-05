@@ -6,6 +6,7 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Infrastructure.Inbound;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -22,6 +23,8 @@ public sealed class PaymentSettingsTests
     {
         using var factory = new SettingsFactory(new()
         {
+            ["Payments:Outgoing:StatusDelivery:AttemptsPerRound"] = "4",
+            ["Payments:Outgoing:StatusDelivery:MaxRounds"] = "2",
             ["Payments:Incoming:Composition:ContinuationDelay"] = "00:00:02",
             ["Payments:Incoming:Replies:MaxAttempts"] = "3",
             ["Payments:Incoming:Replies:RetryDelay"] = "00:00:00.500",
@@ -48,6 +51,8 @@ public sealed class PaymentSettingsTests
             ["Payments:Incoming:Scheduling:RegistrationMaxAttempts"] = "3"
         });
         var services = factory.Services;
+        Assert.Equal(4, services.GetRequiredService<StatusDeliveryOptions>().AttemptsPerRound);
+        Assert.Equal(2, services.GetRequiredService<StatusDeliveryOptions>().MaxRounds);
         Assert.Equal(TimeSpan.FromSeconds(2), services.GetRequiredService<IncomingCompositionOptions>().ContinuationDelay);
         var replies = services.GetRequiredService<IncomingReplyOptions>();
         Assert.Equal(3, replies.MaxAttempts);
@@ -73,6 +78,11 @@ public sealed class PaymentSettingsTests
     }
 
     [Theory]
+    [InlineData("Payments:Outgoing:StatusDelivery:AttemptsPerRound", "0")]
+    [InlineData("Payments:Outgoing:StatusDelivery:MaxRounds", "-1")]
+    [InlineData("Payments:Outgoing:StatusDelivery:Ownership", "00:00:22")]
+    [InlineData("Payments:Outgoing:StatusDelivery:DelayBetweenAttempts", "00:00:00")]
+    [InlineData("Payments:Outgoing:StatusDelivery:DiscoveryBatch", "1001")]
     [InlineData("Payments:Incoming:Composition:ContinuationDelay", "00:00:00")]
     [InlineData("Payments:Incoming:Composition:ContinuationDelay", "-00:00:01")]
     [InlineData("Payments:Outgoing:Pacs008:PreparationRetryDelay", "00:00:00")]

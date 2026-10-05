@@ -12,6 +12,9 @@ namespace IPS.Middleware.Infrastructure.Transactions;
 // Keep the CLR identity used by historical EF migrations; this context owns all persistence.
 public class TransactionDbContext(DbContextOptions<TransactionDbContext> options) : DbContext(options)
 {
+    internal DbSet<OutgoingStatusDeliveryRow> OutgoingStatusDeliveries => Set<OutgoingStatusDeliveryRow>();
+    internal List<OutgoingStatusDeliveryRow> PendingOutgoingStatuses { get; } = [];
+    internal Dictionary<(Guid, int), string> AuthorizedOutgoingStatuses { get; } = [];
     internal DbSet<OutgoingMessageRow> OutgoingMessages => Set<OutgoingMessageRow>();
     internal List<(OutgoingMessageRow Row, EntityState State)> PendingOutgoingMessages { get; } = [];
     internal Dictionary<Guid, string> AuthorizedOutgoingMessages { get; } = [];
@@ -34,10 +37,11 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal Dictionary<(Guid PaymentId, string Property), string> AuthorizedArtifacts { get; } = [];
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.AddInterceptors(PaymentPersistenceInterceptor.Instance, OutgoingJournalInterceptor.Instance, InboundPersistenceInterceptor.Instance, DomainEventsInterceptor.Instance);
+        optionsBuilder.AddInterceptors(PaymentPersistenceInterceptor.Instance, OutgoingJournalInterceptor.Instance, OutgoingStatusDeliveryInterceptor.Instance, InboundPersistenceInterceptor.Instance, DomainEventsInterceptor.Instance);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.ApplyConfiguration(new OutgoingStatusDeliveryConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingMessageConfiguration());
         modelBuilder.ApplyConfiguration(new InboundJournalConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingReplyConfiguration());
@@ -51,6 +55,8 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
 
     internal void CompleteSave()
     {
+        PendingOutgoingStatuses.Clear();
+        AuthorizedOutgoingStatuses.Clear();
         PendingOutgoingMessages.Clear();
         AuthorizedOutgoingMessages.Clear();
         AuthorizedReplies.Clear();

@@ -21,7 +21,7 @@ Before implementing each review, inspect the corresponding original tests (Api/O
 
 ## Review order
 
-Owner-approved adaptation on 2026-10-05 inserts [2c.0 explicit outgoing journal](002c0-outgoing-journal.md) before these two reviews. The active branch currently implements that prerequisite; callback and endpoint implementation has not started.
+Owner-approved adaptation on 2026-10-05 inserts [2c.0 explicit outgoing journal](002c0-outgoing-journal.md) before these two reviews. The journal prerequisite is merged as f9a8030. [2c.1 callback/status-read implementation](002c1-outgoing-status-delivery.md) is on codex/outgoing-status-delivery for owner review; endpoint implementation remains the next slice.
 
 Keep two focused review gates within this stage:
 

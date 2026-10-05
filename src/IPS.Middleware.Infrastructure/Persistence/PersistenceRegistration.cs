@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.Infrastructure.Transactions;
@@ -21,6 +22,8 @@ public static class PersistenceRegistration
     public static IServiceCollection AddPersistence(this IServiceCollection services, Func<IServiceProvider, string> connectionString)
     {
         services.AddDbContext<TransactionDbContext>((sp, options) => options.UseSqlServer(connectionString(sp)));
+        services.AddScoped<IOutgoingStatusRepository, OutgoingStatusRepository>();
+        services.AddScoped<OutgoingStatusReader>();
         services.AddScoped<IOutgoingPaymentRepository, OutgoingPaymentRepository>();
         services.AddScoped<ITransactionWorkRepository, TransactionWorkRepository>();
         services.AddScoped<IPaymentPreparationRepository, PaymentPreparationRepository>();

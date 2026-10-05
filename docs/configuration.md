@@ -5,6 +5,7 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 | Section | Typed settings | Controls |
 |---|---|---|
 | Payments:Outgoing:Pacs008 | Pacs008Options | Submission window, ownership, preparation retry delay |
+| Payments:Outgoing:StatusDelivery | StatusDeliveryOptions | Callback attempts/rounds, retry delays, call/persistence/ownership budgets, discovery |
 | Payments:Incoming:Processing | IncomingProcessingOptions | Payment window, inline status/reply budgets, ownership, response persistence budget, first follow-up delay |
 | Payments:Incoming:Reconciliation | IncomingReconciliationOptions | CBS call timeout, response persistence budget, ownership, reconciliation window, discovery batch, retry delays, repeat interval |
 | Payments:Incoming:Replies | IncomingReplyOptions | Total delivery attempts, retry delay, call/persistence/ownership budgets, preparation retry delay |
@@ -58,3 +59,7 @@ Every instance runs one receive worker, one concurrent processing dispatcher, on
 Worker defaults: MessageDelay=0, EmptyDelay=250ms, ErrorDelay=1s, ShutdownBudget=30s, CbsFollowUpCapacity=2. IPS reserves one connection for receive. Concurrent processing handlers are limited to min(IPS ConnectionLimit - 1, CBS ConnectionLimit - CbsFollowUpCapacity). Initial replies and retries share the IPS send admission pool before claiming receipts. Follow-up uses its reserved CBS capacity. These limits apply per instance; operator deployment limits must accommodate the total.
 
 Shutdown stops receive/admission, drains tracked handlers for ShutdownBudget, then cancels remaining work and awaits bounded response persistence. The host stops roles concurrently and allows the drain plus the largest configured workflow persistence budget. Abandoned SQL claims remain recoverable after expiry. Raw nonempty response bodies, including whitespace, are preserved; unsuccessful HTTP responses use ErrorDelay. A failed receipt commit is retried before another receive is issued. No pacs.008 MessageAck is sent.
+
+## Outgoing status delivery (Review 2c.1)
+
+Payments:Outgoing:StatusDelivery defaults to AttemptsPerRound=3, MaxRounds=0 (unlimited), DelayBetweenAttempts=00:00:05, PauseBetweenRounds=00:10:00, CallTimeout=00:00:20, PersistenceBudget=00:00:02, Ownership=00:00:45, DiscoveryBatch=50 and DiscoveryInterval=00:00:05. Ownership must exceed call plus persistence budgets. Positive durations/counts and nonnegative MaxRounds are validated at startup. Committed attempts and due times survive restart; changing retry settings affects subsequent scheduling without rewriting frozen payloads or resetting attempts. An exhausted record is not rearmed by a status query. These settings register callable workflows only; this review adds no callback HTTP client or outgoing worker.
