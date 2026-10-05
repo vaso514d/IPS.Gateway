@@ -19,4 +19,7 @@ public sealed record IncomingProcessingSnapshot(
     DateTimeOffset? FollowUpAtUtc,
     DateTimeOffset? ReconciliationDeadlineUtc);
 
-public sealed record IncomingProcessingResult(CoreOutcome CoreStatus, IncomingIpsDecision? IpsDecision, IncomingFollowUp FollowUp);
+public sealed record IncomingProcessingResult(CoreOutcome CoreStatus, IncomingIpsDecision? IpsDecision, IncomingFollowUp FollowUp)
+{
+    public static IncomingProcessingResult Of(IncomingPayment payment) => new(payment.CoreStatus, payment.IpsDecision, payment.FollowUp);
+}

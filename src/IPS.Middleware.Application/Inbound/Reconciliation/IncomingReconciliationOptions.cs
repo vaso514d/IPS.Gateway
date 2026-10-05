@@ -18,13 +18,14 @@ public sealed class IncomingReconciliationOptions
         DiscoveryBatch = discoveryBatch;
         RetryDelays = Array.AsReadOnly((retryDelays ?? [TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5)]).ToArray());
         RepeatInterval = repeatInterval ?? TimeSpan.FromMinutes(15);
-        if (CallTimeout <= TimeSpan.Zero || PersistenceBudget <= TimeSpan.Zero || Window <= TimeSpan.Zero ||
-            Ownership <= CallTimeout + PersistenceBudget || discoveryBatch <= 0 ||
-            RepeatInterval <= TimeSpan.Zero || RetryDelays.Any(delay => delay <= TimeSpan.Zero))
+        TimeSpan[] budgets = [CallTimeout, PersistenceBudget, Window, RepeatInterval, .. RetryDelays];
+        var fitsOwnership = Ownership > CallTimeout + PersistenceBudget;
+        if (budgets.Any(budget => budget <= TimeSpan.Zero) || !fitsOwnership || discoveryBatch <= 0)
         {
             throw new ArgumentException("Positive reconciliation budgets must fit within ownership.");
         }
     }
+
     public TimeSpan CallTimeout { get; }
     public TimeSpan PersistenceBudget { get; }
     public TimeSpan Ownership { get; }
@@ -32,6 +33,8 @@ public sealed class IncomingReconciliationOptions
     public int DiscoveryBatch { get; }
     public IReadOnlyList<TimeSpan> RetryDelays { get; }
     public TimeSpan RepeatInterval { get; }
+
+    // Configured delays apply to the first attempts; later attempts repeat at the steady interval.
     public TimeSpan RetryDelay(int attempts)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(attempts);

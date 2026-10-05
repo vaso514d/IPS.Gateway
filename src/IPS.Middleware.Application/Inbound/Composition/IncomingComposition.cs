@@ -2,7 +2,8 @@ using IPS.Middleware.Application.Inbound.Receipts;
 
 namespace IPS.Middleware.Application.Inbound.Composition;
 
-public sealed class IncomingComposition(IIncomingWorkflowExecution execution, TimeProvider time)
+// Drives one receipt through registration, payment processing and its reply, each step in its own owned scope.
+public sealed class IncomingComposition(IIncomingWorkflowExecution execution, TimeProvider timeProvider)
 {
     public async Task<IncomingCompositionResult> ProcessAsync(Guid journalId, CancellationToken token)
     {
@@ -23,7 +24,7 @@ public sealed class IncomingComposition(IIncomingWorkflowExecution execution, Ti
             return await DeliverAsync(journalId, token);
         }
 
-        if (!state.HasDecision && state.NextActionAtUtc > time.GetUtcNow())
+        if (!state.HasDecision && state.NextActionAtUtc > timeProvider.GetUtcNow())
         {
             return new(IncomingCompositionStatus.Deferred, state.PaymentId);
         }
@@ -44,6 +45,7 @@ public sealed class IncomingComposition(IIncomingWorkflowExecution execution, Ti
 
             paymentId = prepared.PaymentId;
         }
+
         token.ThrowIfCancellationRequested();
         var attachedPaymentId = paymentId ?? throw new InvalidOperationException("A payment decision requires an attached payment.");
         var payment = await execution.ProcessPaymentAsync(attachedPaymentId, token);
@@ -81,6 +83,7 @@ public sealed class IncomingComposition(IIncomingWorkflowExecution execution, Ti
             execution.TryNotifyReply(journalId);
             return new(IncomingCompositionStatus.ReplyReady, state.PaymentId);
         }
+
         return new(IncomingCompositionStatus.Deferred, state.PaymentId);
     }
 }

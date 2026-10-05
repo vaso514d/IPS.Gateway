@@ -10,6 +10,7 @@ internal static class IncomingPacs008Mapping
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs008Xml.DocumentNamespace;
+
     internal static IncomingPacs008Reference Original(XElement header, XElement group, XElement transaction)
     {
         var id = Child(transaction, "PmtId");
@@ -64,6 +65,7 @@ internal static class IncomingPacs008Mapping
         IndirectParticipantBic = party.Member,
         Account = party.Account
     };
+
     private static Pacs008CreditorInput? Creditor(XElement transaction) => Party(transaction, "Cdtr") is not { } party ? null : new()
     {
         Type = party.Type,
@@ -74,6 +76,7 @@ internal static class IncomingPacs008Mapping
         IndirectParticipantBic = party.Member,
         Account = party.Account
     };
+
     // Debtor and creditor share one layout: party, account and agent, each optional.
     private static PartyFields? Party(XElement transaction, string role)
     {

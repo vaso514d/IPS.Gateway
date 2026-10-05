@@ -7,7 +7,7 @@ using IPS.Middleware.Domain.Inbound;
 
 namespace IPS.Middleware.Application.Inbound.Registration;
 
-/// <summary>Registers the trusted, valid payment read from an owned receipt.</summary>
+// Registers the trusted, valid payment read from an owned receipt.
 public sealed class IncomingPaymentIntake(
         IIncomingPaymentRepository payments,
         IInboundWorkRepository receipts,
@@ -17,10 +17,8 @@ public sealed class IncomingPaymentIntake(
 {
     public const string ConflictReason = "Payment identity conflict: contents differ from the registered payment.";
 
-    /// <summary>
-    /// Uniqueness and concurrency failures propagate and fail this scope. A fresh attempt reuses the persisted winner
-    /// only when its contents match; otherwise the receipt is held.
-    /// </summary>
+    // Uniqueness and concurrency failures propagate and fail this scope. A fresh attempt reuses the persisted winner
+    // only when its contents match; otherwise the receipt is held.
     public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken) =>
         RegisterAsync(claim, incoming, null, cancellationToken);
 
@@ -42,7 +40,7 @@ public sealed class IncomingPaymentIntake(
             return IncomingRegistration.LostOwnership;
         }
 
-        var endToEndId = incoming.Payment.EndToEndId ?? throw new ArgumentException("A read payment has an EndToEndId.", nameof(incoming));
+        var endToEndId = incoming.Payment.EndToEndId!;
         var existing = await payments.FindAsync(receipt.ParticipantBic, endToEndId, cancellationToken);
 
         if (!await receipts.StageOriginalReferencesAsync(claim, incoming.Original, now, cancellationToken))
@@ -74,9 +72,9 @@ public sealed class IncomingPaymentIntake(
             return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
         }
 
-        payments.Add(payment, incoming.Payment, new(receipt.JournalId, receipt.ReceivedAtUtc,
-            (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + options.PaymentWindow,
-            incoming.Original));
+        var acceptedAt = (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime();
+        var context = new IncomingProcessingContext(receipt.JournalId, receipt.ReceivedAtUtc, acceptedAt + options.PaymentWindow, incoming.Original);
+        payments.Add(payment, incoming.Payment, context);
         return await CommitAsync(IncomingRegistrationOutcome.Created, payment.Id, cancellationToken);
     }
 

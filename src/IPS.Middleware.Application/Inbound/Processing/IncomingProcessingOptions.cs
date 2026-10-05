@@ -16,12 +16,15 @@ public sealed class IncomingProcessingOptions
         Ownership = ownership ?? TimeSpan.FromSeconds(45);
         PersistenceBudget = persistenceBudget ?? TimeSpan.FromSeconds(2);
         FollowUpDelay = followUpDelay ?? TimeSpan.FromSeconds(10);
-        if (PaymentWindow <= TimeSpan.Zero || StatusBudget <= TimeSpan.Zero || ReplyReserve <= TimeSpan.Zero ||
-            PersistenceBudget <= TimeSpan.Zero || FollowUpDelay <= TimeSpan.Zero || StatusBudget + ReplyReserve >= PaymentWindow || Ownership <= PaymentWindow + PersistenceBudget)
+        TimeSpan[] budgets = [PaymentWindow, StatusBudget, ReplyReserve, PersistenceBudget, FollowUpDelay];
+        var reservesReplyTime = StatusBudget + ReplyReserve < PaymentWindow;
+        var fitsOwnership = Ownership > PaymentWindow + PersistenceBudget;
+        if (budgets.Any(budget => budget <= TimeSpan.Zero) || !reservesReplyTime || !fitsOwnership)
         {
             throw new ArgumentException("Positive budgets must reserve reply time and fit within ownership.");
         }
     }
+
     public TimeSpan PaymentWindow { get; }
     public TimeSpan StatusBudget { get; }
     public TimeSpan ReplyReserve { get; }

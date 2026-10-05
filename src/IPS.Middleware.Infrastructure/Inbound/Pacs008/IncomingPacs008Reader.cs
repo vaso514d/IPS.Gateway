@@ -14,7 +14,7 @@ public sealed class IncomingPacs008Reader
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs008Xml.DocumentNamespace;
 
-    /// <summary>Ready for a trusted, valid single payment; FF01 Reject for a trusted count/batch violation; otherwise Hold.</summary>
+    // Ready for a trusted, valid single payment; FF01 Reject for a trusted count/batch violation; otherwise Hold.
     public IncomingPacs008ReadResult Read(string xml, IReadOnlyCollection<X509Certificate2> trustedCertificates)
     {
         try
@@ -31,6 +31,7 @@ public sealed class IncomingPacs008Reader
             {
                 return Hold("Unsupported message definition.");
             }
+
             // Nothing in the message is trusted, including its correlation, before the original signature verifies.
             if (!IpsSignatureVerifier.IsTrusted(xml, trustedCertificates))
             {
@@ -45,8 +46,7 @@ public sealed class IncomingPacs008Reader
                 return Hold("Missing payment correlation.");
             }
 
-            var single = transactions.Length == 1 &&
-                int.TryParse(group.Element(Pacs + "NbOfTxs")?.Value, CultureInfo.InvariantCulture, out var count) && count == 1;
+            var single = IsSingleTransfer(group, transactions);
             if (single)
             {
                 Pacs008Schema.Validate(xml);
@@ -90,6 +90,11 @@ public sealed class IncomingPacs008Reader
             Pacs008Schema.Validate(candidate.ToString(SaveOptions.DisableFormatting));
         }
     }
+
+    private static bool IsSingleTransfer(XElement group, XElement[] transactions) =>
+        transactions.Length == 1
+        && int.TryParse(group.Element(Pacs + "NbOfTxs")?.Value, CultureInfo.InvariantCulture, out var count)
+        && count == 1;
 
     private static XElement Transfer(XDocument document) => document.Root!.Element(Pacs + "Document")!.Element(Pacs + "FIToFICstmrCdtTrf")!;
 

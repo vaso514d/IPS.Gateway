@@ -7,5 +7,6 @@ public sealed class IncomingCompositionOptions
         ContinuationDelay = continuationDelay ?? TimeSpan.FromSeconds(1);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ContinuationDelay, TimeSpan.Zero);
     }
+
     public TimeSpan ContinuationDelay { get; }
 }

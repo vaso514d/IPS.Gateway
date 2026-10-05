@@ -14,6 +14,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         PropertyNameCaseInsensitive = true,
         AllowDuplicateProperties = false
     };
+
     public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original)
     {
         var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, Description: completion.Failure);
@@ -23,25 +24,31 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         }
 
         var outcome = ReadOutcome(reply.Status);
-        if (outcome == CoreOutcome.Unknown || !Matches(reply.EndToEndId, original.EndToEndId) ||
-            !Matches(reply.Id, original.GroupMessageId) || !Matches(reply.TxId, original.TransactionId))
+        if (outcome == CoreOutcome.Unknown || !AnswersOriginal(reply, original))
         {
             return unknown;
         }
 
-        return new(outcome, reply.ProcessedAtUtc?.ToUniversalTime() ?? completion.ObservedAtUtc, reply.CoreReference,
-            reply.ReasonCode, reply.InternalErrorCode, reply.Description);
+        return new CorePaymentResult(
+            outcome,
+            reply.ProcessedAtUtc?.ToUniversalTime() ?? completion.ObservedAtUtc,
+            reply.CoreReference,
+            reply.ReasonCode,
+            reply.InternalErrorCode,
+            reply.Description);
     }
 
-    private static CoreOutcome ReadOutcome(string? status)
+    private static CoreOutcome ReadOutcome(string? status) => status?.ToUpperInvariant() switch
     {
-        if (string.Equals(status, "ACCP", StringComparison.OrdinalIgnoreCase))
-        {
-            return CoreOutcome.Accepted;
-        }
+        "ACCP" => CoreOutcome.Accepted,
+        "RJCT" => CoreOutcome.Rejected,
+        _ => CoreOutcome.Unknown
+    };
 
-        return string.Equals(status, "RJCT", StringComparison.OrdinalIgnoreCase) ? CoreOutcome.Rejected : CoreOutcome.Unknown;
-    }
+    private static bool AnswersOriginal(CoreReply reply, IncomingPacs008Reference original) =>
+        Matches(reply.EndToEndId, original.EndToEndId)
+        && Matches(reply.Id, original.GroupMessageId)
+        && Matches(reply.TxId, original.TransactionId);
 
     private static CoreReply? Read(string body)
     {
@@ -57,6 +64,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
 
     // A supplied identifier must match exactly; a missing one trusts the request or query it answers.
     private static bool Matches(string? actual, string? expected) => actual is null || actual == expected;
+
     private sealed record CoreReply
     {
         public string? Status { get; init; }

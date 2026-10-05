@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -12,8 +13,6 @@ namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 // Each artifact is written once; repeating identical content is a no-op, different content is refused.
 public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPaymentPreparationRepository
 {
-    private const string Pacs008Definition = "pacs.008.001.12";
-
     public async Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         var stored = await db.OutgoingMetadata
@@ -93,7 +92,7 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
             Direction = OutgoingMessageDirection.Outbound,
-            MessageDefinition = Pacs008Definition,
+            MessageDefinition = PaymentMessageTypes.Pacs008Definition,
             Content = xml,
             CreatedAtUtc = now.ToUniversalTime(),
             Status = MessageJournalStatus.ReadyToSend,

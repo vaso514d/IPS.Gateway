@@ -67,6 +67,10 @@ public abstract record IncomingPacs008ReadResult
 }
 
 // Persisted once by the workflow, then reused for every preparation attempt.
-public sealed record IncomingReplyContext(string MessageId, string StatusId, DateTimeOffset CreatedAtUtc);
+public sealed record IncomingReplyContext(string MessageId, string StatusId, DateTimeOffset CreatedAtUtc)
+{
+    public static IncomingReplyContext New(DateTimeOffset createdAtUtc) =>
+        new(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), createdAtUtc);
+}
 
 public sealed record IncomingReplyDecision(bool Accepted, DateTimeOffset ProcessedAtUtc, string? ReasonCode = null, string? Description = null);

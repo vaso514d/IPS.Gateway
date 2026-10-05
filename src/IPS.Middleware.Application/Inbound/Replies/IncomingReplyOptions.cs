@@ -16,12 +16,14 @@ public sealed class IncomingReplyOptions
         PersistenceBudget = persistenceBudget ?? TimeSpan.FromSeconds(2);
         Ownership = ownership ?? TimeSpan.FromSeconds(45);
         PreparationRetryDelay = preparationRetryDelay ?? TimeSpan.FromSeconds(5);
-        if (MaxAttempts <= 0 || RetryDelay <= TimeSpan.Zero || CallTimeout <= TimeSpan.Zero || PersistenceBudget <= TimeSpan.Zero ||
-            PreparationRetryDelay <= TimeSpan.Zero || Ownership <= CallTimeout + PersistenceBudget)
+        TimeSpan[] budgets = [RetryDelay, CallTimeout, PersistenceBudget, PreparationRetryDelay];
+        var fitsOwnership = Ownership > CallTimeout + PersistenceBudget;
+        if (MaxAttempts <= 0 || budgets.Any(budget => budget <= TimeSpan.Zero) || !fitsOwnership)
         {
             throw new ArgumentException("Positive reply attempts and budgets must fit within ownership.");
         }
     }
+
     public int MaxAttempts { get; }
     public TimeSpan RetryDelay { get; }
     public TimeSpan CallTimeout { get; }

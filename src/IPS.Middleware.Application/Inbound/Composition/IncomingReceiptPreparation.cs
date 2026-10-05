@@ -8,92 +8,124 @@ using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Application.Inbound.Composition;
 
+// Turns an owned receipt into a registered payment, a ready rejection reply, or a held receipt.
 public sealed class IncomingReceiptPreparation(
-        IInboundReceiptRepository receipts,
-        IInboundWorkRepository work,
-        IIncomingCompositionRepository composition,
-        IncomingPaymentIntake intake,
-        IIncomingReplyRepository replies,
-        IIncomingReplyProtocol protocol,
-        IUnitOfWork unit,
-        IncomingCompositionOptions options,
-        IncomingReplyOptions replyOptions,
-        Pacs008ProtocolProfile profile,
-        TimeProvider time)
+    IInboundReceiptRepository receipts,
+    IInboundWorkRepository work,
+    IIncomingCompositionRepository composition,
+    IncomingPaymentIntake intake,
+    IIncomingReplyRepository replies,
+    IIncomingReplyProtocol protocol,
+    IUnitOfWork unitOfWork,
+    IncomingCompositionOptions options,
+    IncomingReplyOptions replyOptions,
+    Pacs008ProtocolProfile profile,
+    TimeProvider timeProvider)
 {
+    private static readonly IncomingCompositionResult OwnershipLost = new(IncomingCompositionStatus.OwnershipLost);
+
     public async Task<IncomingCompositionResult> PrepareAsync(InboundClaim claim, CancellationToken token)
     {
-        var now = time.GetUtcNow();
+        var now = timeProvider.GetUtcNow();
         if (await work.FindOwnedAsync(claim, now, token) is null)
         {
-            return new(IncomingCompositionStatus.OwnershipLost);
+            return OwnershipLost;
         }
 
         var state = (await composition.ReadAsync(claim.JournalId, token))!;
         if (state.HasReply || state.PaymentId is not null)
         {
-            var nextActionAtUtc = state.HasReply ? now : now + options.ContinuationDelay;
-            if (!await work.StageFinishAsync(claim, now, nextActionAtUtc, token))
-            {
-                return new(IncomingCompositionStatus.OwnershipLost);
-            }
-
-            await unit.SaveAsync(token);
-            return new(state.HasReply ? IncomingCompositionStatus.ReplyReady : IncomingCompositionStatus.Deferred, state.PaymentId);
+            return await ContinuePreparedAsync(claim, state, now, token);
         }
+
         var receipt = (await receipts.ReadAsync(claim.JournalId, token))!.Receipt;
         if (receipt.Sequence is not > 0)
         {
-            return await HoldAsync("Missing or nonpositive IPS sequence.");
+            return await HoldAsync(claim, "Missing or nonpositive IPS sequence.", now, token);
         }
 
-        if (receipt.MessageType is not (PaymentMessageTypes.Pacs008 or "pacs.008.001.12"))
+        if (!PaymentMessageTypes.IsPacs008(receipt.MessageType))
         {
-            return await HoldAsync("Unsupported incoming message type.");
+            return await HoldAsync(claim, "Unsupported incoming message type.", now, token);
         }
 
-        switch (protocol.Read(receipt.RawXml))
+        return protocol.Read(receipt.RawXml) switch
         {
-            case IncomingPacs008ReadResult.Hold held:
-                return await HoldAsync(held.Reason);
-            case IncomingPacs008ReadResult.Reject rejected:
-                if (!await work.StageOriginalReferencesAsync(claim, rejected.Original, now, token))
-                {
-                    return new(IncomingCompositionStatus.OwnershipLost);
-                }
+            IncomingPacs008ReadResult.Hold held => await HoldAsync(claim, held.Reason, now, token),
+            IncomingPacs008ReadResult.Reject rejected => await PrepareRejectionAsync(claim, receipt, rejected, now, token),
+            IncomingPacs008ReadResult.Ready ready => await RegisterAsync(claim, ready.Payment, now, token),
+            _ => throw new InvalidOperationException("Unsupported protocol result.")
+        };
+    }
 
-                var envelope = new IncomingReplyEnvelope(receipt.ParticipantBic, rejected.Original,
-                    new(false, now, rejected.ReasonCode, rejected.Description),
-                    new(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), now), profile, replyOptions.MaxAttempts);
-                await replies.StageEnvelopeAsync(claim, envelope, now, token);
-                if (!await work.StageFinishAsync(claim, now, now, token))
-                {
-                    throw new PersistenceConcurrencyException("Receipt ownership expired.");
-                }
-
-                await unit.SaveAsync(token);
-                return new(IncomingCompositionStatus.ReplyReady);
-            case IncomingPacs008ReadResult.Ready ready:
-                var registered = await intake.RegisterAndReleaseAsync(claim, ready.Payment, now + options.ContinuationDelay, token);
-                return new(registered.Outcome switch
-                {
-                    IncomingRegistrationOutcome.Conflict => IncomingCompositionStatus.Held,
-                    IncomingRegistrationOutcome.LostOwnership => IncomingCompositionStatus.OwnershipLost,
-                    _ => IncomingCompositionStatus.Deferred
-                }, registered.PaymentId);
-            default:
-                throw new InvalidOperationException("Unsupported protocol result.");
-        }
-
-        async Task<IncomingCompositionResult> HoldAsync(string reason)
+    // A receipt that already has a payment or reply continues with that work instead of being read again.
+    private async Task<IncomingCompositionResult> ContinuePreparedAsync(
+        InboundClaim claim,
+        IncomingReceiptState state,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        var nextActionAtUtc = state.HasReply ? now : now + options.ContinuationDelay;
+        if (!await work.StageFinishAsync(claim, now, nextActionAtUtc, token))
         {
-            if (!await work.StageHoldAsync(claim, now, reason, token))
-            {
-                return new(IncomingCompositionStatus.OwnershipLost);
-            }
-
-            await unit.SaveAsync(token);
-            return new(IncomingCompositionStatus.Held);
+            return OwnershipLost;
         }
+
+        await unitOfWork.SaveAsync(token);
+        var status = state.HasReply ? IncomingCompositionStatus.ReplyReady : IncomingCompositionStatus.Deferred;
+        return new IncomingCompositionResult(status, state.PaymentId);
+    }
+
+    private async Task<IncomingCompositionResult> PrepareRejectionAsync(
+        InboundClaim claim,
+        InboundReceipt receipt,
+        IncomingPacs008ReadResult.Reject rejected,
+        DateTimeOffset now,
+        CancellationToken token)
+    {
+        if (!await work.StageOriginalReferencesAsync(claim, rejected.Original, now, token))
+        {
+            return OwnershipLost;
+        }
+
+        var decision = new IncomingReplyDecision(false, now, rejected.ReasonCode, rejected.Description);
+        var envelope = new IncomingReplyEnvelope(
+            receipt.ParticipantBic,
+            rejected.Original,
+            decision,
+            IncomingReplyContext.New(now),
+            profile,
+            replyOptions.MaxAttempts);
+        await replies.StageEnvelopeAsync(claim, envelope, now, token);
+        if (!await work.StageFinishAsync(claim, now, now, token))
+        {
+            throw new PersistenceConcurrencyException("Receipt ownership expired.");
+        }
+
+        await unitOfWork.SaveAsync(token);
+        return new IncomingCompositionResult(IncomingCompositionStatus.ReplyReady);
+    }
+
+    private async Task<IncomingCompositionResult> RegisterAsync(InboundClaim claim, IncomingPacs008 payment, DateTimeOffset now, CancellationToken token)
+    {
+        var registered = await intake.RegisterAndReleaseAsync(claim, payment, now + options.ContinuationDelay, token);
+        var status = registered.Outcome switch
+        {
+            IncomingRegistrationOutcome.Conflict => IncomingCompositionStatus.Held,
+            IncomingRegistrationOutcome.LostOwnership => IncomingCompositionStatus.OwnershipLost,
+            _ => IncomingCompositionStatus.Deferred
+        };
+        return new IncomingCompositionResult(status, registered.PaymentId);
+    }
+
+    private async Task<IncomingCompositionResult> HoldAsync(InboundClaim claim, string reason, DateTimeOffset now, CancellationToken token)
+    {
+        if (!await work.StageHoldAsync(claim, now, reason, token))
+        {
+            return OwnershipLost;
+        }
+
+        await unitOfWork.SaveAsync(token);
+        return new IncomingCompositionResult(IncomingCompositionStatus.Held);
     }
 }

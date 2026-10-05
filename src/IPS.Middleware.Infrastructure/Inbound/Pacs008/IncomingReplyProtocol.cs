@@ -18,6 +18,7 @@ public sealed class IncomingReplyProtocol(
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
 
     public IncomingPacs008ReadResult Read(string xml) => new IncomingPacs008Reader().Read(xml, trustedIpsCertificates);
+
     public string Build(IncomingReplyEnvelope envelope) => new IncomingPacs002Reply(envelope.Profile, signer)
         .BuildUnsigned(envelope.Original, envelope.Decision, envelope.Context, envelope.ParticipantBic);
 
@@ -35,6 +36,7 @@ public sealed class IncomingReplyProtocol(
         {
             return Unresolved("Missing or unsupported IPS request status.");
         }
+
         // Annex D: ReplyToPayment returns the final status of the original payment, including on replay.
         var original = envelope.Original;
         var result = new IpsReplyInterpreter(trustedIpsCertificates).Interpret(response,
@@ -55,20 +57,31 @@ public sealed class IncomingReplyProtocol(
     }
 
     // Annex D 6.3: exactly one ACCP or RJCT/<numeric error code>.
-    private static bool HasDocumentedRequestStatus(IpsSubmissionResponse response) =>
-        response.Headers.Where(h => h.Name.Equals(IpsReplyInterpreter.RequestStatusHeader, StringComparison.OrdinalIgnoreCase))
-            .Select(h => h.Value.Trim()).Distinct(StringComparer.Ordinal).ToArray() is [var status] &&
-        (status == "ACCP" || status.StartsWith("RJCT/", StringComparison.Ordinal) &&
-            int.TryParse(status.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out _));
+    private static bool HasDocumentedRequestStatus(IpsSubmissionResponse response)
+    {
+        var statuses = response.Headers
+            .Where(header => header.Name.Equals(IpsReplyInterpreter.RequestStatusHeader, StringComparison.OrdinalIgnoreCase))
+            .Select(header => header.Value.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return statuses is [var status] && (status == "ACCP" || IsNumericRejection(status));
+    }
+
+    private static bool IsNumericRejection(string status) =>
+        status.StartsWith("RJCT/", StringComparison.Ordinal)
+        && int.TryParse(status.AsSpan(5), NumberStyles.None, CultureInfo.InvariantCulture, out _);
 
     // The reply comes from IPS to the frozen participant and is the pacs.002 version this service sends.
     private static bool MatchesEnvelope(string body, IncomingReplyEnvelope envelope)
     {
         var header = XDocument.Parse(body).Root!.Element(Head + "AppHdr")!;
-        string? Party(string name) => header.Element(Head + name)?.Element(Head + "FIId")?.Element(Head + "FinInstnId")?.Element(Head + "BICFI")?.Value;
-        return Party("Fr") == envelope.Profile.IpsBic && Party("To") == envelope.ParticipantBic &&
-            header.Element(Head + "MsgDefIdr")?.Value == IncomingPacs002Reply.MessageDefinition;
+        return PartyBic(header, "Fr") == envelope.Profile.IpsBic
+            && PartyBic(header, "To") == envelope.ParticipantBic
+            && header.Element(Head + "MsgDefIdr")?.Value == IncomingPacs002Reply.MessageDefinition;
     }
+
+    private static string? PartyBic(XElement header, string party) =>
+        header.Element(Head + party)?.Element(Head + "FIId")?.Element(Head + "FinInstnId")?.Element(Head + "BICFI")?.Value;
 
     private static ReplyDeliveryResult Unresolved(string reason) => new(ReplyDeliveryOutcome.Unresolved, reason);
 }
