@@ -2,38 +2,37 @@ using IPS.Middleware.Application.Abstractions.Persistence;
 
 namespace IPS.Middleware.Application.Payments.StatusDelivery;
 
-public sealed class OutgoingStatusReader(IOutgoingStatusRepository repository, IUnitOfWork unit, TimeProvider time)
+// Reading a final outcome acknowledges its pending callback: the caller has now seen it.
+public sealed class OutgoingStatusReader(IOutgoingStatusRepository repository, IUnitOfWork unitOfWork, TimeProvider timeProvider)
 {
     public async Task<OutgoingStatus?> ReadAsync(string messageType, string clientReference, CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(messageType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(clientReference);
-        var reference = clientReference.Trim();
-        if (reference.Length > 35)
-        {
-            throw new ArgumentException("clientReference must be at most 35 characters.", nameof(clientReference));
-        }
-
-        var observed = await repository.ReadAsync(reference, cancellationToken);
+        var observed = await repository.ReadAsync(clientReference.Trim(), cancellationToken);
         if (observed is null || observed.MessageType != messageType)
         {
             return null;
         }
 
-        if (!observed.IsReportable)
+        if (observed.IsReportable)
         {
-            return observed;
+            await TryAcknowledgeAsync(observed, cancellationToken);
         }
 
+        return observed;
+    }
+
+    private async Task TryAcknowledgeAsync(OutgoingStatus observed, CancellationToken cancellationToken)
+    {
         try
         {
-            if (await repository.StageAcknowledgeAsync(observed, time.GetUtcNow(), cancellationToken))
+            if (await repository.StageAcknowledgeAsync(observed, timeProvider.GetUtcNow(), cancellationToken))
             {
-                await unit.SaveAsync(cancellationToken);
+                await unitOfWork.SaveAsync(cancellationToken);
             }
         }
-        // A newer outcome or callback won; return only the committed snapshot we actually read.
-        catch (PersistenceConcurrencyException) { }
-        return observed;
+        catch (PersistenceConcurrencyException)
+        {
+            // A newer outcome or callback won; the caller still receives the committed snapshot that was read.
+        }
     }
 }

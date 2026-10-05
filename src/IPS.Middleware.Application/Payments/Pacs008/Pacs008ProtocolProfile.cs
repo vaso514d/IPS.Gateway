@@ -2,9 +2,11 @@ using System.Text.RegularExpressions;
 
 namespace IPS.Middleware.Application.Payments.Pacs008;
 
-/// <summary>Configurable XML mapping settings; intake snapshots them with each accepted payment.</summary>
+// Configurable XML mapping settings; intake snapshots them with each accepted payment.
 public sealed class Pacs008ProtocolProfile
 {
+    public const string InstantServiceLevel = "INST";
+
     public Pacs008ProtocolProfile(
         string ipsBic,
         string serviceLevelCode = InstantServiceLevel,
@@ -33,7 +35,6 @@ public sealed class Pacs008ProtocolProfile
     public string IpsBic { get; }
     public string ServiceLevelCode { get; }
     public RemittanceDeliveryMethod RemittanceMethod { get; }
-    public const string InstantServiceLevel = "INST";
 }
 
 public enum RemittanceDeliveryMethod

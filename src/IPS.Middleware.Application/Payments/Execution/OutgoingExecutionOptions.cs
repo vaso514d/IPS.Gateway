@@ -14,7 +14,9 @@ public sealed class OutgoingExecutionOptions
         TimeSpan? statusPollInterval = null,
         TimeSpan? shutdownBudget = null)
     {
-        if (concurrency is < 1 or > 1000 || callbackConcurrency is < 1 or > 1000 || channelCapacity < 1 || discoveryBatch is < 1 or > 1000 || discoveryBatch > channelCapacity)
+        var validCapacity = concurrency is >= 1 and <= 1000 && callbackConcurrency is >= 1 and <= 1000 && channelCapacity >= 1;
+        var validDiscovery = discoveryBatch is >= 1 and <= 1000 && discoveryBatch <= channelCapacity;
+        if (!validCapacity || !validDiscovery)
         {
             throw new ArgumentOutOfRangeException(nameof(concurrency), "Invalid execution capacity or discovery batch.");
         }
@@ -34,6 +36,7 @@ public sealed class OutgoingExecutionOptions
             throw new ArgumentException("HTTP wait must be shorter than the attempt budget.");
         }
     }
+
     public bool Enabled { get; }
     public int Concurrency { get; }
     public int CallbackConcurrency { get; }
@@ -44,6 +47,7 @@ public sealed class OutgoingExecutionOptions
     public TimeSpan DiscoveryInterval { get; }
     public TimeSpan StatusPollInterval { get; }
     public TimeSpan ShutdownBudget { get; }
-    private static TimeSpan Positive(TimeSpan value) => value > TimeSpan.Zero && value <= TimeSpan.FromDays(1)
-        ? value : throw new ArgumentOutOfRangeException(nameof(value));
+
+    private static TimeSpan Positive(TimeSpan value) =>
+        value > TimeSpan.Zero && value <= TimeSpan.FromDays(1) ? value : throw new ArgumentOutOfRangeException(nameof(value));
 }

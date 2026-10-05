@@ -6,49 +6,49 @@ using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Investigation;
 
-/// <summary>Resumes one investigation cycle; payment resends are a separate workflow.</summary>
+// Resumes one investigation cycle; payment resends are a separate workflow.
 public sealed class OutgoingInvestigation(
     IOutgoingPaymentRepository payments,
     ITransactionWorkRepository work,
     IPaymentPreparationRepository preparation,
     IInvestigationRepository investigations,
-    IUnitOfWork unit,
+    IUnitOfWork unitOfWork,
     IInvestigationProtocol protocol,
     IIpsTransport transport,
     InvestigationOptions options,
-    TimeProvider time)
+    TimeProvider timeProvider)
 {
+    private DateTimeOffset Now => timeProvider.GetUtcNow();
+
     public async Task<PaymentOutcome?> ProcessAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        using var budget = new CancellationTokenSource(options.AttemptBudget, time);
+        using var budget = new CancellationTokenSource(options.AttemptBudget, timeProvider);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
-        var payment = await payments.FindAsync(paymentId, stop.Token);
+        var token = stop.Token;
+
+        var payment = await payments.FindAsync(paymentId, token);
         if (payment is null)
         {
             return null;
         }
 
-        var committed = payment.Current;
-        if (payment.MessageType != PaymentMessageTypes.Pacs008 ||
-            payment.CurrentStatus is not (TransactionStatus.Uncertain or TransactionStatus.Investigating))
+        if (!IsInvestigable(payment))
         {
-            return committed;
+            return payment.Current;
         }
 
-        var attempt = await investigations.ReadAsync(paymentId, stop.Token);
-        if (attempt?.Result?.Outcome == InvestigationOutcome.NotFound ||
-            attempt is null && payment.CurrentSource != StatusSource.Recovery && Now < payment.CurrentStatusAtUtc + options.FirstDelay)
+        var attempt = await investigations.ReadAsync(paymentId, token);
+        if (attempt?.Result?.Outcome == InvestigationOutcome.NotFound || IsWaitingForFirstCycle(payment, attempt))
         {
-            return committed;
+            return payment.Current;
         }
 
-        var claim = work.StageClaim(payment, Now, options.Ownership);
-        if (claim is null)
+        var claimed = ClaimedPayment.TryStage(payment, work, unitOfWork, Now, options.Ownership);
+        if (claimed is null)
         {
-            return committed;
+            return payment.Current;
         }
 
-        var execution = new Execution(payment, claim, unit);
         if (payment.CurrentStatus == TransactionStatus.Uncertain)
         {
             payment.BeginInvestigation(Now);
@@ -56,89 +56,99 @@ public sealed class OutgoingInvestigation(
 
         try
         {
-            await execution.CommitAsync(stop.Token);
-            await ContinueAsync(execution, attempt, stop.Token);
+            await claimed.CommitAsync(token);
+            await ContinueAsync(claimed, attempt, token);
         }
         catch (PersistenceConcurrencyException)
         {
-            // The scope is discarded. Only an outcome committed by this execution may be returned.
+            // The scope is discarded. Only an outcome committed by this run may be returned.
         }
 
-        return execution.Committed;
+        return claimed.Committed;
     }
 
-    private async Task ContinueAsync(Execution execution, InvestigationAttempt? attempt, CancellationToken token)
+    private async Task ContinueAsync(ClaimedPayment claimed, InvestigationAttempt? attempt, CancellationToken token)
     {
-        var stored = await preparation.ReadAsync(execution.Payment.Id, token);
+        var stored = await preparation.ReadAsync(claimed.Payment.Id, token);
         if (stored?.Accepted is not { } accepted)
         {
-            await RequireManualReviewAsync(execution, "Accepted payment data is unavailable.", token);
+            await RequireManualReviewAsync(claimed, "Accepted payment data is unavailable.", token);
             return;
         }
 
-        var context = new InvestigationContext(accepted,
-            new(stored.MessageId, stored.TransactionId, accepted.Payment.EndToEndId),
+        var context = new InvestigationContext(
+            accepted,
+            new IpsReplyCorrelation(stored.MessageId, stored.TransactionId, accepted.Payment.EndToEndId),
             attempt?.Identity.DeadlineUtc ?? accepted.Payment.AcceptanceDateTime + options.Window);
 
-        if (attempt is { Result: null, Response.Response: { } response })
+        if (attempt is { Result: null, Response.Response: { } savedResponse })
         {
-            await InterpretAsync(execution, attempt, context, response, token);
+            await InterpretAsync(claimed, attempt, context, savedResponse, token);
             return;
         }
 
         if (attempt is { Result: null, Request.Submission: not null })
         {
-            await FinishAsync(execution, attempt, context,
-                new(InvestigationOutcome.Unresolved, new(description: "Investigation submission was abandoned without saved response.")),
-                "Abandoned submission: no saved response.", token);
+            const string abandoned = "Abandoned submission: no saved response.";
+            var reply = new InvestigationReply(
+                InvestigationOutcome.Unresolved,
+                new PaymentDetails(description: "Investigation submission was abandoned without saved response."));
+            await FinishAsync(claimed, attempt, context, reply, abandoned, token);
             return;
         }
 
         if (Now >= context.Deadline || attempt is { Result: not null } && CycleLimitReached(attempt))
         {
-            await RequireManualReviewAsync(execution, "Investigation window or recovery-cycle limit exhausted.", token);
+            await RequireManualReviewAsync(claimed, "Investigation window or recovery-cycle limit exhausted.", token);
             return;
         }
 
-        attempt = await PrepareAsync(execution, attempt, context, token);
-        if (attempt is null)
+        var prepared = await PrepareAsync(claimed, attempt, context, token);
+        if (prepared is null)
         {
             return;
         }
 
-        if (attempt.Request!.Disposition == SubmissionMessageKind.DevelopmentUnsigned && !protocol.AllowsDevelopmentUnsigned)
+        if (prepared.Request!.Disposition == SubmissionMessageKind.DevelopmentUnsigned && !protocol.AllowsDevelopmentUnsigned)
         {
-            await ReleaseAsync(execution, Now + options.PreparationRetryDelay, token);
+            await claimed.ReleaseAsync(Now, Now + options.PreparationRetryDelay, token);
             return;
         }
 
         if (Now >= context.Deadline)
         {
-            await RequireManualReviewAsync(execution, "Investigation window exhausted before dispatch.", token);
+            await RequireManualReviewAsync(claimed, "Investigation window exhausted before dispatch.", token);
             return;
         }
 
-        await SendAsync(execution, attempt, context, token);
+        await SendAsync(claimed, prepared, context, token);
     }
 
+    // Each step commits before the next and reloads the attempt, so a restart resumes from the stored checkpoint.
     private async Task<InvestigationAttempt?> PrepareAsync(
-        Execution execution, InvestigationAttempt? attempt, InvestigationContext context, CancellationToken token)
+        ClaimedPayment claimed,
+        InvestigationAttempt? attempt,
+        InvestigationContext context,
+        CancellationToken token)
     {
         if (attempt is null || attempt.Result is not null)
         {
-            var identity = new InvestigationIdentity(Guid.NewGuid(), (attempt?.Identity.Number ?? 0) + 1,
-                Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), Now, context.Deadline);
-            investigations.StageIdentity(execution.Payment, execution.Claim, identity, Now);
-            await execution.CommitAsync(token);
-            attempt = (await investigations.ReadAsync(execution.Payment.Id, token))!;
+            var identity = new InvestigationIdentity(
+                Guid.NewGuid(),
+                (attempt?.Identity.Number ?? 0) + 1,
+                Guid.NewGuid().ToString("N"),
+                Guid.NewGuid().ToString("N"),
+                Now,
+                context.Deadline);
+            investigations.StageIdentity(claimed.Payment, claimed.Claim, identity, Now);
+            attempt = await CommitAndReloadAsync(claimed, token);
         }
 
         if (attempt.UnsignedXml is null)
         {
             var unsignedXml = protocol.Build(context.Accepted, context.Original, attempt.Identity);
-            investigations.StageUnsigned(execution.Payment, execution.Claim, attempt.Identity.Id, unsignedXml, Now);
-            await execution.CommitAsync(token);
-            attempt = (await investigations.ReadAsync(execution.Payment.Id, token))!;
+            investigations.StageUnsigned(claimed.Payment, claimed.Claim, attempt.Identity.Id, unsignedXml, Now);
+            attempt = await CommitAndReloadAsync(claimed, token);
         }
 
         if (attempt.Request is null)
@@ -146,33 +156,32 @@ public sealed class OutgoingInvestigation(
             var signing = await protocol.SignAsync(attempt.UnsignedXml!, token);
             if (signing is SigningDeferred)
             {
-                await ReleaseAsync(execution, Now + options.PreparationRetryDelay, token);
+                await claimed.ReleaseAsync(Now, Now + options.PreparationRetryDelay, token);
                 return null;
             }
 
-            investigations.StageReady(execution.Payment, execution.Claim, attempt.Identity.Id, (SignedMessage)signing, Now);
-            await execution.CommitAsync(token);
-            attempt = (await investigations.ReadAsync(execution.Payment.Id, token))!;
+            investigations.StageReady(claimed.Payment, claimed.Claim, attempt.Identity.Id, (SignedMessage)signing, Now);
+            attempt = await CommitAndReloadAsync(claimed, token);
         }
 
         return attempt;
     }
 
-    private async Task SendAsync(Execution execution, InvestigationAttempt attempt, InvestigationContext context, CancellationToken token)
+    private async Task SendAsync(ClaimedPayment claimed, InvestigationAttempt attempt, InvestigationContext context, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
-        investigations.StageSubmission(execution.Payment, execution.Claim, attempt.Identity.Id, Now);
-        await execution.CommitAsync(token);
+        investigations.StageSubmission(claimed.Payment, claimed.Claim, attempt.Identity.Id, Now);
+        await claimed.CommitAsync(token);
 
         // A committed marker permits at most this send. Recovery never repeats it.
         var remaining = context.Deadline - Now;
         if (remaining <= TimeSpan.Zero)
         {
-            await RequireManualReviewAsync(execution, "Investigation deadline reached after reserving submission.", token);
+            await RequireManualReviewAsync(claimed, "Investigation deadline reached after reserving submission.", token);
             return;
         }
 
-        using var callBudget = new CancellationTokenSource(remaining < options.CallTimeout ? remaining : options.CallTimeout, time);
+        using var callBudget = new CancellationTokenSource(remaining < options.CallTimeout ? remaining : options.CallTimeout, timeProvider);
         using var call = CancellationTokenSource.CreateLinkedTokenSource(token, callBudget.Token);
         IpsSubmissionResponse received;
         try
@@ -181,31 +190,40 @@ public sealed class OutgoingInvestigation(
         }
         catch (Exception error) when (error is not OperationCanceledException || !token.IsCancellationRequested)
         {
-            using var evidence = new CancellationTokenSource(options.PersistenceBudget, time);
+            using var evidence = new CancellationTokenSource(options.PersistenceBudget, timeProvider);
             var failure = $"{error.GetType().FullName}: {error.Message}";
-            await FinishAsync(execution, attempt, context,
-                new(InvestigationOutcome.Unresolved, new(description: failure)), failure, evidence.Token);
+            var unresolved = new InvestigationReply(InvestigationOutcome.Unresolved, new PaymentDetails(description: failure));
+            await FinishAsync(claimed, attempt, context, unresolved, failure, evidence.Token);
             return;
         }
 
-        using var persistence = new CancellationTokenSource(options.PersistenceBudget, time);
-        investigations.StageResponse(execution.Payment, execution.Claim, attempt.Identity.Id, received, Now);
-        await execution.CommitAsync(persistence.Token);
-        await InterpretAsync(execution, attempt, context, received, persistence.Token);
+        using var persistence = new CancellationTokenSource(options.PersistenceBudget, timeProvider);
+        investigations.StageResponse(claimed.Payment, claimed.Claim, attempt.Identity.Id, received, Now);
+        await claimed.CommitAsync(persistence.Token);
+        await InterpretAsync(claimed, attempt, context, received, persistence.Token);
     }
 
     private Task InterpretAsync(
-        Execution execution, InvestigationAttempt attempt, InvestigationContext context, IpsSubmissionResponse response, CancellationToken token)
+        ClaimedPayment claimed,
+        InvestigationAttempt attempt,
+        InvestigationContext context,
+        IpsSubmissionResponse response,
+        CancellationToken token)
     {
         var reply = protocol.Interpret(response, context.Original, attempt.Identity.MessageId);
-        return FinishAsync(execution, attempt, context, reply, null, token);
+        return FinishAsync(claimed, attempt, context, reply, null, token);
     }
 
     private async Task FinishAsync(
-        Execution execution, InvestigationAttempt attempt, InvestigationContext context, InvestigationReply reply, string? failure, CancellationToken token)
+        ClaimedPayment claimed,
+        InvestigationAttempt attempt,
+        InvestigationContext context,
+        InvestigationReply reply,
+        string? transportFailure,
+        CancellationToken token)
     {
-        var payment = execution.Payment;
-        investigations.StageResult(payment, execution.Claim, attempt.Identity.Id, reply, failure, Now);
+        var payment = claimed.Payment;
+        investigations.StageResult(payment, claimed.Claim, attempt.Identity.Id, reply, transportFailure, Now);
         switch (reply.Outcome)
         {
             case InvestigationOutcome.OriginalAccepted:
@@ -214,64 +232,53 @@ public sealed class OutgoingInvestigation(
             case InvestigationOutcome.OriginalRejected:
                 payment.RecordRejection(StatusSource.Investigation, Now, reply.Details);
                 break;
+            case InvestigationOutcome.Unresolved when Now >= context.Deadline || CycleLimitReached(attempt):
+                payment.RequireManualReview(Now, reply.Details);
+                break;
             default:
-                if (reply.Outcome == InvestigationOutcome.Unresolved && (Now >= context.Deadline || CycleLimitReached(attempt)))
-                {
-                    payment.RequireManualReview(Now, reply.Details);
-                }
-                else
-                {
-                    payment.MarkOutcomeUnknown(StatusSource.Investigation, Now, reply.Details);
-                }
+                payment.MarkOutcomeUnknown(StatusSource.Investigation, Now, reply.Details);
                 break;
         }
 
-        var due = reply.Outcome == InvestigationOutcome.Unresolved && payment.CurrentStatus == TransactionStatus.Uncertain
-            ? Now + options.RetryDelay(attempt.Identity.Number) : (DateTimeOffset?)null;
-        if (due > context.Deadline)
+        await claimed.ReleaseAsync(Now, NextCycleAt(payment, reply, attempt, context.Deadline), token);
+    }
+
+    // Only an unresolved cycle that left the payment uncertain schedules another, never past the window.
+    private DateTimeOffset? NextCycleAt(OutgoingPayment payment, InvestigationReply reply, InvestigationAttempt attempt, DateTimeOffset deadline)
+    {
+        if (reply.Outcome != InvestigationOutcome.Unresolved || payment.CurrentStatus != TransactionStatus.Uncertain)
         {
-            due = context.Deadline;
+            return null;
         }
 
-        await ReleaseAsync(execution, due, token);
+        var next = Now + options.RetryDelay(attempt.Identity.Number);
+        return next > deadline ? deadline : next;
     }
 
-    private async Task ReleaseAsync(Execution execution, DateTimeOffset? due, CancellationToken token)
+    private Task RequireManualReviewAsync(ClaimedPayment claimed, string reason, CancellationToken token)
     {
-        if (!work.StageCompletion(execution.Payment, execution.Claim, Now, due))
-        {
-            throw new PersistenceConcurrencyException("Investigation ownership expired.");
-        }
-
-        await execution.CommitAsync(token);
+        claimed.Payment.RequireManualReview(Now, new PaymentDetails(description: reason));
+        return claimed.ReleaseAsync(Now, null, token);
     }
 
-    private Task RequireManualReviewAsync(Execution execution, string reason, CancellationToken token)
+    private async Task<InvestigationAttempt> CommitAndReloadAsync(ClaimedPayment claimed, CancellationToken token)
     {
-        execution.Payment.RequireManualReview(Now, new(description: reason));
-        return ReleaseAsync(execution, null, token);
+        await claimed.CommitAsync(token);
+        return (await investigations.ReadAsync(claimed.Payment.Id, token))!;
     }
 
-    private bool CycleLimitReached(InvestigationAttempt attempt) => options.MaxCycles > 0 && attempt.Identity.Number >= options.MaxCycles;
-    private DateTimeOffset Now => time.GetUtcNow();
+    private static bool IsInvestigable(OutgoingPayment payment) =>
+        payment.MessageType == PaymentMessageTypes.Pacs008
+        && payment.CurrentStatus is TransactionStatus.Uncertain or TransactionStatus.Investigating;
 
-    private sealed class Execution(OutgoingPayment payment, TransactionClaim claim, IUnitOfWork unitOfWork)
-    {
-        public OutgoingPayment Payment { get; } = payment;
-        public TransactionClaim Claim { get; } = claim;
-        public PaymentOutcome Committed { get; private set; } = payment.Current;
+    // A fresh uncertain outcome waits FirstDelay before the first cycle; recovery starts at once.
+    private bool IsWaitingForFirstCycle(OutgoingPayment payment, InvestigationAttempt? attempt) =>
+        attempt is null
+        && payment.CurrentSource != StatusSource.Recovery
+        && Now < payment.CurrentStatusAtUtc + options.FirstDelay;
 
-        public async Task CommitAsync(CancellationToken token)
-        {
-            await unitOfWork.SaveAsync(token);
-            Committed = Payment.Current;
-        }
-    }
+    private bool CycleLimitReached(InvestigationAttempt attempt) =>
+        options.MaxCycles > 0 && attempt.Identity.Number >= options.MaxCycles;
 
-    private sealed class InvestigationContext(AcceptedPacs008 accepted, IpsReplyCorrelation original, DateTimeOffset deadline)
-    {
-        public AcceptedPacs008 Accepted { get; } = accepted;
-        public IpsReplyCorrelation Original { get; } = original;
-        public DateTimeOffset Deadline { get; } = deadline;
-    }
+    private sealed record InvestigationContext(AcceptedPacs008 Accepted, IpsReplyCorrelation Original, DateTimeOffset Deadline);
 }

@@ -19,7 +19,7 @@ public sealed class Pacs008Options
         PreparationRetryDelay = Positive(preparationRetryDelay ?? TimeSpan.FromSeconds(1), nameof(preparationRetryDelay));
     }
 
-    /// <summary>Time after the client's acceptance time during which an initial submission may start.</summary>
+    // Time after the client's acceptance time during which an initial submission may start.
     public TimeSpan SubmissionWindow { get; }
     public TimeSpan Ownership { get; }
     public TimeSpan PreparationRetryDelay { get; }

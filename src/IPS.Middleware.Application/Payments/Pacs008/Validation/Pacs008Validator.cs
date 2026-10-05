@@ -16,15 +16,11 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
         RuleFor(x => x.AcceptanceDateTime).NotNull().WithMessage("Acceptance time is required.");
         RuleFor(x => x.AcceptanceDateTime).Custom((accepted, context) =>
         {
-            if (accepted is null || context.InstanceToValidate.CreationDateTime is not { } created)
+            var request = context.InstanceToValidate;
+            if (accepted is { } acceptedAt && request.CreationDateTime is { } createdAt &&
+                AcceptanceTimeError(acceptedAt, createdAt, IsInitiated(request.EndToEndId)) is { } error)
             {
-                return;
-            }
-
-            var initiated = IsInitiated(context.InstanceToValidate.EndToEndId);
-            if (initiated ? accepted > created : accepted < created || accepted - created > TimeSpan.FromSeconds(1))
-            {
-                context.AddFailure(initiated ? "Original request time cannot follow creation time." : "Acceptance must be within one second after creation.");
+                context.AddFailure(error);
             }
         });
         RuleFor(x => x.Currency).ProtocolText(Pacs008Text.Currency, required: true);
@@ -58,6 +54,19 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
 
     private static bool IsInitiated(string? value) => value?.Trim() is { } id &&
         (id.StartsWith("RTP-", StringComparison.Ordinal) || id.StartsWith("PSP-", StringComparison.Ordinal));
+
+    // An initiated payment carries the original request time, which may precede creation; otherwise acceptance
+    // follows creation by at most one second.
+    private static string? AcceptanceTimeError(DateTimeOffset acceptedAt, DateTimeOffset createdAt, bool initiated)
+    {
+        if (initiated)
+        {
+            return acceptedAt > createdAt ? "Original request time cannot follow creation time." : null;
+        }
+
+        var withinOneSecond = acceptedAt >= createdAt && acceptedAt - createdAt <= TimeSpan.FromSeconds(1);
+        return withinOneSecond ? null : "Acceptance must be within one second after creation.";
+    }
 
     private static bool HasAllowedPrecision(decimal amount)
     {

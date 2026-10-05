@@ -2,6 +2,8 @@ namespace IPS.Middleware.Application.Payments.Investigation;
 
 public sealed class InvestigationOptions
 {
+    private readonly TimeSpan[] _retryDelays;
+
     public InvestigationOptions(
         TimeSpan? firstDelay = null,
         TimeSpan[]? retryDelays = null,
@@ -31,8 +33,9 @@ public sealed class InvestigationOptions
         PersistenceBudget = Positive(persistenceBudget ?? TimeSpan.FromSeconds(2));
         PreparationRetryDelay = Positive(preparationRetryDelay ?? TimeSpan.FromSeconds(1));
         DiscoveryInterval = Positive(discoveryInterval ?? TimeSpan.FromSeconds(5));
-        if (maxCycles < 0 || discoveryBatch is < 1 or > 1000 || Window > TimeSpan.FromHours(24) ||
-            CallTimeout >= AttemptBudget || AttemptBudget + PersistenceBudget >= Ownership)
+        var validLimits = maxCycles >= 0 && discoveryBatch is >= 1 and <= 1000 && Window <= TimeSpan.FromHours(24);
+        var validTimeouts = CallTimeout < AttemptBudget && AttemptBudget + PersistenceBudget < Ownership;
+        if (!validLimits || !validTimeouts)
         {
             throw new ArgumentException("Invalid investigation limits or timeout ordering.");
         }
@@ -40,8 +43,8 @@ public sealed class InvestigationOptions
         MaxCycles = maxCycles;
         DiscoveryBatch = discoveryBatch;
     }
+
     public TimeSpan FirstDelay { get; }
-    private readonly TimeSpan[] _retryDelays;
     public TimeSpan[] RetryDelays => (TimeSpan[])_retryDelays.Clone();
     public TimeSpan RepeatInterval { get; }
     public TimeSpan Window { get; }
@@ -53,7 +56,11 @@ public sealed class InvestigationOptions
     public TimeSpan PreparationRetryDelay { get; }
     public int DiscoveryBatch { get; }
     public TimeSpan DiscoveryInterval { get; }
-    public TimeSpan RetryDelay(int cycle) => cycle >= 1 && cycle <= _retryDelays.Length ? _retryDelays[cycle - 1] : RepeatInterval;
-    private static TimeSpan Positive(TimeSpan value) => value > TimeSpan.Zero && value <= TimeSpan.FromDays(1)
-        ? value : throw new ArgumentOutOfRangeException(nameof(value));
+
+    // Configured delays apply to the first cycles; later cycles repeat at the steady interval.
+    public TimeSpan RetryDelay(int cycle) =>
+        cycle >= 1 && cycle <= _retryDelays.Length ? _retryDelays[cycle - 1] : RepeatInterval;
+
+    private static TimeSpan Positive(TimeSpan value) =>
+        value > TimeSpan.Zero && value <= TimeSpan.FromDays(1) ? value : throw new ArgumentOutOfRangeException(nameof(value));
 }

@@ -4,21 +4,29 @@ using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Pacs008;
-/// <summary>Processes an accepted pacs.008, resuming from its committed checkpoints.</summary>
+
+// Processes an accepted pacs.008, resuming from its committed checkpoints.
 public sealed class Pacs008Processing(
-        IOutgoingPaymentRepository payments,
-        ITransactionWorkRepository work,
-        IPaymentPreparationRepository preparation,
-        IPaymentSubmissionRepository submissions,
-        IUnitOfWork unitOfWork,
-        IPacs008MessagePreparation protocol,
-        IIpsTransport transport,
-        IIpsReplyInterpreter replies,
-        Pacs008Options options,
-        TimeProvider timeProvider)
+    IOutgoingPaymentRepository payments,
+    ITransactionWorkRepository work,
+    IPaymentPreparationRepository preparation,
+    IPaymentSubmissionRepository submissions,
+    IUnitOfWork unitOfWork,
+    IPacs008MessagePreparation protocol,
+    IIpsTransport transport,
+    IIpsReplyInterpreter replies,
+    Pacs008Options options,
+    TimeProvider timeProvider)
 {
     private const string SubmittedWithoutResponse = "Submission may have reached IPS but no response was stored; investigate before any resend.";
-    /// <summary>Returns the last committed outcome, or null when the payment does not exist.</summary>
+    private const string AcceptedDataUnavailable = "Accepted payment data is unavailable; nothing was sent.";
+    private const string ResponseNotCorrelatable = "The stored response cannot be correlated without accepted payment data.";
+    private const string DevelopmentDispositionRefused =
+        "The frozen development-unsigned message cannot be replaced; current signing policy did not authorize its disposition.";
+
+    private DateTimeOffset Now => timeProvider.GetUtcNow();
+
+    // Returns the last outcome this run committed, or null when the payment does not exist.
     public async Task<PaymentOutcome?> ProcessAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         var payment = await payments.FindAsync(paymentId, cancellationToken);
@@ -27,136 +35,139 @@ public sealed class Pacs008Processing(
             return null;
         }
 
-        using var run = new ProcessingAttempt(payment, unitOfWork, cancellationToken);
-        try
+        if (!IsProcessable(payment))
         {
-            if (payment.MessageType == PaymentMessageTypes.Pacs008 && Acquire(payment) is { } claim)
-            {
-                await run.CommitAsync();
-                await ContinueAsync(run, claim);
-            }
-        }
-        // Another owner or recovery won. This scope is discarded; report what this run committed.
-        catch (PersistenceConcurrencyException)
-        {
-        }
-
-        return run.Committed;
-    }
-
-    private TransactionClaim? Acquire(OutgoingPayment payment)
-    {
-        if (payment.CurrentStatus is not (TransactionStatus.Received or TransactionStatus.Sending))
-        {
-            return null;
+            return payment.Current;
         }
 
         var now = Now;
-        var claim = work.StageClaim(payment, now, options.Ownership);
-        if (claim is not null && payment.CurrentStatus == TransactionStatus.Received)
+        var claimed = ClaimedPayment.TryStage(payment, work, unitOfWork, now, options.Ownership);
+        if (claimed is null)
+        {
+            return payment.Current;
+        }
+
+        if (payment.CurrentStatus == TransactionStatus.Received)
         {
             payment.BeginSending(now);
         }
 
-        return claim;
+        try
+        {
+            await claimed.CommitAsync(cancellationToken);
+            await ContinueAsync(claimed, cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            // Another owner or recovery won. This scope is discarded; report what this run committed.
+        }
+
+        return claimed.Committed;
     }
 
-    private async Task ContinueAsync(ProcessingAttempt run, TransactionClaim claim)
+    private async Task ContinueAsync(ClaimedPayment claimed, CancellationToken cancellationToken)
     {
-        var payment = run.Payment;
-        var message = await preparation.ReadAsync(payment.Id, run.Token)
+        var payment = claimed.Payment;
+        var message = await preparation.ReadAsync(payment.Id, cancellationToken)
             ?? throw new InvalidOperationException("A pacs.008 requires stored protocol identifiers.");
-        var submission = await submissions.ReadAsync(payment.Id, run.Token);
-        if (submission?.Response is { } stored)
+        var submission = await submissions.ReadAsync(payment.Id, cancellationToken);
+
+        if (submission?.Response is { } storedResponse)
         {
-            await InterpretAsync(run, claim, message, stored);
+            await InterpretAsync(claimed, message, storedResponse, cancellationToken);
+            return;
         }
-        else if (submission?.Marker is not null)
+
+        if (submission?.Marker is not null)
         {
-            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now, new(description: SubmittedWithoutResponse));
-            await ReleaseAsync(run, claim, null);
+            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now, new PaymentDetails(description: SubmittedWithoutResponse));
+            await claimed.ReleaseAsync(Now, null, cancellationToken);
+            return;
         }
-        else if (message.Accepted is null)
+
+        if (message.Accepted is not { } accepted)
         {
-            payment.RecordNotSent(Now, new(description: "Accepted payment data is unavailable; nothing was sent."));
-            await ReleaseAsync(run, claim, null);
+            payment.RecordNotSent(Now, new PaymentDetails(description: AcceptedDataUnavailable));
+            await claimed.ReleaseAsync(Now, null, cancellationToken);
+            return;
         }
-        else if (!await ExpiredAsync(run, claim, message.Accepted))
+
+        if (await ExpiredAsync(claimed, accepted, cancellationToken))
         {
-            await SubmitAsync(run, claim, message, message.Accepted);
+            return;
         }
+
+        await SubmitAsync(claimed, message, accepted, cancellationToken);
     }
 
-    private async Task SubmitAsync(ProcessingAttempt run, TransactionClaim claim, PreparedPaymentMessage message, AcceptedPacs008 accepted)
+    private async Task SubmitAsync(ClaimedPayment claimed, PreparedPaymentMessage message, AcceptedPacs008 accepted, CancellationToken cancellationToken)
     {
-        var payment = run.Payment;
-        var signing = await PrepareAsync(run, claim, message, accepted);
+        var payment = claimed.Payment;
+        var signing = await PrepareAsync(claimed, message, accepted, cancellationToken);
         if (signing is SigningDeferred deferred)
         {
             payment.RecordProcessingFailure(ProcessingStep.Signed, Now, deferred.Reason);
-            await ReleaseAsync(run, claim, Now + options.PreparationRetryDelay);
+            await claimed.ReleaseAsync(Now, Now + options.PreparationRetryDelay, cancellationToken);
             return;
         }
 
-        if (await ExpiredAsync(run, claim, accepted))
+        if (await ExpiredAsync(claimed, accepted, cancellationToken))
         {
             return;
         }
-        // Commit the marker before remote I/O: from here on a lost reply is uncertain, never resent.
-        var prepared = (SignedMessage)signing;
-        if (prepared.Kind == SubmissionMessageKind.DevelopmentUnsigned)
-        {
-            preparation.StageDevelopmentUnsigned(payment, claim, Now);
-            await run.CommitAsync();
-        }
 
-        submissions.StageSubmission(payment, claim, prepared.Kind, Now);
-        await run.CommitAsync();
+        var signed = (SignedMessage)signing;
+        await ReserveSubmissionAsync(claimed, signed, cancellationToken);
+
         // IPS may act on the message now; its response and the outcome are stored even if the caller stops waiting.
         IpsSubmissionResponse response;
         try
         {
-            response = await transport.SendAsync(prepared.Xml, run.Token);
+            response = await transport.SendAsync(signed.Xml, cancellationToken);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException || !run.Token.IsCancellationRequested)
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            run.BeginEvidencePersistence(options.PersistenceBudget, timeProvider);
-            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now,
-                new(description: $"{SubmittedWithoutResponse} {exception.GetType().Name}: {exception.Message}"));
-            await ReleaseAsync(run, claim, null);
+            using var evidence = new CancellationTokenSource(options.PersistenceBudget, timeProvider);
+            var details = new PaymentDetails(description: $"{SubmittedWithoutResponse} {exception.GetType().Name}: {exception.Message}");
+            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now, details);
+            await claimed.ReleaseAsync(Now, null, evidence.Token);
             return;
         }
 
-        run.BeginEvidencePersistence(options.PersistenceBudget, timeProvider);
-        submissions.StageResponse(payment, claim, response, Now);
+        using var persistence = new CancellationTokenSource(options.PersistenceBudget, timeProvider);
+        submissions.StageResponse(payment, claimed.Claim, response, Now);
         payment.RecordStep(ProcessingStep.IpsResponded, Now);
-        await run.CommitAsync();
-        await InterpretAsync(run, claim, message, response);
+        await claimed.CommitAsync(persistence.Token);
+        await InterpretAsync(claimed, message, response, persistence.Token);
     }
 
     // Each artifact is committed before the next step; stored artifacts are reused unchanged.
-    private async Task<SigningResult> PrepareAsync(ProcessingAttempt run, TransactionClaim claim, PreparedPaymentMessage message, AcceptedPacs008 accepted)
+    private async Task<SigningResult> PrepareAsync(
+        ClaimedPayment claimed,
+        PreparedPaymentMessage message,
+        AcceptedPacs008 accepted,
+        CancellationToken cancellationToken)
     {
-        if (message.SignedXml is { } signed)
+        if (message.SignedXml is { } storedSignature)
         {
-            return new SignedMessage(signed, SubmissionMessageKind.Signed);
+            return new SignedMessage(storedSignature, SubmissionMessageKind.Signed);
         }
 
-        var unsigned = message.UnsignedXml;
-        if (unsigned is null)
+        var unsignedXml = message.UnsignedXml;
+        if (unsignedXml is null)
         {
-            unsigned = protocol.BuildUnsignedXml(accepted, message.MessageId, message.TransactionId);
-            preparation.StageUnsignedXml(run.Payment, claim, unsigned, Now);
-            run.Payment.RecordStep(ProcessingStep.XmlGenerated, Now);
-            await run.CommitAsync();
+            unsignedXml = protocol.BuildUnsignedXml(accepted, message.MessageId, message.TransactionId);
+            preparation.StageUnsignedXml(claimed.Payment, claimed.Claim, unsignedXml, Now);
+            claimed.Payment.RecordStep(ProcessingStep.XmlGenerated, Now);
+            await claimed.CommitAsync(cancellationToken);
         }
 
         // The current host policy decides each time whether development may submit unsigned XML.
-        var signing = await protocol.SignAsync(unsigned, run.Token);
-        if (message.ReadyDisposition == SubmissionMessageKind.DevelopmentUnsigned &&
-            signing is not SignedMessage { Kind: SubmissionMessageKind.DevelopmentUnsigned })
+        var signing = await protocol.SignAsync(unsignedXml, cancellationToken);
+        var frozenAsDevelopment = message.ReadyDisposition == SubmissionMessageKind.DevelopmentUnsigned;
+        if (frozenAsDevelopment && signing is not SignedMessage { Kind: SubmissionMessageKind.DevelopmentUnsigned })
         {
-            return new SigningDeferred("The frozen development-unsigned message cannot be replaced; current signing policy did not authorize its disposition.");
+            return new SigningDeferred(DevelopmentDispositionRefused);
         }
 
         if (signing is not SignedMessage { Kind: SubmissionMessageKind.Signed } signature)
@@ -164,25 +175,64 @@ public sealed class Pacs008Processing(
             return signing;
         }
 
-        preparation.StageSignedXml(run.Payment, claim, signature.Xml, Now);
-        run.Payment.RecordStep(ProcessingStep.Signed, Now);
-        await run.CommitAsync();
+        preparation.StageSignedXml(claimed.Payment, claimed.Claim, signature.Xml, Now);
+        claimed.Payment.RecordStep(ProcessingStep.Signed, Now);
+        await claimed.CommitAsync(cancellationToken);
         return signature;
     }
 
-    private Task InterpretAsync(ProcessingAttempt run, TransactionClaim claim, PreparedPaymentMessage message, IpsSubmissionResponse response)
+    // The marker commits before remote I/O: from here on a lost reply is uncertain, never resent.
+    private async Task ReserveSubmissionAsync(ClaimedPayment claimed, SignedMessage signed, CancellationToken cancellationToken)
     {
-        var payment = run.Payment;
-        if (message.Accepted is null)
+        if (signed.Kind == SubmissionMessageKind.DevelopmentUnsigned)
         {
-            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now,
-                new(description: "The stored response cannot be correlated without accepted payment data."));
-            return ReleaseAsync(run, claim, null);
+            preparation.StageDevelopmentUnsigned(claimed.Payment, claimed.Claim, Now);
+            await claimed.CommitAsync(cancellationToken);
         }
 
-        var reply = replies.Interpret(response, new(message.MessageId, message.TransactionId, message.Accepted.Payment.EndToEndId));
-        submissions.StageInterpretation(payment, claim, reply, Now);
-        var observedAt = Now;
+        submissions.StageSubmission(claimed.Payment, claimed.Claim, signed.Kind, Now);
+        await claimed.CommitAsync(cancellationToken);
+    }
+
+    private Task InterpretAsync(
+        ClaimedPayment claimed,
+        PreparedPaymentMessage message,
+        IpsSubmissionResponse response,
+        CancellationToken cancellationToken)
+    {
+        var payment = claimed.Payment;
+        if (message.Accepted is null)
+        {
+            payment.MarkOutcomeUnknown(StatusSource.Gateway, Now, new PaymentDetails(description: ResponseNotCorrelatable));
+            return claimed.ReleaseAsync(Now, null, cancellationToken);
+        }
+
+        var correlation = new IpsReplyCorrelation(message.MessageId, message.TransactionId, message.Accepted.Payment.EndToEndId);
+        var reply = replies.Interpret(response, correlation);
+        submissions.StageInterpretation(payment, claimed.Claim, reply, Now);
+        RecordReply(payment, reply, Now);
+        return claimed.ReleaseAsync(Now, null, cancellationToken);
+    }
+
+    // The deadline only prevents a first send; once a marker exists, expiry cannot establish NotSent.
+    private async Task<bool> ExpiredAsync(ClaimedPayment claimed, AcceptedPacs008 accepted, CancellationToken cancellationToken)
+    {
+        if (Now <= accepted.SubmissionDeadlineUtc)
+        {
+            return false;
+        }
+
+        claimed.Payment.RecordNotSent(Now, new PaymentDetails("TM01", 1015, "Not sent: the submission deadline passed before submission."));
+        await claimed.ReleaseAsync(Now, null, cancellationToken);
+        return true;
+    }
+
+    private static bool IsProcessable(OutgoingPayment payment) =>
+        payment.MessageType == PaymentMessageTypes.Pacs008
+        && payment.CurrentStatus is TransactionStatus.Received or TransactionStatus.Sending;
+
+    private static void RecordReply(OutgoingPayment payment, IpsReply reply, DateTimeOffset observedAt)
+    {
         switch (reply.Status)
         {
             case IpsReplyStatus.Accepted:
@@ -194,56 +244,6 @@ public sealed class Pacs008Processing(
             default:
                 payment.MarkOutcomeUnknown(StatusSource.Ips, observedAt, reply.Details);
                 break;
-        }
-
-        return ReleaseAsync(run, claim, null);
-    }
-
-    // The deadline only prevents a first send; once a marker exists, expiry cannot establish NotSent.
-    private async Task<bool> ExpiredAsync(ProcessingAttempt run, TransactionClaim claim, AcceptedPacs008 accepted)
-    {
-        if (Now <= accepted.SubmissionDeadlineUtc)
-        {
-            return false;
-        }
-
-        run.Payment.RecordNotSent(Now, new("TM01", 1015, "Not sent: the submission deadline passed before submission."));
-        await ReleaseAsync(run, claim, null);
-        return true;
-    }
-
-    // Whatever the run recorded commits together with the ownership release.
-    private async Task ReleaseAsync(ProcessingAttempt run, TransactionClaim claim, DateTimeOffset? nextActionAtUtc)
-    {
-        if (!work.StageCompletion(run.Payment, claim, Now, nextActionAtUtc))
-        {
-            throw new PersistenceConcurrencyException("Ownership expired before the result could be stored.");
-        }
-
-        await run.CommitAsync();
-    }
-
-    private DateTimeOffset Now => timeProvider.GetUtcNow();
-
-    private sealed class ProcessingAttempt(OutgoingPayment payment, IUnitOfWork unitOfWork, CancellationToken token) : IDisposable
-    {
-        private CancellationToken _commitToken = token;
-        public OutgoingPayment Payment => payment;
-        public CancellationToken Token { get; } = token;
-        public PaymentOutcome Committed { get; private set; } = payment.Current;
-
-        private CancellationTokenSource? persistence;
-        public void BeginEvidencePersistence(TimeSpan budget, TimeProvider time)
-        {
-            persistence = new(budget, time);
-            _commitToken = persistence.Token;
-        }
-
-        public void Dispose() => persistence?.Dispose();
-        public async Task CommitAsync()
-        {
-            await unitOfWork.SaveAsync(_commitToken);
-            Committed = payment.Current;
         }
     }
 }

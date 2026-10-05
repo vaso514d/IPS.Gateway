@@ -32,6 +32,7 @@ public sealed class StatusDeliveryOptions
             throw new ArgumentException("Delivery ownership must exceed call and persistence budgets.");
         }
     }
+
     public int AttemptsPerRound { get; }
     public int MaxRounds { get; }
     public int DiscoveryBatch { get; }
@@ -49,10 +50,17 @@ public sealed class StatusDeliveryOptions
             throw new ArgumentOutOfRangeException(nameof(attempts));
         }
 
-        return MaxRounds > 0 && (long)attempts >= (long)AttemptsPerRound * MaxRounds
-            ? new(StatusDeliveryState.Exhausted, null)
-            : new(StatusDeliveryState.Pending, at.ToUniversalTime() + (attempts % AttemptsPerRound == 0 ? PauseBetweenRounds : DelayBetweenAttempts));
+        var exhausted = MaxRounds > 0 && (long)attempts >= (long)AttemptsPerRound * MaxRounds;
+        if (exhausted)
+        {
+            return new StatusDeliveryRetry(StatusDeliveryState.Exhausted, null);
+        }
+
+        // A full round of attempts is followed by the longer pause.
+        var delay = attempts % AttemptsPerRound == 0 ? PauseBetweenRounds : DelayBetweenAttempts;
+        return new StatusDeliveryRetry(StatusDeliveryState.Pending, at.ToUniversalTime() + delay);
     }
-    private static TimeSpan Positive(TimeSpan value) => value > TimeSpan.Zero && value <= TimeSpan.FromDays(365)
-        ? value : throw new ArgumentOutOfRangeException(nameof(value));
+
+    private static TimeSpan Positive(TimeSpan value) =>
+        value > TimeSpan.Zero && value <= TimeSpan.FromDays(365) ? value : throw new ArgumentOutOfRangeException(nameof(value));
 }
