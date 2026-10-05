@@ -11,10 +11,8 @@ public sealed class Pacs008Intake(
         Pacs008Options options,
         TimeProvider timeProvider)
 {
-    /// <summary>
-    /// A known reference returns its stored payment without validation, so retries stay idempotent after policy changes.
-    /// New requests are validated against current policy and stored with the snapshot later processing uses.
-    /// </summary>
+    // A known reference returns its stored payment without validation, so retries stay idempotent after policy changes.
+    // New requests are validated against current policy and stored with the snapshot later processing uses.
     public async Task<Pacs008IntakeResult> AcceptAsync(Pacs008Request request, string requestJson, CancellationToken cancellationToken)
     {
         if (request.ClientReference?.Trim() is { Length: > 0 } reference &&

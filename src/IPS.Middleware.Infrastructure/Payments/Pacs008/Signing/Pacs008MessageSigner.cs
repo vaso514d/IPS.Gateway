@@ -7,9 +7,15 @@ namespace IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvider clock)
 {
-    public Pacs008SigningResult Prepare(string unsignedXml, X509Certificate2? certificate) => Sign(unsignedXml, certificate, Pacs008Schema.Validate);
-    public Pacs008SigningResult PrepareReply(string unsignedXml, X509Certificate2? certificate) => Sign(unsignedXml, certificate, xml => Pacs008Schema.ValidateReply(xml));
-    public Pacs008SigningResult PrepareInvestigation(string unsignedXml, X509Certificate2? certificate) => Sign(unsignedXml, certificate, Pacs008Schema.ValidateInvestigation);
+    public Pacs008SigningResult Prepare(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, Pacs008Schema.Validate);
+
+    public Pacs008SigningResult PrepareReply(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, xml => Pacs008Schema.ValidateReply(xml));
+
+    public Pacs008SigningResult PrepareInvestigation(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, Pacs008Schema.ValidateInvestigation);
+
     private Pacs008SigningResult Sign(string unsignedXml, X509Certificate2? certificate, Action<string> validate)
     {
         var document = ReadUnsignedMessage(unsignedXml, validate);
@@ -87,5 +93,5 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
 
 public sealed record Pacs008SigningResult(string Xml, bool IsSigned);
 
-/// <summary>No usable signing certificate is available; replacing the certificate can resolve it.</summary>
+// No usable signing certificate is available; replacing the certificate can resolve it.
 public sealed class SigningCertificateException(string message) : InvalidOperationException(message);

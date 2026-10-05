@@ -1,6 +1,6 @@
 namespace IPS.Middleware.Infrastructure.Inbound.Workers;
 
-/// <summary>Shared by immediate replies and recovery; acquire before a receipt claim, not after a send marker.</summary>
+// Shared by immediate replies and recovery; acquire before a receipt claim, not after a send marker.
 public sealed class IncomingReplyAdmission(int capacity) : IDisposable
 {
     private readonly SemaphoreSlim slots = new(capacity, capacity);

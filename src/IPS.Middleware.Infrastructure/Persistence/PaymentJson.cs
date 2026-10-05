@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Infrastructure.Persistence;
-/// <summary>Explicit camel-case JSON for stored payment artifacts; CLR type names are never written.</summary>
+// Explicit camel-case JSON for stored payment artifacts; CLR type names are never written.
 internal static class PaymentJson
 {
     private const int AcceptedVersion = 1;

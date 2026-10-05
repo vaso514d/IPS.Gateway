@@ -3,14 +3,24 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
+// A certificate configured either as a file (PFX or PEM) or as a Windows store thumbprint.
 public sealed class CertificateSettings
 {
+    private const string ClientAuthenticationOid = "1.3.6.1.5.5.7.3.2";
+    private const string AnyPurposeOid = "2.5.29.37.0";
+
     public string? Path { get; init; }
     public string? KeyPath { get; init; }
     public string? Password { get; init; }
     public string? Thumbprint { get; init; }
     public StoreLocation StoreLocation { get; init; } = StoreLocation.LocalMachine;
     public StoreName StoreName { get; init; } = StoreName.My;
+
+    private bool FromStore => !string.IsNullOrWhiteSpace(Thumbprint);
+
+    private bool IsPkcs12File => !FromStore
+        && System.IO.Path.GetExtension(Path) is { } extension
+        && (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase) || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase));
 
     public X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls = false)
     {
@@ -19,44 +29,66 @@ public sealed class CertificateSettings
             throw new InvalidOperationException("Specify exactly one certificate file or store thumbprint.");
         }
 
-        var store = !string.IsNullOrWhiteSpace(Thumbprint);
-        var pfx = !store && System.IO.Path.GetExtension(Path) is { } extension &&
-            (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase) || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase));
-        X509Certificate2 certificate;
-        if (store)
-        {
-            certificate = LoadFromStore();
-        }
-        else if (pfx)
-        {
-            certificate = LoadPkcs12(forTls);
-        }
-        else
-        {
-            certificate = LoadPem(privateKeyRequired);
-        }
-        if (forTls && OperatingSystem.IsWindows() && !store && !pfx)
+        var certificate = LoadSource(privateKeyRequired, forTls);
+        if (forTls && OperatingSystem.IsWindows() && !FromStore && !IsPkcs12File)
         {
             certificate = PrepareWindowsTls(certificate);
         }
+
         try
         {
-            if (now < certificate.NotBefore.ToUniversalTime() || now > certificate.NotAfter.ToUniversalTime())
-            {
-                throw new InvalidOperationException("Configured certificate is outside its validity period.");
-            }
-
-            if (privateKeyRequired && !certificate.HasPrivateKey)
-            {
-                throw new InvalidOperationException("Configured certificate requires a private key.");
-            }
-
+            RequireUsable(certificate, privateKeyRequired, now);
             return certificate;
         }
         catch
         {
             certificate.Dispose();
             throw;
+        }
+    }
+
+    internal static void RequireDigitalSignature(X509Certificate2 certificate)
+    {
+        var usage = certificate.Extensions.OfType<X509KeyUsageExtension>().FirstOrDefault();
+        if (usage is not null && (usage.KeyUsages & X509KeyUsageFlags.DigitalSignature) == 0)
+        {
+            throw new InvalidOperationException("Certificate must permit digital signatures.");
+        }
+    }
+
+    internal static void RequireClientAuthentication(X509Certificate2 certificate)
+    {
+        RequireDigitalSignature(certificate);
+        var enhancedUsage = certificate.Extensions.OfType<X509EnhancedKeyUsageExtension>().FirstOrDefault();
+        var permitsClientAuthentication = enhancedUsage is null || enhancedUsage.EnhancedKeyUsages
+            .Cast<Oid>()
+            .Any(oid => oid.Value is ClientAuthenticationOid or AnyPurposeOid);
+        if (!permitsClientAuthentication)
+        {
+            throw new InvalidOperationException("TLS certificate must permit client authentication.");
+        }
+    }
+
+    private X509Certificate2 LoadSource(bool privateKeyRequired, bool forTls)
+    {
+        if (FromStore)
+        {
+            return LoadFromStore();
+        }
+
+        return IsPkcs12File ? LoadPkcs12(forTls) : LoadPem(privateKeyRequired);
+    }
+
+    private static void RequireUsable(X509Certificate2 certificate, bool privateKeyRequired, DateTimeOffset now)
+    {
+        if (now < certificate.NotBefore.ToUniversalTime() || now > certificate.NotAfter.ToUniversalTime())
+        {
+            throw new InvalidOperationException("Configured certificate is outside its validity period.");
+        }
+
+        if (privateKeyRequired && !certificate.HasPrivateKey)
+        {
+            throw new InvalidOperationException("Configured certificate requires a private key.");
         }
     }
 
@@ -72,9 +104,9 @@ public sealed class CertificateSettings
             throw new InvalidOperationException("Store certificates cannot specify file credentials.");
         }
 
-        using var certificates = new X509Store(StoreName, StoreLocation);
-        certificates.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-        var matches = certificates.Certificates.Find(X509FindType.FindByThumbprint, Thumbprint!, validOnly: false);
+        using var store = new X509Store(StoreName, StoreLocation);
+        store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+        var matches = store.Certificates.Find(X509FindType.FindByThumbprint, Thumbprint!, validOnly: false);
         try
         {
             if (matches.Count != 1)
@@ -110,9 +142,10 @@ public sealed class CertificateSettings
     {
         if (privateKeyRequired)
         {
+            var keyPath = KeyPath ?? Path!;
             return Password is null
-                ? X509Certificate2.CreateFromPemFile(Path!, KeyPath ?? Path!)
-                : X509Certificate2.CreateFromEncryptedPemFile(Path!, Password, KeyPath ?? Path!);
+                ? X509Certificate2.CreateFromPemFile(Path!, keyPath)
+                : X509Certificate2.CreateFromEncryptedPemFile(Path!, Password, keyPath);
         }
 
         if (KeyPath is not null || Password is not null)
@@ -123,9 +156,9 @@ public sealed class CertificateSettings
         return X509CertificateLoader.LoadCertificateFromFile(Path!);
     }
 
+    // Schannel requires a named key. DefaultKeySet creates a temporary key deleted on disposal.
     private static X509Certificate2 PrepareWindowsTls(X509Certificate2 certificate)
     {
-        // Schannel requires a named key. DefaultKeySet creates a temporary key deleted on disposal.
         using var pem = certificate;
         var pkcs12 = pem.Export(X509ContentType.Pfx);
         try
@@ -135,26 +168,6 @@ public sealed class CertificateSettings
         finally
         {
             CryptographicOperations.ZeroMemory(pkcs12);
-        }
-    }
-
-    internal static void RequireDigitalSignature(X509Certificate2 certificate)
-    {
-        var usage = certificate.Extensions.OfType<X509KeyUsageExtension>().FirstOrDefault();
-        if (usage is not null && (usage.KeyUsages & X509KeyUsageFlags.DigitalSignature) == 0)
-        {
-            throw new InvalidOperationException("Certificate must permit digital signatures.");
-        }
-    }
-
-    internal static void RequireClientAuthentication(X509Certificate2 certificate)
-    {
-        RequireDigitalSignature(certificate);
-        var eku = certificate.Extensions.OfType<X509EnhancedKeyUsageExtension>().FirstOrDefault();
-        // TLS client authentication, or any purpose.
-        if (eku is not null && !eku.EnhancedKeyUsages.Cast<Oid>().Any(oid => oid.Value is "1.3.6.1.5.5.7.3.2" or "2.5.29.37.0"))
-        {
-            throw new InvalidOperationException("TLS certificate must permit client authentication.");
         }
     }
 }

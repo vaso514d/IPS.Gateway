@@ -4,7 +4,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 
 namespace IPS.Middleware.Infrastructure.Payments.Investigation;
-/// <summary>The single-payment investigation profile, built only from frozen payment values and request identity.</summary>
+// The single-payment investigation profile, built only from frozen payment values and request identity.
 public sealed class Pacs028Xml(Pacs008ProtocolProfile profile)
 {
     public const string MessageDefinition = "pacs.028.001.06";

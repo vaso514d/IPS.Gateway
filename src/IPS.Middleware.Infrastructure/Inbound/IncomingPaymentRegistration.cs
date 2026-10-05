@@ -7,7 +7,7 @@ namespace IPS.Middleware.Infrastructure.Inbound;
 
 public sealed class IncomingPaymentRegistration(IServiceScopeFactory scopes, InboundSchedulingOptions options)
 {
-    /// <summary>A receipt that lost a concurrent registration race reuses the committed winner only when the contents match.</summary>
+    // A receipt that lost a concurrent registration race reuses the committed winner only when the contents match.
     public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken) =>
         scopes.RetryAsync<IncomingPaymentIntake, IncomingRegistration>(
             intake => intake.RegisterAsync(claim, incoming, cancellationToken), options.RegistrationMaxAttempts, cancellationToken);

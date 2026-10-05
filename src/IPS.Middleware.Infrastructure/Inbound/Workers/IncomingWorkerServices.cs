@@ -5,7 +5,7 @@ namespace IPS.Middleware.Infrastructure.Inbound.Workers;
 
 public static class IncomingWorkerServices
 {
-    /// <summary>Persistence, protocol, clients and validated settings are supplied by the host.</summary>
+    // Persistence, protocol, clients and validated settings are supplied by the host.
     public static IServiceCollection AddIncomingWorkers(this IServiceCollection services)
     {
         services.AddIncomingComposition();

@@ -9,7 +9,7 @@ public sealed class InboundWorkDiscovery(
         InboundSchedulingOptions options,
         TimeProvider timeProvider)
 {
-    /// <summary>Queues one batch of due IDs from SQL; ownership is still acquired per ID by the processor.</summary>
+    // Queues one batch of due IDs from SQL; ownership is still acquired per ID by the processor.
     public async Task<int> RefillAsync(CancellationToken cancellationToken)
     {
         await using var scope = scopes.CreateAsyncScope();

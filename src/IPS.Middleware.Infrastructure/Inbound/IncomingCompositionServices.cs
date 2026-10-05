@@ -13,7 +13,7 @@ namespace IPS.Middleware.Infrastructure.Inbound;
 
 public static class IncomingCompositionServices
 {
-    /// <summary>Callable composition only. The caller supplies persistence, protocol profile, protocol and remote ports.</summary>
+    // Callable composition only. The caller supplies persistence, protocol profile, protocol and remote ports.
     public static IServiceCollection AddIncomingComposition(this IServiceCollection services)
     {
         services.AddInboundFoundations();

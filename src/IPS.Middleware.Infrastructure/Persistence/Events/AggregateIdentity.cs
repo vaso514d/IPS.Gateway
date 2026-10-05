@@ -2,7 +2,7 @@ using IPS.Middleware.Domain;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Events;
 
-/// <summary>Persistence-only identity shared by all aggregates. State rows and events reference it with a matching kind.</summary>
+// Persistence-only identity shared by all aggregates. State rows and events reference it with a matching kind.
 internal sealed class AggregateIdentity
 {
     internal const string KindColumn = "AggregateKind";

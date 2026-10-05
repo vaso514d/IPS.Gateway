@@ -10,7 +10,7 @@ public sealed record OutgoingAcceptance(OutgoingIntake? Intake, IReadOnlyList<In
 
 public sealed record OutgoingSubmissionResult(OutgoingStatus? Status, bool TimedOut, IReadOnlyList<IntakeValidationError> Errors);
 
-/// <summary>Fresh execution scopes and service-owned admission; caller tokens only govern intake and reads.</summary>
+// Fresh execution scopes and service-owned admission; caller tokens only govern intake and reads.
 public interface IOutgoingExecution
 {
     Task<OutgoingAcceptance> AcceptAsync(Pacs008Request request, string json, CancellationToken token);

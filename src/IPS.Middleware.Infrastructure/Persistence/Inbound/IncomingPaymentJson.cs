@@ -1,5 +1,5 @@
 namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
-/// <summary>Versioned JSON for the frozen incoming request and each receipt's original references.</summary>
+// Versioned JSON for the frozen incoming request and each receipt's original references.
 internal static class IncomingPaymentJson
 {
     private const int Version = 1;

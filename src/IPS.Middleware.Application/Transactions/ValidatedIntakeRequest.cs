@@ -1,6 +1,6 @@
 namespace IPS.Middleware.Application.Transactions;
 
-/// <summary>Validated storage input. Message-specific business validation precedes this foundation-level envelope.</summary>
+// Validated storage input. Message-specific business validation precedes this foundation-level envelope.
 public sealed class ValidatedIntakeRequest
 {
     private ValidatedIntakeRequest(string messageType, string clientReference, string requestJson)

@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
-/// <summary>One HTTP attempt whose status, complete body and every header value reach the interpreters unchanged.</summary>
+// One HTTP attempt whose status, complete body and every header value reach the interpreters unchanged.
 internal static class HttpEvidence
 {
     internal static async Task<(int Status, string Body, IEnumerable<(string Name, string Value)> Headers)> SendAsync(

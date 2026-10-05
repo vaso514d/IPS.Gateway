@@ -5,16 +5,18 @@ using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
+// Loads and validates every configured certificate once at startup and owns their lifetime.
 internal sealed class TransportCertificates : ISigningCertificateSource, IDisposable
 {
-    private readonly List<X509Certificate2> owned = [];
-    private readonly TimeProvider time;
-    private readonly X509Certificate2? signing;
-    private readonly X509Certificate2? ipsClient;
-    private readonly X509Certificate2? cbsClient;
-    private readonly X509Certificate2[] ipsServerTrust;
-    private readonly X509Certificate2[] cbsServerTrust;
-    public IReadOnlyCollection<X509Certificate2> IpsSignatureTrust { get; }
+    private const string ServerAuthenticationOid = "1.3.6.1.5.5.7.3.1";
+
+    private readonly List<X509Certificate2> _owned = [];
+    private readonly TimeProvider _time;
+    private readonly X509Certificate2? _signing;
+    private readonly X509Certificate2? _ipsClient;
+    private readonly X509Certificate2? _cbsClient;
+    private readonly X509Certificate2[] _ipsServerTrust = [];
+    private readonly X509Certificate2[] _cbsServerTrust = [];
 
     public TransportCertificates(
         CertificateSettings? signingSource,
@@ -24,44 +26,15 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         Pacs008SigningPolicy signingPolicy,
         TimeProvider time)
     {
-        this.time = time;
+        _time = time;
         try
         {
-            signing = Load(signingSource, true);
-            if (signing is null && !signingPolicy.AllowUnsignedWithoutCertificate)
-            {
-                throw new InvalidOperationException("A signing certificate or explicit Development unsigned policy is required.");
-            }
-
-            if (signing is not null)
-            {
-                CertificateSettings.RequireDigitalSignature(signing);
-                using var key = signing.GetECDsaPrivateKey();
-                if (key is null)
-                {
-                    throw new InvalidOperationException("XML signing requires an ECDSA private key.");
-                }
-            }
-            ipsClient = Load(ips.ClientCertificate, true, true);
-            cbsClient = Load(cbs.ClientCertificate, true, true);
-            foreach (var client in new[] { ipsClient, cbsClient }.OfType<X509Certificate2>())
-            {
-                CertificateSettings.RequireClientAuthentication(client);
-            }
-
-            ipsServerTrust = LoadTrust(ips.ServerTrust);
-            cbsServerTrust = LoadTrust(cbs.ServerTrust);
-            var signatureTrust = LoadTrust(signatureSources);
-            foreach (var certificate in signatureTrust)
-            {
-                CertificateSettings.RequireDigitalSignature(certificate);
-                using var key = certificate.GetECDsaPublicKey();
-                if (key is null)
-                {
-                    throw new InvalidOperationException("IPS signature trust requires ECDSA public keys.");
-                }
-            }
-            IpsSignatureTrust = Array.AsReadOnly(signatureTrust);
+            _signing = LoadSigningCertificate(signingSource, signingPolicy);
+            _ipsClient = LoadClientCertificate(ips.ClientCertificate);
+            _cbsClient = LoadClientCertificate(cbs.ClientCertificate);
+            _ipsServerTrust = LoadTrust(ips.ServerTrust);
+            _cbsServerTrust = LoadTrust(cbs.ServerTrust);
+            IpsSignatureTrust = Array.AsReadOnly(LoadSignatureTrust(signatureSources));
         }
         catch
         {
@@ -70,31 +43,28 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         }
     }
 
-    private X509Certificate2? Load(CertificateSettings? source, bool privateKeyRequired, bool forTls = false)
-    {
-        if (source is null)
-        {
-            return null;
-        }
-
-        var certificate = source.Load(privateKeyRequired, time.GetUtcNow(), forTls);
-        owned.Add(certificate);
-        return certificate;
-    }
-
-    private X509Certificate2[] LoadTrust(CertificateSettings[] sources) =>
-        sources.Select(source => Load(source, false)!).ToArray();
+    public IReadOnlyCollection<X509Certificate2> IpsSignatureTrust { get; } = [];
 
     public ValueTask<X509Certificate2?> GetCurrentAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(signing);
+        return ValueTask.FromResult(_signing);
+    }
+
+    public void Dispose()
+    {
+        foreach (var certificate in _owned)
+        {
+            certificate.Dispose();
+        }
+
+        _owned.Clear();
     }
 
     internal SslClientAuthenticationOptions Tls(bool ips, bool revocation)
     {
-        var client = ips ? ipsClient : cbsClient;
-        var trust = ips ? ipsServerTrust : cbsServerTrust;
+        var client = ips ? _ipsClient : _cbsClient;
+        var trust = ips ? _ipsServerTrust : _cbsServerTrust;
         var options = new SslClientAuthenticationOptions
         {
             EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
@@ -106,16 +76,79 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
             options.RemoteCertificateValidationCallback = (_, certificate, _, errors) =>
                 ValidateServerCertificate(certificate, errors, trust, options.CertificateRevocationCheckMode);
         }
+
         return options;
     }
 
+    private X509Certificate2? LoadSigningCertificate(CertificateSettings? source, Pacs008SigningPolicy signingPolicy)
+    {
+        var signing = Load(source, privateKeyRequired: true);
+        if (signing is null)
+        {
+            return signingPolicy.AllowUnsignedWithoutCertificate
+                ? null
+                : throw new InvalidOperationException("A signing certificate or explicit Development unsigned policy is required.");
+        }
+
+        CertificateSettings.RequireDigitalSignature(signing);
+        using var key = signing.GetECDsaPrivateKey();
+        if (key is null)
+        {
+            throw new InvalidOperationException("XML signing requires an ECDSA private key.");
+        }
+
+        return signing;
+    }
+
+    private X509Certificate2? LoadClientCertificate(CertificateSettings? source)
+    {
+        var client = Load(source, privateKeyRequired: true, forTls: true);
+        if (client is not null)
+        {
+            CertificateSettings.RequireClientAuthentication(client);
+        }
+
+        return client;
+    }
+
+    private X509Certificate2[] LoadSignatureTrust(CertificateSettings[] sources)
+    {
+        var trust = LoadTrust(sources);
+        foreach (var certificate in trust)
+        {
+            CertificateSettings.RequireDigitalSignature(certificate);
+            using var key = certificate.GetECDsaPublicKey();
+            if (key is null)
+            {
+                throw new InvalidOperationException("IPS signature trust requires ECDSA public keys.");
+            }
+        }
+
+        return trust;
+    }
+
+    private X509Certificate2[] LoadTrust(CertificateSettings[] sources) =>
+        sources.Select(source => Load(source, privateKeyRequired: false)!).ToArray();
+
+    private X509Certificate2? Load(CertificateSettings? source, bool privateKeyRequired, bool forTls = false)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        var certificate = source.Load(privateKeyRequired, _time.GetUtcNow(), forTls);
+        _owned.Add(certificate);
+        return certificate;
+    }
+
+    // Custom chain trust never bypasses the platform's hostname or missing-certificate checks.
     private static bool ValidateServerCertificate(
         X509Certificate? certificate,
         SslPolicyErrors errors,
         X509Certificate2[] trust,
         X509RevocationMode revocation)
     {
-        // Custom chain trust never bypasses the platform's hostname or missing-certificate checks.
         if (certificate is null || (errors & ~SslPolicyErrors.RemoteCertificateChainErrors) != 0)
         {
             return false;
@@ -125,10 +158,11 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         using var chain = new X509Chain();
         chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
         chain.ChainPolicy.RevocationMode = revocation;
-        chain.ChainPolicy.ApplicationPolicy.Add(new("1.3.6.1.5.5.7.3.1"));
+        chain.ChainPolicy.ApplicationPolicy.Add(new(ServerAuthenticationOid));
         foreach (var authority in trust)
         {
-            if (authority.SubjectName.RawData.AsSpan().SequenceEqual(authority.IssuerName.RawData))
+            var selfSigned = authority.SubjectName.RawData.AsSpan().SequenceEqual(authority.IssuerName.RawData);
+            if (selfSigned)
             {
                 chain.ChainPolicy.CustomTrustStore.Add(authority);
             }
@@ -137,16 +171,7 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
                 chain.ChainPolicy.ExtraStore.Add(authority);
             }
         }
+
         return chain.Build(leaf);
-    }
-
-    public void Dispose()
-    {
-        foreach (var certificate in owned)
-        {
-            certificate.Dispose();
-        }
-
-        owned.Clear();
     }
 }

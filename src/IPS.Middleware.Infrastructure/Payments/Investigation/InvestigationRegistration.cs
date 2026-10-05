@@ -7,7 +7,7 @@ namespace IPS.Middleware.Infrastructure.Payments.Investigation;
 
 public static class InvestigationRegistration
 {
-    /// <summary>Callable workflow only. The caller supplies protocol trust/certificates and transport; no worker is started.</summary>
+    // Callable workflow only. The caller supplies protocol trust/certificates and transport; no worker is started.
     public static IServiceCollection AddOutgoingInvestigation(this IServiceCollection services, InvestigationOptions options)
     {
         services.AddSingleton(options);

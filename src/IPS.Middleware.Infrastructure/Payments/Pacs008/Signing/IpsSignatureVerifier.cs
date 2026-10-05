@@ -5,11 +5,9 @@ using System.Xml;
 
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
-/// <summary>
-/// Verifies the IPS enveloped signature profile only: one ds:Signature in AppHdr/Sgntr, C14N1.1 SignedInfo,
-/// a whole-document reference with enveloped + C14N1.0 transforms, SHA-256 and ECDSA-SHA256, signed by a
-/// certificate byte-identical to a trusted IPS certificate. Anything else is untrusted.
-/// </summary>
+// Verifies the IPS enveloped signature profile only: one ds:Signature in AppHdr/Sgntr, C14N1.1 SignedInfo,
+// a whole-document reference with enveloped + C14N1.0 transforms, SHA-256 and ECDSA-SHA256, signed by a
+// certificate byte-identical to a trusted IPS certificate. Anything else is untrusted.
 internal static class IpsSignatureVerifier
 {
     private const string Ds = SignedXml.XmlDsigNamespaceUrl;

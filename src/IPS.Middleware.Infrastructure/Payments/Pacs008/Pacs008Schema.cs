@@ -4,13 +4,13 @@ using System.Xml.Schema;
 
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
 
-/// <summary>Schemas of the pacs.008 exchange: the sent message and its pacs.002 reply.</summary>
+// Schemas of the pacs.008 exchange: the sent message and its pacs.002 reply.
 public static class Pacs008Schema
 {
     internal const string ReplyNamespace = "urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14";
     private static readonly Lazy<XmlSchemaSet> Schemas = new(Load);
 
-    /// <summary>Reader settings for untrusted XML: no DTDs and no external resolution.</summary>
+    // Reader settings for untrusted XML: no DTDs and no external resolution.
     internal static XmlReaderSettings SafeReader => new() { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null };
 
     public static void Validate(string xml) => ValidateMessage(xml, Pacs008Xml.DocumentNamespace);

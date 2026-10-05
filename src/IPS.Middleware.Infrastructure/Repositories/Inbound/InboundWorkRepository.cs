@@ -9,16 +9,16 @@ namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
 public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWorkRepository
 {
-    public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken) =>
-        await db.InboundJournal
-            .AsNoTracking()
+    public Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken) =>
+        FindOldestAsync(db.InboundJournal.Where(DueAt(now)), take, cancellationToken);
+
+    public Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, bool awaitingReply, CancellationToken cancellationToken)
+    {
+        var due = db.InboundJournal
             .Where(DueAt(now))
-            .OrderBy(x => x.NextActionAtUtc)
-            .ThenBy(x => x.ReceivedAtUtc)
-            .ThenBy(x => x.Id)
-            .Take(take)
-            .Select(x => x.Id)
-            .ToListAsync(cancellationToken);
+            .Where(x => db.IncomingReplies.Any(reply => reply.JournalId == x.Id) == awaitingReply);
+        return FindOldestAsync(due, take, cancellationToken);
+    }
 
     public async Task<InboundClaim?> StageClaimAsync(Guid journalId, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken)
     {
@@ -116,8 +116,18 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         return true;
     }
 
+    private static async Task<IReadOnlyList<Guid>> FindOldestAsync(IQueryable<InboundJournalEntry> due, int take, CancellationToken cancellationToken) =>
+        await due
+            .AsNoTracking()
+            .OrderBy(x => x.NextActionAtUtc)
+            .ThenBy(x => x.ReceivedAtUtc)
+            .ThenBy(x => x.Id)
+            .Take(take)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
     // Discovery and acquisition share one definition: pending, due and without a live owner.
-    internal static Expression<Func<InboundJournalEntry, bool>> DueAt(DateTimeOffset now) =>
+    private static Expression<Func<InboundJournalEntry, bool>> DueAt(DateTimeOffset now) =>
         x => x.Status == InboundProcessingStatus.Pending
             && x.NextActionAtUtc <= now
             && (x.ClaimToken == null || x.ClaimExpiresAtUtc <= now);

@@ -11,7 +11,7 @@ public sealed class OutgoingTransactionIntake(
     public Task<TransactionIntakeResult> AcceptAsync(ValidatedIntakeRequest request, CancellationToken cancellationToken) =>
         AcceptAsync(request, timeProvider.GetUtcNow(), accepted: null, cancellationToken);
 
-    /// <summary>Duplicates return the stored payment without staging the new request or snapshot.</summary>
+    // Duplicates return the stored payment without staging the new request or snapshot.
     internal async Task<TransactionIntakeResult> AcceptAsync(
         ValidatedIntakeRequest request,
         DateTimeOffset now,

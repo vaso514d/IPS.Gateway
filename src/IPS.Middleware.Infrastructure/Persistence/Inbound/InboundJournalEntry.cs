@@ -25,7 +25,7 @@ internal sealed class InboundJournalEntry
     public Guid ReplyCheckpoint { get; set; }
     public byte[] Version { get; set; } = [];
 
-    /// <summary>Only the live owner of a pending receipt may change it.</summary>
+    // Only the live owner of a pending receipt may change it.
     public bool IsOwnedBy(InboundClaim claim, DateTimeOffset now) =>
         Status == InboundProcessingStatus.Pending && ClaimToken == claim.Token && ClaimExpiresAtUtc > now;
 

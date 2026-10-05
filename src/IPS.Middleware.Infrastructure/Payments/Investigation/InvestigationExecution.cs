@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Payments.Investigation;
 
-/// <summary>Recovery and processing must not retain each other's tracked or failed unit of work.</summary>
+// Recovery and processing must not retain each other's tracked or failed unit of work.
 public sealed class InvestigationExecution(IServiceScopeFactory scopes)
 {
     public async Task<PaymentOutcome?> RunAsync(Guid paymentId, CancellationToken cancellationToken)

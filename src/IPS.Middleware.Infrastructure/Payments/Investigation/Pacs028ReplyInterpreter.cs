@@ -4,7 +4,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 
 namespace IPS.Middleware.Infrastructure.Payments.Investigation;
-/// <summary>Separates a report about the payment from a rejection of the investigation itself.</summary>
+// Separates a report about the payment from a rejection of the investigation itself.
 public sealed class Pacs028ReplyInterpreter(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates)
 {
     private const int TransactionNotFound = 1016;

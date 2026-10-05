@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace IPS.Middleware.Infrastructure.Inbound;
 
-/// <summary>Process-local bounded FIFO of journal IDs that coalesces queued IDs; SQL stays authoritative.</summary>
+// Process-local bounded FIFO of journal IDs that coalesces queued IDs; SQL stays authoritative.
 public abstract class InboundJournalChannel(int capacity)
 {
     private readonly Channel<Guid> _channel = Channel.CreateBounded<Guid>(capacity);

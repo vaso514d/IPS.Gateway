@@ -8,7 +8,7 @@ public interface IPaymentPreparationRepository
 {
     Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken);
 
-    /// <summary>Stage immutable content under a live claim; the shared unit of work makes it durable.</summary>
+    // Stage immutable content under a live claim; the shared unit of work makes it durable.
     void StageUnsignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now);
     void StageDevelopmentUnsigned(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now);
     void StageSignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now);

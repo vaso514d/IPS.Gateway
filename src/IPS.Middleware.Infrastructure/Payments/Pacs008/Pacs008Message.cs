@@ -1,17 +1,18 @@
 using System.Globalization;
 using System.Xml.Linq;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
 
-/// <summary>Builds the supported pacs.008 profile. Child order follows the XSD sequence; null children are omitted.</summary>
+// Builds the supported pacs.008 profile. Child order follows the XSD sequence; null children are omitted.
 internal static class Pacs008Message
 {
     private static readonly XNamespace H = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace P = Pacs008Xml.DocumentNamespace;
     private const int AddressLineLength = 70;
     private const int RemittanceLineLength = 140;
-    internal const string MessageDefinition = "pacs.008.001.12";
+    internal const string MessageDefinition = PaymentMessageTypes.Pacs008Definition;
     private const string ClearingSystem = "IPS";
     private const string LocalInstrument = "INST";
     private const string IndirectClearingSystem = "GE";

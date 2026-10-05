@@ -1,29 +1,25 @@
-using IPS.Middleware.Infrastructure.Repositories.Inbound;
-using IPS.Middleware.Infrastructure.Transactions;
-using Microsoft.EntityFrameworkCore;
+using IPS.Middleware.Application.Inbound.Receipts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Workers;
 
+// Queues due receipts for this process; ownership is still acquired per receipt by the worker that runs it.
 public sealed class InboundDispatchDiscovery(
-        IServiceScopeFactory scopes,
-        InboundProcessingChannel processing,
-        InboundReplyChannel reply,
-        InboundSchedulingOptions options,
-        TimeProvider time)
+    IServiceScopeFactory scopes,
+    InboundProcessingChannel processing,
+    InboundReplyChannel reply,
+    InboundSchedulingOptions options,
+    TimeProvider time)
 {
     public async Task RefillAsync(bool replies, CancellationToken token)
     {
         await using var scope = scopes.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<TransactionDbContext>();
-        var ids = await db.InboundJournal.AsNoTracking().Where(InboundWorkRepository.DueAt(time.GetUtcNow()))
-            .Where(row => db.IncomingReplies.Any(r => r.JournalId == row.Id) == replies)
-            .OrderBy(row => row.NextActionAtUtc).ThenBy(row => row.ReceivedAtUtc).ThenBy(row => row.Id)
-            .Take(options.DiscoveryBatch).Select(row => row.Id).ToListAsync(token);
+        var repository = scope.ServiceProvider.GetRequiredService<IInboundWorkRepository>();
+        var due = await repository.FindDueAsync(time.GetUtcNow(), options.DiscoveryBatch, replies, token);
         InboundJournalChannel channel = replies ? reply : processing;
-        foreach (var id in ids)
+        foreach (var journalId in due)
         {
-            channel.TryNotify(id);
+            channel.TryNotify(journalId);
         }
     }
 }

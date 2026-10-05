@@ -8,7 +8,7 @@ namespace IPS.Middleware.Infrastructure.Inbound;
 
 public static class InboundServices
 {
-    /// <summary>Registers foundations only. Persistence must also be registered; no hosted worker is started.</summary>
+    // Registers foundations only. Persistence must also be registered; no hosted worker is started.
     public static IServiceCollection AddInboundFoundations(this IServiceCollection services, InboundSchedulingOptions? options = null)
     {
         if (options is not null)
