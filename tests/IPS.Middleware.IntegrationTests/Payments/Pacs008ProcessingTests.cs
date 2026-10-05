@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Xml.Linq;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
@@ -5,6 +6,7 @@ using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 using static IPS.Middleware.IntegrationTests.Payments.ProcessingHarness;
 
@@ -381,6 +383,62 @@ public sealed class Pacs008ProcessingTests
         await using var harness = await CreateAsync();
         var stored = await harness.ReadAsync(await harness.AcceptAsync());
         Assert.Equal(PinnedSnapshot, stored.AcceptedJson);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Expired_evidence_budget_leaves_committed_checkpoints_recoverable(bool afterResponse)
+    {
+        await using var harness = await CreateAsync();
+        var id = await harness.AcceptAsync();
+        var delay = new DelayEvidenceSave(afterResponse);
+        harness.Ips.Behavior = async (reply, _) =>
+        {
+            var response = await harness.Ips.RespondAsync(reply, "ACCP");
+            delay.Armed = true;
+            return response;
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => harness.ProcessAsync(id, default, delay));
+        Assert.True(delay.Triggered);
+        var stored = await harness.ReadAsync(id);
+        Assert.NotNull(stored.Submission.Marker);
+        Assert.Equal(afterResponse, stored.Submission.Response is not null);
+        harness.Clock.Now += Ownership;
+        await harness.RecoverAsync(id);
+        Assert.Equal(afterResponse ? TransactionStatus.Accepted : TransactionStatus.Uncertain, (await harness.ProcessAsync(id))!.Status);
+        Assert.Single(harness.Ips.Received);
+    }
+
+    [Fact]
+    public async Task Evidence_budget_starts_after_the_remote_exchange_not_before_it()
+    {
+        await using var harness = await CreateAsync();
+        var id = await harness.AcceptAsync();
+        harness.Ips.Behavior = async (reply, token) =>
+        {
+            await Task.Delay(harness.Options.PersistenceBudget + TimeSpan.FromMilliseconds(100), token);
+            return await harness.Ips.RespondAsync(reply, "ACCP");
+        };
+        Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id))!.Status);
+        Assert.NotNull((await harness.ReadAsync(id)).Submission.Response);
+        Assert.Single(harness.Ips.Received);
+    }
+
+    private sealed class DelayEvidenceSave(bool afterResponse) : DbCommandInterceptor
+    {
+        public bool Armed { get; set; }
+        public bool Triggered { get; private set; }
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (Armed && (!afterResponse || eventData.Context!.ChangeTracker.Entries<OutgoingPayment>().Any(e => e.Entity.CurrentStatus == TransactionStatus.Accepted)))
+            {
+                Triggered = true;
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            return result;
+        }
     }
 
     // Changing this format requires a new snapshot version and a reader for version 1.

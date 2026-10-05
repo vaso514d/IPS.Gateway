@@ -3,12 +3,12 @@ using System.Security.Cryptography.X509Certificates;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Transport;
 
-namespace IPS.Middleware.Infrastructure.Inbound.Transport;
+namespace IPS.Middleware.Infrastructure.Payments.Transport;
 
-public sealed class IncomingTransportCertificates : ISigningCertificateSource, IDisposable
+public sealed class OutgoingTransportCertificates : ISigningCertificateSource, IDisposable
 {
     private readonly TransportCertificates certificates;
-    public IncomingTransportCertificates(IncomingTransportSettings settings, Pacs008SigningPolicy policy, TimeProvider time)
+    public OutgoingTransportCertificates(OutgoingTransportSettings settings, Pacs008SigningPolicy policy, TimeProvider time)
     {
         certificates = new(settings.SigningCertificate, settings.Ips, settings.Cbs, settings.IpsSignatureTrust, policy, time);
     }

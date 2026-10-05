@@ -19,7 +19,7 @@ public sealed class Pacs008Processing(
     {
         var payment = await payments.FindAsync(paymentId, cancellationToken);
         if (payment is null) return null;
-        var run = new Run(payment, unitOfWork, cancellationToken);
+        using var run = new Run(payment, unitOfWork, cancellationToken);
         try
         {
             if (payment.MessageType == PaymentMessageTypes.Pacs008 && Acquire(payment) is { } claim)
@@ -80,15 +80,16 @@ public sealed class Pacs008Processing(
         submissions.StageSubmission(payment, claim, prepared.Kind, Now);
         await run.CommitAsync();
         // IPS may act on the message now; its response and the outcome are stored even if the caller stops waiting.
-        run.CommitRegardlessOfCancellation();
         IpsSubmissionResponse response;
         try { response = await transport.SendAsync(prepared.Xml, run.Token); }
         catch (Exception exception) when (exception is not OperationCanceledException || !run.Token.IsCancellationRequested)
         {
+            run.BeginEvidencePersistence(options.PersistenceBudget, timeProvider);
             await FinishAsync(run, claim, at => payment.MarkOutcomeUnknown(StatusSource.Gateway, at,
                 new(description: $"{SubmittedWithoutResponse} {exception.GetType().Name}: {exception.Message}")));
             return;
         }
+        run.BeginEvidencePersistence(options.PersistenceBudget, timeProvider);
         submissions.StageResponse(payment, claim, response, Now);
         payment.RecordStep(ProcessingStep.IpsResponded, Now);
         await run.CommitAsync();
@@ -163,7 +164,7 @@ public sealed class Pacs008Processing(
 
     private DateTimeOffset Now => timeProvider.GetUtcNow();
 
-    private sealed class Run(OutgoingPayment payment, IUnitOfWork unitOfWork, CancellationToken token)
+    private sealed class Run(OutgoingPayment payment, IUnitOfWork unitOfWork, CancellationToken token) : IDisposable
     {
         private CancellationToken _commitToken = token;
 
@@ -171,7 +172,13 @@ public sealed class Pacs008Processing(
         public CancellationToken Token { get; } = token;
         public PaymentOutcome Committed { get; private set; } = payment.Current;
 
-        public void CommitRegardlessOfCancellation() => _commitToken = CancellationToken.None;
+        private CancellationTokenSource? persistence;
+        public void BeginEvidencePersistence(TimeSpan budget, TimeProvider time)
+        {
+            persistence = new(budget, time);
+            _commitToken = persistence.Token;
+        }
+        public void Dispose() => persistence?.Dispose();
 
         public async Task CommitAsync()
         {

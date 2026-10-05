@@ -4,7 +4,8 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 
 | Section | Typed settings | Controls |
 |---|---|---|
-| Payments:Outgoing:Pacs008 | Pacs008Options | Submission window, ownership, preparation retry delay |
+| Payments:Outgoing:Pacs008 | Pacs008Options | Submission window, ownership, preparation retry delay, post-exchange persistence budget |
+| Payments:Outgoing:Transport | OutgoingTransportSettings | Opt-in IPS initial-send and CBS callback URLs, paths, pools, timeouts, breakers and separate certificate sources |
 | Payments:Outgoing:StatusDelivery | StatusDeliveryOptions | Callback attempts/rounds, retry delays, call/persistence/ownership budgets, discovery |
 | Payments:Incoming:Processing | IncomingProcessingOptions | Payment window, inline status/reply budgets, ownership, response persistence budget, first follow-up delay |
 | Payments:Incoming:Reconciliation | IncomingReconciliationOptions | CBS call timeout, response persistence budget, ownership, reconciliation window, discovery batch, retry delays, repeat interval |
@@ -63,3 +64,13 @@ Shutdown stops receive/admission, drains tracked handlers for ShutdownBudget, th
 ## Outgoing status delivery (Review 2c.1)
 
 Payments:Outgoing:StatusDelivery defaults to AttemptsPerRound=3, MaxRounds=0 (unlimited), DelayBetweenAttempts=00:00:05, PauseBetweenRounds=00:10:00, CallTimeout=00:00:20, PersistenceBudget=00:00:02, Ownership=00:00:45, DiscoveryBatch=50 and DiscoveryInterval=00:00:05. Ownership must exceed call plus persistence budgets. Positive durations/counts and nonnegative MaxRounds are validated at startup. Committed attempts and due times survive restart; changing retry settings affects subsequent scheduling without rewriting frozen payloads or resetting attempts. An exhausted record is not rearmed by a status query. These settings register callable workflows only; this review adds no callback HTTP client or outgoing worker.
+
+## Outgoing transport (Review 2c.2a)
+
+Payments:Outgoing:Transport:Enabled defaults false. Enabling validates configuration and loads certificates without starting outgoing endpoints or workers. It requires a participant BIC, usable ConnectionStrings:Middleware (server and database), IPS and CBS base URLs, signature trust and signing credentials or explicit Development unsigned policy. Production requires IPS mutual TLS. Startup does not contact SQL/remote services or migrate a database.
+
+MessagePath defaults to Message; CallbackPath defaults to /api/ips/transactions/status/receive; IpsVersion defaults to 1. The initial IPS send uses UTF-8 XML, participant/version/keep-alive headers, and no possible-duplicate header. Non-success responses reach the journal interpreter unchanged. The callback uses the frozen existing DTO and idempotency key; no transport retry is enabled.
+
+IPS RequestTimeout defaults to 25 seconds and CBS to 20 seconds; each pool defaults to 100 connections, ConnectTimeout 2 seconds, connection lifetime 5 minutes and idle timeout 1 minute. Breaker defaults match incoming settings. Full response buffering stays inside timeout/circuit breaker. Certificate source fields and TLS rules are the same shared validated types described above, but outgoing certificates and pools have independent lifetimes. Enabling both transports allows up to 200 IPS and 200 CBS connections per instance by default (incoming receive/reply pools sum to 100); these are transport ceilings, not throughput claims. Handler admission and callback concurrency are bounded separately in 2c.2b.
+
+Payments:Outgoing:Pacs008:PersistenceBudget defaults to 2 seconds and must be positive and below ownership. One timer starts only after remote completion/failure evidence exists, covering response storage and interpretation saves; a canceled remote call without evidence remains marker-based uncertainty for recovery. Later 2c.2b adds attempt/shutdown ordering validation around this allowance.

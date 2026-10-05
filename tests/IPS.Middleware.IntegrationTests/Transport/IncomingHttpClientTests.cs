@@ -7,6 +7,7 @@ using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Transport;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Polly.CircuitBreaker;

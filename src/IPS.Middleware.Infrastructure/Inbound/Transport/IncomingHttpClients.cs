@@ -8,6 +8,7 @@ using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Transport;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
@@ -69,20 +70,5 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
         if (idempotencyKey is not null) request.Headers.Add("Idempotency-Key", idempotencyKey);
         var (status, body, headers) = await HttpEvidence.SendAsync(clients, IncomingHttpRegistration.Cbs, request, cancellationToken);
         return new(status, body, headers.Select(h => new CoreHeader(h.Name, h.Value)).ToArray());
-    }
-}
-
-/// <summary>One HTTP attempt whose status, complete body and every header value reach the interpreters unchanged.</summary>
-internal static class HttpEvidence
-{
-    internal static async Task<(int Status, string Body, IEnumerable<(string Name, string Value)> Headers)> SendAsync(
-        IHttpClientFactory clients, string name, HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        using var client = clients.CreateClient(name);
-        using var response = await client.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        var headers = response.Headers.Concat(response.Content.Headers).Concat(response.TrailingHeaders)
-            .SelectMany(header => header.Value.Select(value => (header.Key, value))).ToArray();
-        return ((int)response.StatusCode, body, headers);
     }
 }

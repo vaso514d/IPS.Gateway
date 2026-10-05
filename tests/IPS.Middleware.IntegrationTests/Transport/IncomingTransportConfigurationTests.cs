@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Transport;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;

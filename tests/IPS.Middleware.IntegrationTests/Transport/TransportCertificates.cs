@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
+using IPS.Middleware.Infrastructure.Transport;
 
 namespace IPS.Middleware.IntegrationTests.Transport;
 

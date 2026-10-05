@@ -1,13 +1,11 @@
-using System.Net;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Transport;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http.Resilience;
-using Polly;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
@@ -59,58 +57,14 @@ public static class IncomingHttpRegistration
             var settings = sp.GetRequiredService<IncomingTransportSettings>();
             return ips ? settings.Ips : settings.Cbs;
         }
-        var client = services.AddHttpClient(name, (sp, http) =>
+        SingleAttemptHttp.Add(services, name, sp =>
         {
-            if (!sp.GetRequiredService<IncomingTransportSettings>().Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
-            http.BaseAddress = new Uri(Endpoint(sp).BaseUrl.TrimEnd('/') + '/');
-            http.Timeout = Timeout.InfiniteTimeSpan;
-        }).ConfigurePrimaryHttpMessageHandler(sp =>
-        {
+            var settings = sp.GetRequiredService<IncomingTransportSettings>();
+            if (!settings.Enabled) throw new InvalidOperationException("Incoming live transport is disabled.");
             var endpoint = Endpoint(sp);
-            // IPS keeps one connection for receive and the rest for replies; CBS shares its whole pool.
-            var connections = receive ? 1 : ips ? endpoint.ConnectionLimit - 1 : endpoint.ConnectionLimit;
-            return new SocketsHttpHandler
-            {
-                AllowAutoRedirect = false,
-                UseCookies = false,
-                AutomaticDecompression = DecompressionMethods.GZip,
-                MaxConnectionsPerServer = connections,
-                ConnectTimeout = endpoint.ConnectTimeout,
-                PooledConnectionLifetime = endpoint.PooledConnectionLifetime,
-                PooledConnectionIdleTimeout = endpoint.PooledConnectionIdleTimeout,
-                SslOptions = sp.GetRequiredService<IncomingTransportCertificates>().Tls(ips, endpoint.CheckCertificateRevocation)
-            };
-        }).SetHandlerLifetime(Timeout.InfiniteTimeSpan);
-        client.AddResilienceHandler("single-attempt", (pipeline, context) =>
-        {
-            var endpoint = Endpoint(context.ServiceProvider);
-            var breaker = endpoint.CircuitBreaker;
-            pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
-            {
-                FailureRatio = breaker.FailureRatio,
-                MinimumThroughput = breaker.MinimumThroughput,
-                SamplingDuration = breaker.SamplingDuration,
-                BreakDuration = breaker.BreakDuration
-            }).AddTimeout(new HttpTimeoutStrategyOptions
-            {
-                Timeout = receive ? context.ServiceProvider.GetRequiredService<IncomingTransportSettings>().ReceiveTimeout : endpoint.RequestTimeout
-            });
+            return new(endpoint, receive ? 1 : ips ? endpoint.ConnectionLimit - 1 : endpoint.ConnectionLimit,
+                receive ? settings.ReceiveTimeout : endpoint.RequestTimeout,
+                sp.GetRequiredService<IncomingTransportCertificates>().Tls(ips, endpoint.CheckCertificateRevocation));
         });
-        // Buffer inside resilience so its timeout and circuit breaker include response-body failures.
-        client.AddHttpMessageHandler(() => new ResponseBodyHandler());
-    }
-
-    private sealed class ResponseBodyHandler : DelegatingHandler
-    {
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var response = await base.SendAsync(request, cancellationToken);
-            try
-            {
-                await response.Content.LoadIntoBufferAsync(cancellationToken);
-                return response;
-            }
-            catch { response.Dispose(); throw; }
-        }
     }
 }

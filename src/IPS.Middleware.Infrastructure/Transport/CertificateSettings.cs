@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace IPS.Middleware.Infrastructure.Inbound.Transport;
+namespace IPS.Middleware.Infrastructure.Transport;
 
 public sealed class CertificateSettings
 {
