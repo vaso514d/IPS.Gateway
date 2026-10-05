@@ -16,16 +16,16 @@ internal static class IncomingPacs008Mapping
         var type = PaymentType(group, transaction);
         var settlement = Value(transaction, "IntrBkSttlmDt") ?? Value(group, "IntrBkSttlmDt");
         return new(
-            businessMessageId: Required(header.Element(Head + "BizMsgIdr")?.Value),
-            groupMessageId: Required(Value(group, "MsgId")),
-            endToEndId: Required(Value(id, "EndToEndId")),
-            transactionId: Value(id, "TxId"),
-            uetr: Guid.TryParse(Value(id, "UETR"), out var uetr) ? uetr : null,
-            groupCreatedAtUtc: Date(Value(group, "CreDtTm")),
-            settlementDate: settlement is null ? null : DateOnly.Parse(settlement, CultureInfo.InvariantCulture),
-            debtorAgentBic: Agent(Child(transaction, "DbtrAgt")).Bic,
-            serviceLevelCode: Value(Child(type, "SvcLvl"), "Cd"),
-            localInstrumentCode: Value(Child(type, "LclInstrm"), "Cd"));
+            BusinessMessageId: Required(header.Element(Head + "BizMsgIdr")?.Value),
+            GroupMessageId: Required(Value(group, "MsgId")),
+            EndToEndId: Required(Value(id, "EndToEndId")),
+            TransactionId: Value(id, "TxId"),
+            Uetr: Guid.TryParse(Value(id, "UETR"), out var uetr) ? uetr : null,
+            GroupCreatedAtUtc: Date(Value(group, "CreDtTm")),
+            SettlementDate: settlement is null ? null : DateOnly.Parse(settlement, CultureInfo.InvariantCulture),
+            DebtorAgentBic: Agent(Child(transaction, "DbtrAgt")).Bic,
+            ServiceLevelCode: Value(Child(type, "SvcLvl"), "Cd"),
+            LocalInstrumentCode: Value(Child(type, "LclInstrm"), "Cd"));
     }
 
     internal static Pacs008Request Payment(XElement group, XElement transaction)
@@ -90,37 +90,15 @@ internal static class IncomingPacs008Mapping
         return new(type, Value(party, "Nm"), identifier, bill, Address(Child(party, "PstlAdr")), bic, member, Account(account));
     }
 
-    private sealed class PartyFields
-    {
-        public PartyFields(
-        int? type,
-        string? name,
-        string? identifier,
-        string? bill,
-        Pacs008PostalAddressInput? address,
-        string? bic,
-        string? member,
-        string? account)
-        {
-            Type = type;
-            Name = name;
-            Identifier = identifier;
-            Bill = bill;
-            Address = address;
-            Bic = bic;
-            Member = member;
-            Account = account;
-        }
-
-        public int? Type { get; init; }
-        public string? Name { get; init; }
-        public string? Identifier { get; init; }
-        public string? Bill { get; init; }
-        public Pacs008PostalAddressInput? Address { get; init; }
-        public string? Bic { get; init; }
-        public string? Member { get; init; }
-        public string? Account { get; init; }
-    }
+    private sealed record PartyFields(
+        int? Type,
+        string? Name,
+        string? Identifier,
+        string? Bill,
+        Pacs008PostalAddressInput? Address,
+        string? Bic,
+        string? Member,
+        string? Account);
 
     private static Pacs008UltimatePartyInput? Ultimate(XElement? party)
     {

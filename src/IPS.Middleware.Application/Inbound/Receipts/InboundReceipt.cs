@@ -40,81 +40,17 @@ public sealed class InboundReceipt
     }
 }
 
-public sealed class InboundRegistration
-{
-    public InboundRegistration(Guid journalId, bool created, InboundProcessingStatus status)
-    {
-        JournalId = journalId;
-        Created = created;
-        Status = status;
-    }
+public sealed record InboundRegistration(Guid JournalId, bool Created, InboundProcessingStatus Status);
 
-    public Guid JournalId { get; init; }
-    public bool Created { get; init; }
-    public InboundProcessingStatus Status { get; init; }
-}
+public sealed record InboundClaim(Guid JournalId, Guid Token, DateTimeOffset ExpiresAtUtc);
 
-public sealed class InboundClaim
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    public InboundClaim(Guid journalId, Guid token, DateTimeOffset expiresAtUtc)
-    {
-        JournalId = journalId;
-        Token = token;
-        ExpiresAtUtc = expiresAtUtc;
-    }
+public sealed record OwnedInboundReceipt(Guid JournalId, string ParticipantBic, DateTimeOffset ReceivedAtUtc);
 
-    public Guid JournalId { get; init; }
-    public Guid Token { get; init; }
-    public DateTimeOffset ExpiresAtUtc { get; init; }
-
-    public InboundClaim(InboundClaim original)
-    {
-        JournalId = original.JournalId;
-        Token = original.Token;
-        ExpiresAtUtc = original.ExpiresAtUtc;
-    }
-}
-
-public sealed class OwnedInboundReceipt
-{
-    public OwnedInboundReceipt(Guid journalId, string participantBic, DateTimeOffset receivedAtUtc)
-    {
-        JournalId = journalId;
-        ParticipantBic = participantBic;
-        ReceivedAtUtc = receivedAtUtc;
-    }
-
-    public Guid JournalId { get; init; }
-    public string ParticipantBic { get; init; }
-    public DateTimeOffset ReceivedAtUtc { get; init; }
-}
-
-public sealed class StoredInboundReceipt
-{
-    public StoredInboundReceipt(
-        Guid journalId,
-        InboundReceipt receipt,
-        InboundProcessingStatus status,
-        string? holdReason,
-        DateTimeOffset? nextActionAtUtc,
-        long duplicateCount,
-        DateTimeOffset? lastDuplicateAtUtc)
-    {
-        JournalId = journalId;
-        Receipt = receipt;
-        Status = status;
-        HoldReason = holdReason;
-        NextActionAtUtc = nextActionAtUtc;
-        DuplicateCount = duplicateCount;
-        LastDuplicateAtUtc = lastDuplicateAtUtc;
-    }
-
-    public Guid JournalId { get; init; }
-    public InboundReceipt Receipt { get; init; }
-    public InboundProcessingStatus Status { get; init; }
-    public string? HoldReason { get; init; }
-    public DateTimeOffset? NextActionAtUtc { get; init; }
-    public long DuplicateCount { get; init; }
-    public DateTimeOffset? LastDuplicateAtUtc { get; init; }
-}
+public sealed record StoredInboundReceipt(
+    Guid JournalId,
+    InboundReceipt Receipt,
+    InboundProcessingStatus Status,
+    string? HoldReason,
+    DateTimeOffset? NextActionAtUtc,
+    long DuplicateCount,
+    DateTimeOffset? LastDuplicateAtUtc);

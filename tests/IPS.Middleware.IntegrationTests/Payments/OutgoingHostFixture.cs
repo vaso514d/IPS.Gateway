@@ -66,7 +66,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
     public static Pacs008InstantPaymentRequestDto Request(string reference = "outgoing")
     {
         var now = DateTimeOffset.UtcNow;
-        return IncomingPacs008CoreMapping.ToContract(new Application.Payments.Pacs008.Pacs008Request(Pacs008Fixture.Request()) { CreationDateTime = now.AddMilliseconds(-500), AcceptanceDateTime = now }) with
+        return IncomingPacs008CoreMapping.ToContract(Pacs008Fixture.Request() with { CreationDateTime = now.AddMilliseconds(-500), AcceptanceDateTime = now }) with
         {
             ClientReference = reference
         };

@@ -4,45 +4,11 @@ using IPS.Middleware.Application.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Execution;
 
-public sealed class OutgoingIntake
-{
-    public OutgoingIntake(OutgoingStatus status, bool created, DateTimeOffset committedAtUtc)
-    {
-        Status = status;
-        Created = created;
-        CommittedAtUtc = committedAtUtc;
-    }
+public sealed record OutgoingIntake(OutgoingStatus Status, bool Created, DateTimeOffset CommittedAtUtc);
 
-    public OutgoingStatus Status { get; init; }
-    public bool Created { get; init; }
-    public DateTimeOffset CommittedAtUtc { get; init; }
-}
+public sealed record OutgoingAcceptance(OutgoingIntake? Intake, IReadOnlyList<IntakeValidationError> Errors);
 
-public sealed class OutgoingAcceptance
-{
-    public OutgoingAcceptance(OutgoingIntake? intake, IReadOnlyList<IntakeValidationError> errors)
-    {
-        Intake = intake;
-        Errors = errors;
-    }
-
-    public OutgoingIntake? Intake { get; init; }
-    public IReadOnlyList<IntakeValidationError> Errors { get; init; }
-}
-
-public sealed class OutgoingSubmissionResult
-{
-    public OutgoingSubmissionResult(OutgoingStatus? status, bool timedOut, IReadOnlyList<IntakeValidationError> errors)
-    {
-        Status = status;
-        TimedOut = timedOut;
-        Errors = errors;
-    }
-
-    public OutgoingStatus? Status { get; init; }
-    public bool TimedOut { get; init; }
-    public IReadOnlyList<IntakeValidationError> Errors { get; init; }
-}
+public sealed record OutgoingSubmissionResult(OutgoingStatus? Status, bool TimedOut, IReadOnlyList<IntakeValidationError> Errors);
 
 /// <summary>Fresh execution scopes and service-owned admission; caller tokens only govern intake and reads.</summary>
 public interface IOutgoingExecution

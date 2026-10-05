@@ -27,17 +27,17 @@ public sealed class IncomingProcessingStateTests
 
         if (core == "unknown")
         {
-            payment.RecordCoreResult(new(CoreOutcome.Unknown, Now, description: "timeout"), Now);
+            payment.RecordCoreResult(new(CoreOutcome.Unknown, Now, Description: "timeout"), Now);
         }
 
         if (core == "accepted")
         {
-            payment.RecordCoreResult(new(CoreOutcome.Accepted, Now, description: "credited"), Now);
+            payment.RecordCoreResult(new(CoreOutcome.Accepted, Now, Description: "credited"), Now);
         }
 
         if (core.StartsWith("rejected:", StringComparison.Ordinal))
         {
-            payment.RecordCoreResult(new(CoreOutcome.Rejected, Now, reasonCode: core["rejected:".Length..], description: "refused"), Now);
+            payment.RecordCoreResult(new(CoreOutcome.Rejected, Now, ReasonCode: core["rejected:".Length..], Description: "refused"), Now);
         }
 
         payment.DecideIps(withinReplyWindow, Now.AddSeconds(1));
@@ -50,7 +50,7 @@ public sealed class IncomingProcessingStateTests
     {
         var payment = IncomingPayment.Register(Guid.NewGuid(), "BAGAGE22", "E2E", Now);
         payment.BeginSubmission(Now);
-        payment.RecordCoreResult(new(CoreOutcome.Accepted, Now.AddSeconds(5), coreReference: "CBS-17"), Now.AddSeconds(45));
+        payment.RecordCoreResult(new(CoreOutcome.Accepted, Now.AddSeconds(5), CoreReference: "CBS-17"), Now.AddSeconds(45));
         payment.DecideIps(false, Now.AddSeconds(45));
         Assert.Equal(CoreOutcome.Accepted, payment.CoreStatus);
         Assert.False(payment.IpsDecision!.Accepted);
@@ -70,7 +70,7 @@ public sealed class IncomingProcessingStateTests
         payment.RecordCoreResult(first, Now);
         payment.DecideIps(true, Now);
         var decision = payment.IpsDecision;
-        payment.RecordCoreResult(new CorePaymentResult(first) { ProcessedAtUtc = Now.AddMinutes(1), CoreReference = "SECOND" }, Now.AddMinutes(1));
+        payment.RecordCoreResult(first with { ProcessedAtUtc = Now.AddMinutes(1), CoreReference = "SECOND" }, Now.AddMinutes(1));
         Assert.Equal(first, payment.CoreResult);
         payment.RecordCoreResult(new(CoreOutcome.Rejected, Now.AddMinutes(2)), Now.AddMinutes(2));
         Assert.Equal(first, payment.CoreResult);

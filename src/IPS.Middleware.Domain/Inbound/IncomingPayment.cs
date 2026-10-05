@@ -1,8 +1,11 @@
 namespace IPS.Middleware.Domain.Inbound;
-/// <summary>A payment received from IPS, identified by receiving participant and exact EndToEndId.</summary>
+
+// A payment received from IPS, identified by receiving participant and exact EndToEndId.
 public sealed class IncomingPayment : AggregateRoot
 {
     private const string NoFinalResult = "Core system did not return a final payment result within the reply window.";
+    private const string MissingFinalResultReason = "MS03";
+
     private IncomingPayment()
     {
     }
@@ -11,14 +14,15 @@ public sealed class IncomingPayment : AggregateRoot
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(participantBic);
         ArgumentException.ThrowIfNullOrEmpty(endToEndId);
+
         ParticipantBic = participantBic.Trim().ToUpperInvariant();
         // Kept exactly as received: it is the external CBS idempotency and status reference.
         EndToEndId = endToEndId;
         RegisteredAtUtc = at.ToUniversalTime();
-        Raise((eventId, sequence) => new IncomingPaymentRegistered(eventId, Id, sequence, RegisteredAtUtc, ParticipantBic, EndToEndId));
+
+        Raise(new IncomingPaymentRegistered(ParticipantBic, EndToEndId), RegisteredAtUtc);
     }
 
-    public static IncomingPayment Register(Guid id, string participantBic, string endToEndId, DateTimeOffset at) => new(id, participantBic, endToEndId, at);
     public string ParticipantBic { get; private set; } = string.Empty;
     public string EndToEndId { get; private set; } = string.Empty;
     public DateTimeOffset RegisteredAtUtc { get; private set; }
@@ -33,11 +37,22 @@ public sealed class IncomingPayment : AggregateRoot
     public string? IpsReasonCode { get; private set; }
     public string? IpsDescription { get; private set; }
     public IncomingFollowUp FollowUp { get; private set; }
+    public ReversalDelivery Reversal { get; private set; }
+    public DateTimeOffset? ReversalObservedAtUtc { get; private set; }
+    public string? ManualReviewReason { get; private set; }
+
     public bool HasFinalCoreOutcome => CoreStatus is CoreOutcome.Accepted or CoreOutcome.Rejected;
-    public CorePaymentResult? CoreResult => CoreProcessedAtUtc is { } at
-        ? new(CoreStatus, at, CoreReference, CoreReasonCode, CoreInternalErrorCode, CoreDescription) : null;
+
+    public CorePaymentResult? CoreResult => CoreProcessedAtUtc is { } processedAt
+        ? new(CoreStatus, processedAt, CoreReference, CoreReasonCode, CoreInternalErrorCode, CoreDescription)
+        : null;
+
     public IncomingIpsDecision? IpsDecision => IpsAccepted is { } accepted
-        ? new(accepted, IpsDecidedAtUtc!.Value, IpsReasonCode, IpsDescription) : null;
+        ? new(accepted, IpsDecidedAtUtc!.Value, IpsReasonCode, IpsDescription)
+        : null;
+
+    public static IncomingPayment Register(Guid id, string participantBic, string endToEndId, DateTimeOffset at) =>
+        new(id, participantBic, endToEndId, at);
 
     public void BeginSubmission(DateTimeOffset at)
     {
@@ -47,12 +62,13 @@ public sealed class IncomingPayment : AggregateRoot
         }
 
         CoreStatus = CoreOutcome.SubmissionStarted;
-        Record(IncomingProcessingOperation.SubmissionStarted, at);
+        RecordProcessing(IncomingProcessingOperation.SubmissionStarted, at);
     }
 
     public void RecordCoreResult(CorePaymentResult result, DateTimeOffset observedAt)
     {
-        if (result.Status is not (CoreOutcome.Unknown or CoreOutcome.Accepted or CoreOutcome.Rejected) || CoreStatus == CoreOutcome.NotSubmitted)
+        var supported = result.Status is CoreOutcome.Unknown or CoreOutcome.Accepted or CoreOutcome.Rejected;
+        if (!supported || CoreStatus == CoreOutcome.NotSubmitted)
         {
             throw new InvalidOperationException("A CBS outcome requires a submission marker and a supported outcome.");
         }
@@ -74,52 +90,34 @@ public sealed class IncomingPayment : AggregateRoot
             FollowUp = RequiredFollowUp();
         }
 
-        Record(IncomingProcessingOperation.CoreOutcomeRecorded, observedAt, result);
+        RecordProcessing(IncomingProcessingOperation.CoreOutcomeRecorded, observedAt, result);
     }
 
+    // Only a final CBS outcome inside the reply window decides the reply; anything else is RJCT/MS03.
     public void DecideIps(bool withinReplyWindow, DateTimeOffset at)
     {
         if (IpsAccepted is not null)
         {
             return;
         }
-        // Only a final CBS outcome inside the reply window decides the reply; anything else is RJCT/MS03.
-        var final = withinReplyWindow && HasFinalCoreOutcome;
-        IpsAccepted = final && CoreStatus == CoreOutcome.Accepted;
+
+        var decidedByCore = withinReplyWindow && HasFinalCoreOutcome;
+        IpsAccepted = decidedByCore && CoreStatus == CoreOutcome.Accepted;
         IpsDecidedAtUtc = at.ToUniversalTime();
-        IpsReasonCode = IpsAccepted.Value ? null : final && !string.IsNullOrWhiteSpace(CoreReasonCode) ? CoreReasonCode : "MS03";
-        IpsDescription = final ? CoreDescription : NoFinalResult;
+        IpsReasonCode = IpsAccepted.Value ? null : RejectionReasonCode(decidedByCore);
+        IpsDescription = decidedByCore ? CoreDescription : NoFinalResult;
         FollowUp = RequiredFollowUp();
-        Record(IncomingProcessingOperation.IpsDecisionRecorded, at);
+
+        RecordProcessing(IncomingProcessingOperation.IpsDecisionRecorded, at);
     }
-
-    // A final outcome keeps its original time and details; a contradicting final report requires manual review.
-    private void ObserveAgain(CorePaymentResult result, DateTimeOffset observedAt)
-    {
-        var conflict = result.Status is CoreOutcome.Accepted or CoreOutcome.Rejected && result.Status != CoreStatus;
-        if (conflict)
-        {
-            FollowUp = IncomingFollowUp.ManualReviewRequired;
-        }
-
-        Record(conflict ? IncomingProcessingOperation.OutcomeConflictObserved : IncomingProcessingOperation.OutcomeObserved, observedAt, result);
-    }
-
-    private IncomingFollowUp RequiredFollowUp() => this switch
-    {
-        { FollowUp: IncomingFollowUp.ManualReviewRequired } => IncomingFollowUp.ManualReviewRequired,
-        { IpsAccepted: true } => IncomingFollowUp.None,
-        { CoreStatus: CoreOutcome.Accepted } => IncomingFollowUp.ReversalRequired,
-        { CoreStatus: CoreOutcome.SubmissionStarted or CoreOutcome.Unknown } => IncomingFollowUp.ReconciliationRequired,
-        _ => IncomingFollowUp.None
-    };
-    public ReversalDelivery Reversal { get; private set; }
-    public DateTimeOffset? ReversalObservedAtUtc { get; private set; }
-    public string? ManualReviewReason { get; private set; }
 
     public void BeginReversal(DateTimeOffset at)
     {
-        if (IpsAccepted != false || CoreStatus != CoreOutcome.Accepted || FollowUp != IncomingFollowUp.ReversalRequired || Reversal != ReversalDelivery.None)
+        var reversible = IpsAccepted == false
+            && CoreStatus == CoreOutcome.Accepted
+            && FollowUp == IncomingFollowUp.ReversalRequired
+            && Reversal == ReversalDelivery.None;
+        if (!reversible)
         {
             throw new InvalidOperationException("Only an unreversed credit rejected by IPS can start reversal.");
         }
@@ -130,16 +128,19 @@ public sealed class IncomingPayment : AggregateRoot
 
     public void RecordReversalDelivery(ReversalDelivery delivery, DateTimeOffset at)
     {
-        if (Reversal != ReversalDelivery.Started || delivery is not (ReversalDelivery.Accepted or ReversalDelivery.Unsuccessful or ReversalDelivery.Uncertain))
+        var observable = delivery is ReversalDelivery.Accepted or ReversalDelivery.Unsuccessful or ReversalDelivery.Uncertain;
+        if (Reversal != ReversalDelivery.Started || !observable)
         {
             throw new InvalidOperationException("A marked reversal accepts one delivery observation, never a completion inference.");
         }
 
         Reversal = delivery;
         ReversalObservedAtUtc = at.ToUniversalTime();
-        RequireManualReview(delivery == ReversalDelivery.Accepted
+
+        var reason = delivery == ReversalDelivery.Accepted
             ? "CBS accepted the reversal request; completion requires authoritative evidence."
-            : "Reversal delivery is unsuccessful or uncertain; do not automatically repeat it.", at);
+            : "Reversal delivery is unsuccessful or uncertain; do not automatically repeat it.";
+        RequireManualReview(reason, at);
     }
 
     public void RequireManualReview(string reason, DateTimeOffset at)
@@ -155,26 +156,47 @@ public sealed class IncomingPayment : AggregateRoot
         RecordFollowUp(at);
     }
 
-    private void RecordFollowUp(DateTimeOffset at) => Raise((id, sequence) => new IncomingReconciliationRecorded(id, Id, sequence, at.ToUniversalTime(),
-            CoreStatus, IpsDecision!, FollowUp, Reversal, ReversalObservedAtUtc, ManualReviewReason));
-    private void Record(IncomingProcessingOperation operation, DateTimeOffset at, CorePaymentResult? observed = null) => Raise((id, sequence) => new IncomingProcessingRecorded(id, Id, sequence, at.ToUniversalTime(),
-            operation, CoreStatus, CoreResult, IpsDecision, FollowUp, observed));
-}
-
-public sealed class IncomingPaymentRegistered : DomainEvent
-{
-    public IncomingPaymentRegistered(
-        Guid eventId,
-        Guid aggregateId,
-        int sequence,
-        DateTimeOffset occurredAtUtc,
-        string participantBic,
-        string endToEndId) : base(eventId, aggregateId, sequence, occurredAtUtc)
+    // A final outcome keeps its original time and details; a contradicting final report requires manual review.
+    private void ObserveAgain(CorePaymentResult result, DateTimeOffset observedAt)
     {
-        ParticipantBic = participantBic;
-        EndToEndId = endToEndId;
+        var conflict = result.Status is CoreOutcome.Accepted or CoreOutcome.Rejected && result.Status != CoreStatus;
+        if (conflict)
+        {
+            FollowUp = IncomingFollowUp.ManualReviewRequired;
+        }
+
+        var operation = conflict ? IncomingProcessingOperation.OutcomeConflictObserved : IncomingProcessingOperation.OutcomeObserved;
+        RecordProcessing(operation, observedAt, result);
     }
 
-    public string ParticipantBic { get; init; }
-    public string EndToEndId { get; init; }
+    private string RejectionReasonCode(bool decidedByCore) =>
+        decidedByCore && !string.IsNullOrWhiteSpace(CoreReasonCode) ? CoreReasonCode : MissingFinalResultReason;
+
+    private IncomingFollowUp RequiredFollowUp() => this switch
+    {
+        { FollowUp: IncomingFollowUp.ManualReviewRequired } => IncomingFollowUp.ManualReviewRequired,
+        { IpsAccepted: true } => IncomingFollowUp.None,
+        { CoreStatus: CoreOutcome.Accepted } => IncomingFollowUp.ReversalRequired,
+        { CoreStatus: CoreOutcome.SubmissionStarted or CoreOutcome.Unknown } => IncomingFollowUp.ReconciliationRequired,
+        _ => IncomingFollowUp.None
+    };
+
+    private void RecordProcessing(IncomingProcessingOperation operation, DateTimeOffset at, CorePaymentResult? observed = null)
+    {
+        Raise(new IncomingProcessingRecorded(operation, CoreStatus, CoreResult, IpsDecision, FollowUp, observed), at);
+    }
+
+    private void RecordFollowUp(DateTimeOffset at)
+    {
+        var recorded = new IncomingReconciliationRecorded(
+            CoreStatus,
+            IpsDecision!,
+            FollowUp,
+            Reversal,
+            ReversalObservedAtUtc,
+            ManualReviewReason);
+        Raise(recorded, at);
+    }
 }
+
+public sealed record IncomingPaymentRegistered(string ParticipantBic, string EndToEndId) : DomainEvent;

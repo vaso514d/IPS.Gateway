@@ -111,7 +111,7 @@ public sealed class PaymentPreparationTests
         var now = Now;
         if (situation == "wrong-token")
         {
-            claim = new TransactionClaim(claim)
+            claim = claim with
             {
                 Token = Guid.NewGuid()
             };
@@ -119,7 +119,7 @@ public sealed class PaymentPreparationTests
 
         if (situation == "wrong-payment")
         {
-            claim = new TransactionClaim(claim)
+            claim = claim with
             {
                 TransactionId = Guid.NewGuid()
             };

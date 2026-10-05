@@ -44,7 +44,7 @@ public sealed class IncomingPaymentTests
         var second = await test.ReceiveAsync(2);
         var created = await test.RegisterAsync(first, Incoming(message: "MSG-1"));
         // Equal contents restated: numerically equal amount, the same instant at another offset, and fresh lists.
-        var existing = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => new Pacs008Request(r) { Amount = 12.5m, AcceptanceDateTime = Now.ToOffset(TimeSpan.FromHours(4)), InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(r.InitiationChannelInstrument!) { InstrumentCodes = new List<string> { "QR", "NFC" } } }));
+        var existing = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => r with { Amount = 12.5m, AcceptanceDateTime = Now.ToOffset(TimeSpan.FromHours(4)), InitiationChannelInstrument = r.InitiationChannelInstrument! with { InstrumentCodes = new List<string> { "QR", "NFC" } } }));
         Assert.Equal(IncomingRegistrationOutcome.Created, created.Outcome);
         Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Existing, created.PaymentId), existing, strict: true);
         await using var read = test.Database.Context();
@@ -80,10 +80,10 @@ public sealed class IncomingPaymentTests
         var created = await test.RegisterAsync(first, original);
         var conflict = await test.RegisterAsync(second, Incoming(message: "MSG-2", change: r => change switch
         {
-            "amount" => new Pacs008Request(r) { Amount = 12.51m },
-            "order" => new Pacs008Request(r) { InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(r.InitiationChannelInstrument!) { InstrumentCodes = ["NFC", "QR"] } },
-            "missing" => new Pacs008Request(r) { PaymentInitiation = new Pacs008PaymentInitiationInput(r.PaymentInitiation!) { Geolocation = null } },
-            _ => new Pacs008Request(r) { Creditor = new Pacs008CreditorInput(r.Creditor!) { Name = "creditor" } }
+            "amount" => r with { Amount = 12.51m },
+            "order" => r with { InitiationChannelInstrument = r.InitiationChannelInstrument! with { InstrumentCodes = ["NFC", "QR"] } },
+            "missing" => r with { PaymentInitiation = r.PaymentInitiation! with { Geolocation = null } },
+            _ => r with { Creditor = r.Creditor! with { Name = "creditor" } }
         }));
         Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, created.PaymentId), conflict, strict: true);
         await using var read = test.Database.Context();
@@ -168,7 +168,7 @@ public sealed class IncomingPaymentTests
         var contents = new[]
         {
             Incoming(),
-            conflicting ? Incoming(change: r => new Pacs008Request(r) { Amount = 99m }) : Incoming(message: "MSG-2")
+            conflicting ? Incoming(change: r => r with  { Amount = 99m }) : Incoming(message: "MSG-2")
         };
         barrier.Armed = true;
         var results = await Task.WhenAll(claims.Select((claim, index) => test.RegisterAsync(claim, contents[index])));
@@ -209,7 +209,7 @@ public sealed class IncomingPaymentTests
         await using var test = await Harness.CreateAsync();
         var canonical = await test.RegisterNewAsync(1, "E2E-1");
         var claim = await test.ReceiveAsync(2);
-        var conflict = Incoming(message: "CONFLICT", change: r => new Pacs008Request(r) { Amount = 99m });
+        var conflict = Incoming(message: "CONFLICT", change: r => r with { Amount = 99m });
         using var cancellation = new CancellationTokenSource();
         await using (var db = test.Database.Context(cancel ? new CancelAfterEntities(cancellation) : new FailEventSave()))
         {
@@ -279,15 +279,15 @@ public sealed class IncomingPaymentTests
         await using (var db = test.Database.Context())
         {
             var work = new InboundWorkRepository(db);
-            Assert.False(await work.StageOriginalReferencesAsync(new InboundClaim(claim) { Token = Guid.NewGuid() }, original, Now, default));
+            Assert.False(await work.StageOriginalReferencesAsync(claim with { Token = Guid.NewGuid() }, original, Now, default));
             Assert.False(await work.StageOriginalReferencesAsync(claim, original, Now + Lease, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
             Assert.Null(await new InboundReceiptRepository(db).ReadOriginalReferencesAsync(claim.JournalId, default));
             Assert.True(await work.StageOriginalReferencesAsync(claim, original, Now, default));
             await new UnitOfWork(db).SaveAsync();
-            Assert.True(await work.StageOriginalReferencesAsync(claim, new IncomingPacs008Reference(original) { }, Now, default));
+            Assert.True(await work.StageOriginalReferencesAsync(claim, original with { }, Now, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
-            await Assert.ThrowsAsync<InvalidOperationException>(() => work.StageOriginalReferencesAsync(claim, new IncomingPacs008Reference(original) { BusinessMessageId = "CHANGED" }, Now, default));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => work.StageOriginalReferencesAsync(claim, original with { BusinessMessageId = "CHANGED" }, Now, default));
             Assert.Equal(0, await new UnitOfWork(db).SaveAsync());
         }
 
@@ -330,7 +330,7 @@ public sealed class IncomingPaymentTests
         await using var owner = test.Database.Context();
         var ownerWork = Work(owner, Now + Lease);
         var claim = (await ownerWork.AcquireAsync(id, Lease, default))!;
-        Assert.False(await test.ReleaseAsync(new IncomingPaymentClaim(claim) { Token = Guid.NewGuid() }, Now.AddMinutes(5)));
+        Assert.False(await test.ReleaseAsync(claim with { Token = Guid.NewGuid() }, Now.AddMinutes(5)));
         test.Clock.Now = Now + Lease + Lease;
         Assert.False(await test.ReleaseAsync(claim, Now.AddMinutes(5)));
         var replacement = (await test.AcquireAsync(id))!;

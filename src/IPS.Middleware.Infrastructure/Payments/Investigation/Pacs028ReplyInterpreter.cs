@@ -26,7 +26,7 @@ public sealed class Pacs028ReplyInterpreter(IReadOnlyCollection<X509Certificate2
             return new(ambiguous ? InvestigationOutcome.Unresolved : InvestigationOutcome.OriginalRejected, payment.Details);
         }
 
-        var inquiry = _replies.Interpret(response, new IpsReplyCorrelation(original) { MessageId = investigationMessageId }, Pacs028Xml.MessageDefinition);
+        var inquiry = _replies.Interpret(response, original with { MessageId = investigationMessageId }, Pacs028Xml.MessageDefinition);
         return new(inquiry.Status == IpsReplyStatus.Rejected && inquiry.Details.ReasonCode == "AG09" &&
             inquiry.Details.IpsInternalCode == TransactionNotFound
             ? InvestigationOutcome.NotFound : InvestigationOutcome.Unresolved, inquiry.Details);

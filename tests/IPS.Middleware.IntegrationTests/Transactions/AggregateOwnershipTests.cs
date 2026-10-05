@@ -63,7 +63,7 @@ public sealed class AggregateOwnershipTests
         await using (var invalid = database.Session())
         {
             var payment = Assert.IsType<OutgoingPayment>(await invalid.Payments.FindAsync(id, default));
-            Assert.False(invalid.Work.StageCompletion(payment, new TransactionClaim(claim) { Token = Guid.NewGuid() }, Now, null));
+            Assert.False(invalid.Work.StageCompletion(payment, claim with { Token = Guid.NewGuid() }, Now, null));
             Assert.False(invalid.Work.StageCompletion(payment, claim, Now.Add(Lease), null));
             Assert.Equal(0, await invalid.Unit.SaveAsync(default));
         }

@@ -357,7 +357,7 @@ public sealed class IncomingReconciliationTests
         processing = new(owned);
         snapshot = (await processing.ReadAsync(id, default))!;
         snapshot.Payment.BeginReversal(test.Time.Now);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, new ReversalNotification(notification) { EndToEndId = "OTHER" }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification with { EndToEndId = "OTHER" }));
         var call = await processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification);
         await unit.SaveAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification));

@@ -5,6 +5,7 @@ namespace IPS.Middleware.Domain.Transactions;
 public sealed class OutgoingPayment : AggregateRoot
 {
     private StateMachine<TransactionStatus, PaymentOperation>? _machine;
+
     private OutgoingPayment()
     {
     }
@@ -13,17 +14,18 @@ public sealed class OutgoingPayment : AggregateRoot
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(messageType);
         ArgumentException.ThrowIfNullOrWhiteSpace(clientReference);
+
         MessageType = messageType.Trim();
         ClientReference = clientReference.Trim();
         CreatedAtUtc = at.ToUniversalTime();
         CurrentStatus = TransactionStatus.Received;
         CurrentSource = StatusSource.Gateway;
         CurrentStatusAtUtc = CreatedAtUtc;
-        Raise((eventId, sequence) => new PaymentReceived(eventId, Id, sequence, CreatedAtUtc, MessageType, ClientReference));
+
+        Raise(new PaymentReceived(MessageType, ClientReference), CreatedAtUtc);
         CurrentSequence = EventSequence;
     }
 
-    public static OutgoingPayment Receive(Guid id, string messageType, string clientReference, DateTimeOffset at) => new(id, messageType, clientReference, at);
     public string MessageType { get; private set; } = string.Empty;
     public string ClientReference { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAtUtc { get; private set; }
@@ -34,46 +36,66 @@ public sealed class OutgoingPayment : AggregateRoot
     public string? CurrentReasonCode { get; private set; }
     public int? CurrentIpsInternalCode { get; private set; }
     public string? CurrentDescription { get; private set; }
-    public PaymentOutcome Current => new(CurrentStatus, CurrentSource, CurrentStatusAtUtc, CurrentSequence,
-        new(CurrentReasonCode, CurrentIpsInternalCode, CurrentDescription));
-    public bool IsFinal => CurrentStatus is TransactionStatus.Accepted or TransactionStatus.Rejected
-        or TransactionStatus.NotSent or TransactionStatus.ManuallyResolved;
 
-    public void BeginSending(DateTimeOffset at) => Transition(PaymentOperation.BeginSending, StatusSource.Gateway, at);
-    public void RecordAcceptance(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) => RecordOutcome(PaymentOperation.Accept, TransactionStatus.Accepted, source, at, details);
-    public void RecordRejection(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) => RecordOutcome(PaymentOperation.Reject, TransactionStatus.Rejected, source, at, details);
-    public void ScheduleConnectionRetry(DateTimeOffset at, PaymentDetails? details = null) => Transition(PaymentOperation.RetryConnection, StatusSource.Gateway, at, details);
-    public void RecordNotSent(DateTimeOffset at, PaymentDetails? details = null) => RecordOutcome(PaymentOperation.NotSent, TransactionStatus.NotSent, StatusSource.Gateway, at, details);
-    public void MarkOutcomeUnknown(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) => Transition(PaymentOperation.OutcomeUnknown, source, at, details);
-    public void BeginInvestigation(DateTimeOffset at) => Transition(PaymentOperation.BeginInvestigation, StatusSource.Recovery, at);
-    public void BeginResending(StatusSource source, DateTimeOffset at) => Transition(PaymentOperation.BeginResending, source, at);
-    public void RequireManualReview(DateTimeOffset at, PaymentDetails? details = null) => Transition(PaymentOperation.RequireManualReview, StatusSource.Recovery, at, details);
-    public void ResolveManually(DateTimeOffset at, PaymentDetails? details = null) => RecordOutcome(PaymentOperation.ResolveManually, TransactionStatus.ManuallyResolved, StatusSource.Operator, at, details);
+    public PaymentOutcome Current => new(
+        CurrentStatus,
+        CurrentSource,
+        CurrentStatusAtUtc,
+        CurrentSequence,
+        new PaymentDetails(CurrentReasonCode, CurrentIpsInternalCode, CurrentDescription));
+
+    public bool IsFinal => CurrentStatus is TransactionStatus.Accepted
+        or TransactionStatus.Rejected
+        or TransactionStatus.NotSent
+        or TransactionStatus.ManuallyResolved;
+
+    public static OutgoingPayment Receive(Guid id, string messageType, string clientReference, DateTimeOffset at) =>
+        new(id, messageType, clientReference, at);
+
+    public void BeginSending(DateTimeOffset at) =>
+        Transition(PaymentOperation.BeginSending, StatusSource.Gateway, at);
+
+    public void RecordAcceptance(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) =>
+        RecordOutcome(PaymentOperation.Accept, TransactionStatus.Accepted, source, at, details);
+
+    public void RecordRejection(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) =>
+        RecordOutcome(PaymentOperation.Reject, TransactionStatus.Rejected, source, at, details);
+
+    public void ScheduleConnectionRetry(DateTimeOffset at, PaymentDetails? details = null) =>
+        Transition(PaymentOperation.RetryConnection, StatusSource.Gateway, at, details);
+
+    public void RecordNotSent(DateTimeOffset at, PaymentDetails? details = null) =>
+        RecordOutcome(PaymentOperation.NotSent, TransactionStatus.NotSent, StatusSource.Gateway, at, details);
+
+    public void MarkOutcomeUnknown(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) =>
+        Transition(PaymentOperation.OutcomeUnknown, source, at, details);
+
+    public void BeginInvestigation(DateTimeOffset at) =>
+        Transition(PaymentOperation.BeginInvestigation, StatusSource.Recovery, at);
+
+    public void BeginResending(StatusSource source, DateTimeOffset at) =>
+        Transition(PaymentOperation.BeginResending, source, at);
+
+    public void RequireManualReview(DateTimeOffset at, PaymentDetails? details = null) =>
+        Transition(PaymentOperation.RequireManualReview, StatusSource.Recovery, at, details);
+
+    public void ResolveManually(DateTimeOffset at, PaymentDetails? details = null) =>
+        RecordOutcome(PaymentOperation.ResolveManually, TransactionStatus.ManuallyResolved, StatusSource.Operator, at, details);
+
     public void RecordStep(ProcessingStep step, DateTimeOffset at)
     {
-        if (!Enum.IsDefined(step))
-        {
-            throw new ArgumentOutOfRangeException(nameof(step));
-        }
-
-        Raise((eventId, sequence) => new PaymentProcessingObserved(eventId, Id, sequence, at.ToUniversalTime(), step, CurrentStatus));
+        RequireDefined(step);
+        Raise(new PaymentProcessingObserved(step, CurrentStatus), at);
     }
 
-    /// <summary>Record a technical failure that leaves the current state unchanged and retryable.</summary>
+    // A technical failure leaves the current state unchanged and retryable.
     public void RecordProcessingFailure(ProcessingStep step, DateTimeOffset at, string description)
     {
-        if (!Enum.IsDefined(step))
-        {
-            throw new ArgumentOutOfRangeException(nameof(step));
-        }
+        RequireDefined(step);
+        var normalized = new PaymentDetails(description: description).Description
+            ?? throw new ArgumentException("A failure description is required.", nameof(description));
 
-        var details = new PaymentDetails(description: description);
-        if (details.Description is null)
-        {
-            throw new ArgumentException("A failure description is required.", nameof(description));
-        }
-
-        Raise((eventId, sequence) => new PaymentProcessingFailed(eventId, Id, sequence, at.ToUniversalTime(), step, CurrentStatus, details.Description));
+        Raise(new PaymentProcessingFailed(step, CurrentStatus, normalized), at);
     }
 
     private void RecordOutcome(
@@ -83,86 +105,97 @@ public sealed class OutgoingPayment : AggregateRoot
         DateTimeOffset at,
         PaymentDetails? details)
     {
-        if (!Enum.IsDefined(source))
+        RequireDefined(source);
+        if (IsObservationOnly(operation))
         {
-            throw new ArgumentOutOfRangeException(nameof(source));
-        }
-        // Operator resolution is an explicit correction; ordinary final replies are observations.
-        if ((IsFinal && operation != PaymentOperation.ResolveManually) ||
-            (CurrentStatus == TransactionStatus.ManuallyResolved && operation == PaymentOperation.ResolveManually))
-        {
-            Raise((eventId, sequence) => new PaymentOutcomeObserved(eventId, Id, sequence, at.ToUniversalTime(),
-                CurrentStatus, reported, CurrentStatus != reported, source, details ?? new()));
+            Raise(new PaymentOutcomeObserved(CurrentStatus, reported, CurrentStatus != reported, source, details ?? new()), at);
             return;
         }
 
         Transition(operation, source, at, details);
     }
 
+    // Operator resolution is an explicit correction; any other final report on a final payment is only observed.
+    private bool IsObservationOnly(PaymentOperation operation) =>
+        operation == PaymentOperation.ResolveManually
+            ? CurrentStatus == TransactionStatus.ManuallyResolved
+            : IsFinal;
+
     private void Transition(PaymentOperation operation, StatusSource source, DateTimeOffset at, PaymentDetails? details = null)
     {
-        if (!Enum.IsDefined(source))
-        {
-            throw new ArgumentOutOfRangeException(nameof(source));
-        }
-
+        RequireDefined(source);
         var machine = _machine ??= ConfigureMachine();
         if (!machine.CanFire(operation))
         {
             throw new PaymentTransitionException(CurrentStatus, operation);
         }
 
-        var previous = CurrentStatus;
-        var normalized = details ?? new();
+        var previousStatus = CurrentStatus;
+        var reason = details ?? new PaymentDetails();
         machine.Fire(operation);
         CurrentSource = source;
         CurrentStatusAtUtc = at.ToUniversalTime();
-        CurrentReasonCode = normalized.ReasonCode;
-        CurrentIpsInternalCode = normalized.IpsInternalCode;
-        CurrentDescription = normalized.Description;
-        Raise((eventId, sequence) => new PaymentStateChanged(eventId, Id, sequence, CurrentStatusAtUtc,
-            operation, previous, CurrentStatus, source, normalized));
+        CurrentReasonCode = reason.ReasonCode;
+        CurrentIpsInternalCode = reason.IpsInternalCode;
+        CurrentDescription = reason.Description;
+
+        Raise(new PaymentStateChanged(operation, previousStatus, CurrentStatus, source, reason), CurrentStatusAtUtc);
         CurrentSequence = EventSequence;
     }
 
     private StateMachine<TransactionStatus, PaymentOperation> ConfigureMachine()
     {
         var machine = new StateMachine<TransactionStatus, PaymentOperation>(() => CurrentStatus, status => CurrentStatus = status);
+
         machine.Configure(TransactionStatus.Received)
             .Permit(PaymentOperation.BeginSending, TransactionStatus.Sending)
             .Permit(PaymentOperation.Reject, TransactionStatus.Rejected);
+
         machine.Configure(TransactionStatus.Sending)
             .Permit(PaymentOperation.Accept, TransactionStatus.Accepted)
             .Permit(PaymentOperation.Reject, TransactionStatus.Rejected)
             .Permit(PaymentOperation.NotSent, TransactionStatus.NotSent)
             .Permit(PaymentOperation.OutcomeUnknown, TransactionStatus.Uncertain)
             .Permit(PaymentOperation.RetryConnection, TransactionStatus.Received);
+
         machine.Configure(TransactionStatus.Uncertain)
             .Permit(PaymentOperation.BeginInvestigation, TransactionStatus.Investigating)
             .Permit(PaymentOperation.BeginResending, TransactionStatus.Resending)
             .Permit(PaymentOperation.RequireManualReview, TransactionStatus.ManualReview);
+
         machine.Configure(TransactionStatus.Investigating)
             .Permit(PaymentOperation.Accept, TransactionStatus.Accepted)
             .Permit(PaymentOperation.Reject, TransactionStatus.Rejected)
             .Permit(PaymentOperation.OutcomeUnknown, TransactionStatus.Uncertain)
             .Permit(PaymentOperation.BeginResending, TransactionStatus.Resending)
             .Permit(PaymentOperation.RequireManualReview, TransactionStatus.ManualReview);
+
         machine.Configure(TransactionStatus.Resending)
             .Permit(PaymentOperation.Accept, TransactionStatus.Accepted)
             .Permit(PaymentOperation.Reject, TransactionStatus.Rejected)
             .Permit(PaymentOperation.OutcomeUnknown, TransactionStatus.Uncertain)
             .Permit(PaymentOperation.RequireManualReview, TransactionStatus.ManualReview);
-        foreach (var state in new[]
-        {
+
+        TransactionStatus[] manuallyResolvable =
+        [
             TransactionStatus.Accepted,
             TransactionStatus.Rejected,
             TransactionStatus.NotSent,
             TransactionStatus.ManualReview
-        })
+        ];
+        foreach (var status in manuallyResolvable)
         {
-            machine.Configure(state).Permit(PaymentOperation.ResolveManually, TransactionStatus.ManuallyResolved);
+            machine.Configure(status).Permit(PaymentOperation.ResolveManually, TransactionStatus.ManuallyResolved);
         }
 
         return machine;
+    }
+
+    private static void RequireDefined<TEnum>(TEnum value) where TEnum : struct, Enum
+    {
+        if (!Enum.IsDefined(value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(value), value, $"Unknown {typeof(TEnum).Name}.");
+        }
     }
 }

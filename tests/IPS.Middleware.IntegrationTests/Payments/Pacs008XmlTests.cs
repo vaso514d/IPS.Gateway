@@ -39,10 +39,10 @@ public sealed class Pacs008XmlTests
     public void Full_profile_splits_text_without_loss_and_maps_optional_blocks()
     {
         var r = Request();
-        var input = new Pacs008Request(r)
+        var input = r with
         {
             CategoryPurposeCode = "othr",
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 Identifier = "ordinary",
                 BillIdentifier = "bill",
@@ -58,7 +58,7 @@ public sealed class Pacs008XmlTests
                     AddressLines = new string('a', 490)
                 }
             },
-            Creditor = new Pacs008CreditorInput(r.Creditor!)
+            Creditor = r.Creditor! with
             {
                 Type = 0,
                 Identifier = "400000002",
@@ -118,7 +118,7 @@ public sealed class Pacs008XmlTests
     public void Treasury_and_initiation_preserve_their_special_mapping()
     {
         var request = Request();
-        var doc = XDocument.Parse(Build(new Pacs008Request(request) { EndToEndId = "PSP-original", AcceptanceDateTime = Created.AddDays(-1), Creditor = new Pacs008CreditorInput(request.Creditor!) { ParticipantBic = "TRESGE22", Account = "300773150" } }));
+        var doc = XDocument.Parse(Build(request with { EndToEndId = "PSP-original", AcceptanceDateTime = Created.AddDays(-1), Creditor = request.Creditor! with { ParticipantBic = "TRESGE22", Account = "300773150" } }));
         var account = doc.Descendants(P + "CdtrAcct").Single();
         Assert.Empty(account.Descendants(P + "IBAN"));
         Assert.Equal("300773150", account.Element(P + "Id")!.Element(P + "Othr")!.Element(P + "Id")!.Value);
@@ -142,9 +142,9 @@ public sealed class Pacs008XmlTests
     public void Configured_protocol_codes_and_source_whitespace_normalization_are_preserved()
     {
         var request = Request();
-        var input = new Pacs008Request(request)
+        var input = request with
         {
-            Debtor = new Pacs008DebtorInput(request.Debtor!)
+            Debtor = request.Debtor! with
             {
                 Address = new()
                 {
@@ -195,7 +195,7 @@ public sealed class Pacs008XmlTests
     [InlineData(RemittanceDeliveryMethod.Sms, "SMSM")]
     public void Typed_remittance_methods_keep_the_protocol_codes(RemittanceDeliveryMethod method, string expected)
     {
-        var result = ValidatedPacs008.Validate(new Pacs008Request(Request())
+        var result = ValidatedPacs008.Validate(Request() with
         {
             InitiationChannelInstrument = new() { ChannelCode = "MOBL", InstrumentCodes = ["CARD"], ElectronicAddress = "address" }
         }, Policy);
@@ -221,7 +221,7 @@ public sealed class Pacs008XmlTests
         {
             System.Globalization.CultureInfo.CurrentCulture = new("fr-FR");
             var request = Request();
-            var xml = Build(new Pacs008Request(request) { Amount = 12.34000m, Debtor = new Pacs008DebtorInput(request.Debtor!) { Address = new() { StreetName = " ", AddressLines = "  " } }, PaymentInitiation = new(), Remittance = new() { Unstructured = " " } });
+            var xml = Build(request with { Amount = 12.34000m, Debtor = request.Debtor! with { Address = new() { StreetName = " ", AddressLines = "  " } }, PaymentInitiation = new(), Remittance = new() { Unstructured = " " } });
             var document = XDocument.Parse(xml);
             Assert.Equal("12.34", document.Descendants(P + "IntrBkSttlmAmt").Single().Value);
             Assert.Equal("2026-10-04T00:00:02.0000000Z", document.Descendants(H + "CreDt").Single().Value);
@@ -257,7 +257,7 @@ public sealed class Pacs008XmlTests
     [Fact]
     public void Accepted_currency_whitespace_is_normalized_before_schema_validation()
     {
-        var input = new Pacs008Request(Request())
+        var input = Request() with
         {
             Currency = "GEL\n"
         };

@@ -62,16 +62,4 @@ public sealed class Pacs028Xml(Pacs008ProtocolProfile profile)
     private static string Timestamp(DateTimeOffset value) => value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
 }
 
-public sealed class InvestigationMessageContext
-{
-    public InvestigationMessageContext(string messageId, string statusRequestId, DateTimeOffset createdAtUtc)
-    {
-        MessageId = messageId;
-        StatusRequestId = statusRequestId;
-        CreatedAtUtc = createdAtUtc;
-    }
-
-    public string MessageId { get; init; }
-    public string StatusRequestId { get; init; }
-    public DateTimeOffset CreatedAtUtc { get; init; }
-}
+public sealed record InvestigationMessageContext(string MessageId, string StatusRequestId, DateTimeOffset CreatedAtUtc);

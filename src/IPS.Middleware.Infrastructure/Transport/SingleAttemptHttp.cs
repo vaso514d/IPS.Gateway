@@ -6,21 +6,7 @@ using Polly;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
-internal sealed class HttpClientProfile
-{
-    public HttpClientProfile(HttpEndpointSettings endpoint, int connections, TimeSpan timeout, SslClientAuthenticationOptions tls)
-    {
-        Endpoint = endpoint;
-        Connections = connections;
-        Timeout = timeout;
-        Tls = tls;
-    }
-
-    public HttpEndpointSettings Endpoint { get; init; }
-    public int Connections { get; init; }
-    public TimeSpan Timeout { get; init; }
-    public SslClientAuthenticationOptions Tls { get; init; }
-}
+internal sealed record HttpClientProfile(HttpEndpointSettings Endpoint, int Connections, TimeSpan Timeout, SslClientAuthenticationOptions Tls);
 
 internal static class SingleAttemptHttp
 {

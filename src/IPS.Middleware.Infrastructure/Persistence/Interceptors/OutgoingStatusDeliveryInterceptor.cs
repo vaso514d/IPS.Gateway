@@ -47,7 +47,7 @@ internal sealed class OutgoingStatusDeliveryInterceptor : SaveRuleInterceptor
             var current = OutgoingStatusProjection.Read(db.Metadata(entry.Entity));
             foreach (var change in entry.Entity.PendingEvents.OfType<PaymentStateChanged>())
             {
-                var status = new Application.Payments.StatusDelivery.OutgoingStatus(current)
+                var status = current with
                 {
                     Sequence = change.Sequence,
                     Status = change.Status,

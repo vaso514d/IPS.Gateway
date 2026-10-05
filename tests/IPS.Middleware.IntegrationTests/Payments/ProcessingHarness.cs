@@ -46,7 +46,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
             .AcceptAsync(request, JsonSerializer.Serialize(request), default);
     }
 
-    public async Task<Guid> AcceptAsync(string reference = "processing") => (await AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = reference })).Intake!.Payment.Id;
+    public async Task<Guid> AcceptAsync(string reference = "processing") => (await AcceptAsync(Pacs008Fixture.Request() with { ClientReference = reference })).Intake!.Payment.Id;
     public async Task<PaymentOutcome?> ProcessAsync(Guid id, CancellationToken cancellationToken = default, params IInterceptor[] interceptors)
     {
         await using var session = Database.Session(interceptors);

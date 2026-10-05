@@ -22,15 +22,5 @@ internal static class PaymentJson
         { Version: AcceptedVersion } snapshot => snapshot.Accepted,
         { Version: var version } => throw new NotSupportedException($"Accepted payment snapshot version {version} is not supported.")
     };
-    private sealed class AcceptedSnapshot
-    {
-        public AcceptedSnapshot(int version, AcceptedPacs008 accepted)
-        {
-            Version = version;
-            Accepted = accepted;
-        }
-
-        public int Version { get; init; }
-        public AcceptedPacs008 Accepted { get; init; }
-    }
+    private sealed record AcceptedSnapshot(int Version, AcceptedPacs008 Accepted);
 }

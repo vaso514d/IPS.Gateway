@@ -41,14 +41,4 @@ public sealed class Pacs008Intake(
     }
 }
 
-public sealed class Pacs008IntakeResult
-{
-    public Pacs008IntakeResult(TransactionIntakeResult? intake, IReadOnlyList<IntakeValidationError> errors)
-    {
-        Intake = intake;
-        Errors = errors;
-    }
-
-    public TransactionIntakeResult? Intake { get; init; }
-    public IReadOnlyList<IntakeValidationError> Errors { get; init; }
-}
+public sealed record Pacs008IntakeResult(TransactionIntakeResult? Intake, IReadOnlyList<IntakeValidationError> Errors);

@@ -289,7 +289,7 @@ public sealed class Pacs008ProcessingTests
     public async Task Accepted_snapshot_fixes_payment_data_and_mapping_settings_at_intake()
     {
         await using var harness = await CreateAsync();
-        var request = new Pacs008Request(Pacs008Fixture.Request())
+        var request = Pacs008Fixture.Request() with
         {
             ClientReference = "snapshot",
             CategoryPurposeCode = "cash",
@@ -304,7 +304,7 @@ public sealed class Pacs008ProcessingTests
                 Type = 1,
                 Name = "Ultimate creditor"
             },
-            Debtor = new Pacs008DebtorInput(Pacs008Fixture.Request().Debtor!)
+            Debtor = Pacs008Fixture.Request().Debtor! with
             {
                 Identifier = "01001000001",
                 BillIdentifier = "BILL-1",
@@ -371,11 +371,11 @@ public sealed class Pacs008ProcessingTests
     public async Task Duplicate_intake_returns_the_original_without_replacing_or_processing_and_invalid_input_stores_nothing()
     {
         await using var harness = await CreateAsync();
-        var first = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = "duplicate" });
+        var first = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = "duplicate" });
         var original = await harness.ReadAsync(first.Intake!.Payment.Id);
         harness.Clock.Now = Start.AddSeconds(2);
         // A retry is recognised before validation, so even a body current policy rejects returns the stored payment.
-        var duplicate = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = " duplicate ", Amount = -1m }, new("NBGEGE22", "SEPA"));
+        var duplicate = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = " duplicate ", Amount = -1m }, new("NBGEGE22", "SEPA"));
         Assert.False(duplicate.Intake!.Created);
         Assert.Equal(first.Intake.Payment.Id, duplicate.Intake.Payment.Id);
         var stored = await harness.ReadAsync(first.Intake.Payment.Id);
@@ -384,7 +384,7 @@ public sealed class Pacs008ProcessingTests
         Assert.Equal((original.Message.MessageId, original.Message.TransactionId), (stored.Message.MessageId, stored.Message.TransactionId));
         Assert.Equal(["payment.received"], stored.Events);
         Assert.Empty(harness.Ips.Received);
-        var invalid = await harness.AcceptAsync(new Pacs008Request(Pacs008Fixture.Request()) { ClientReference = "invalid", Amount = -1m });
+        var invalid = await harness.AcceptAsync(Pacs008Fixture.Request() with { ClientReference = "invalid", Amount = -1m });
         Assert.Null(invalid.Intake);
         Assert.Contains(invalid.Errors, error => error.Field == "amount");
     }

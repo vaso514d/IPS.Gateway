@@ -50,46 +50,15 @@ public sealed class ValidatedPacs008
         CreditorAgent = creditorAgent;
         UltimateDebtor = ultimateDebtor;
         UltimateCreditor = ultimateCreditor;
-        PaymentInitiation = paymentInitiation is null ? null : new PaymentInitiation(paymentInitiation)
-        {
-            Geolocation = Snapshot(paymentInitiation.Geolocation)
-        };
-        InitiationChannel = initiationChannel is null ? null : new PaymentInitiationChannel(initiationChannel)
-        {
-            InstrumentCodes = Snapshot(initiationChannel.InstrumentCodes)
-        };
-        Remittance = remittance is null ? null : new PaymentRemittance(remittance)
-        {
-            Structured = Snapshot(remittance.Structured)
-        };
-    }
-
-    private static ValidatedPacs008 Normalize(Pacs008Request request, Pacs008Policy policy)
-    {
-        var debtor = request.Debtor!;
-        var creditor = request.Creditor!;
-        return new(
-            clientReference: request.ClientReference!.Trim(),
-            instructionId: request.InstructionId!.Trim(),
-            endToEndId: request.EndToEndId!.Trim(),
-            creationDateTime: request.CreationDateTime!.Value.ToUniversalTime(),
-            acceptanceDateTime: request.AcceptanceDateTime!.Value.ToUniversalTime(),
-            amount: request.Amount!.Value,
-            currency: request.Currency!.Trim(),
-            priority: request.InstructionPriority == "HIGH" ? PaymentPriority.High : PaymentPriority.Normal,
-            categoryPurposeCode: Optional(request.CategoryPurposeCode)?.ToUpperInvariant(),
-            participantBic: policy.ParticipantBic,
-            debtor: NormalizeParty(debtor, debtor.BillIdentifier, debtor.Address),
-            creditor: NormalizeParty(creditor, null, creditor.Address),
-            debtorAccount: new(debtor.Account!.Trim(), PaymentAccountKind.Iban),
-            creditorAccount: new(creditor.Account!.Trim(), policy.IsTreasury(creditor.ParticipantBic) ? PaymentAccountKind.Treasury : PaymentAccountKind.Iban),
-            debtorAgent: new(policy.ParticipantBic, Optional(debtor.IndirectParticipantBic)),
-            creditorAgent: new(creditor.ParticipantBic!.Trim(), Optional(creditor.IndirectParticipantBic)),
-            ultimateDebtor: request.UltimateDebtor is { } ultimateDebtor ? NormalizeParty(ultimateDebtor) : null,
-            ultimateCreditor: request.UltimateCreditor is { } ultimateCreditor ? NormalizeParty(ultimateCreditor) : null,
-            paymentInitiation: NormalizeInitiation(request.PaymentInitiation),
-            initiationChannel: NormalizeChannel(request.InitiationChannelInstrument),
-            remittance: NormalizeRemittance(request.Remittance));
+        PaymentInitiation = paymentInitiation is null
+            ? null
+            : paymentInitiation with { Geolocation = Snapshot(paymentInitiation.Geolocation) };
+        InitiationChannel = initiationChannel is null
+            ? null
+            : initiationChannel with { InstrumentCodes = Snapshot(initiationChannel.InstrumentCodes) };
+        Remittance = remittance is null
+            ? null
+            : remittance with { Structured = Snapshot(remittance.Structured) };
     }
 
     public string ClientReference { get; }
@@ -117,33 +86,80 @@ public sealed class ValidatedPacs008
     public static Pacs008ValidationResult Validate(Pacs008Request request, Pacs008Policy policy)
     {
         var result = new Pacs008Validator(policy).Validate(request);
-        var errors = result.Errors.Select(error => new IntakeValidationError(ErrorPath(error.PropertyName), error.ErrorMessage)).ToArray();
-        return new(result.IsValid ? Normalize(request, policy) : null, Array.AsReadOnly(errors));
+        if (!result.IsValid)
+        {
+            var errors = result.Errors
+                .Select(error => new IntakeValidationError(ErrorPath(error.PropertyName), error.ErrorMessage))
+                .ToArray();
+            return new Pacs008ValidationResult(null, Array.AsReadOnly(errors));
+        }
+
+        return new Pacs008ValidationResult(Normalize(request, policy), []);
+    }
+
+    private static ValidatedPacs008 Normalize(Pacs008Request request, Pacs008Policy policy)
+    {
+        var debtor = request.Debtor!;
+        var creditor = request.Creditor!;
+        var creditorAccountKind = policy.IsTreasury(creditor.ParticipantBic) ? PaymentAccountKind.Treasury : PaymentAccountKind.Iban;
+
+        return new ValidatedPacs008(
+            clientReference: request.ClientReference!.Trim(),
+            instructionId: request.InstructionId!.Trim(),
+            endToEndId: request.EndToEndId!.Trim(),
+            creationDateTime: request.CreationDateTime!.Value.ToUniversalTime(),
+            acceptanceDateTime: request.AcceptanceDateTime!.Value.ToUniversalTime(),
+            amount: request.Amount!.Value,
+            currency: request.Currency!.Trim(),
+            priority: request.InstructionPriority == "HIGH" ? PaymentPriority.High : PaymentPriority.Normal,
+            categoryPurposeCode: Optional(request.CategoryPurposeCode)?.ToUpperInvariant(),
+            participantBic: policy.ParticipantBic,
+            debtor: NormalizeParty(debtor, debtor.BillIdentifier, debtor.Address),
+            creditor: NormalizeParty(creditor, null, creditor.Address),
+            debtorAccount: new PaymentAccount(debtor.Account!.Trim(), PaymentAccountKind.Iban),
+            creditorAccount: new PaymentAccount(creditor.Account!.Trim(), creditorAccountKind),
+            debtorAgent: new PaymentAgent(policy.ParticipantBic, Optional(debtor.IndirectParticipantBic)),
+            creditorAgent: new PaymentAgent(creditor.ParticipantBic!.Trim(), Optional(creditor.IndirectParticipantBic)),
+            ultimateDebtor: request.UltimateDebtor is { } ultimateDebtor ? NormalizeParty(ultimateDebtor) : null,
+            ultimateCreditor: request.UltimateCreditor is { } ultimateCreditor ? NormalizeParty(ultimateCreditor) : null,
+            paymentInitiation: NormalizeInitiation(request.PaymentInitiation),
+            initiationChannel: NormalizeChannel(request.InitiationChannelInstrument),
+            remittance: NormalizeRemittance(request.Remittance));
     }
 
     // Retain the existing camel-case, unindexed error paths at this boundary.
-    private static string ErrorPath(string property) => string.Join('.',
-        Regex.Replace(property, @"\[\d+\]", "").Split('.').Select(part => char.ToLowerInvariant(part[0]) + part[1..]));
-    private static PaymentParty NormalizeParty(
-        Pacs008PartyInput party,
-        string? bill = null,
-        Pacs008PostalAddressInput? address = null) =>
-        new(
-            kind: (PaymentPartyKind)party.Type!.Value,
-            name: party.Name!.Trim(),
-            identifier: Optional(party.Identifier),
-            billIdentifier: Optional(bill),
-            address: NormalizeAddress(address));
+    private static string ErrorPath(string property)
+    {
+        var parts = Regex.Replace(property, @"\[\d+\]", "")
+            .Split('.')
+            .Select(part => char.ToLowerInvariant(part[0]) + part[1..]);
+        return string.Join('.', parts);
+    }
 
-    private static PaymentAddress? NormalizeAddress(Pacs008PostalAddressInput? address) =>
-        address is null ? null : new(
-            streetName: Optional(address.StreetName),
-            buildingNumber: Optional(address.BuildingNumber),
-            postCode: Optional(address.PostCode),
-            townName: Optional(address.TownName),
-            countrySubdivision: Optional(address.CountrySubdivision),
-            country: Optional(address.Country),
-            addressLines: address.AddressLines);
+    private static PaymentParty NormalizeParty(Pacs008PartyInput party, string? bill = null, Pacs008PostalAddressInput? address = null) =>
+        new(
+            Kind: (PaymentPartyKind)party.Type!.Value,
+            Name: party.Name!.Trim(),
+            Identifier: Optional(party.Identifier),
+            BillIdentifier: Optional(bill),
+            Address: NormalizeAddress(address));
+
+    private static PaymentAddress? NormalizeAddress(Pacs008PostalAddressInput? address)
+    {
+        if (address is null)
+        {
+            return null;
+        }
+
+        return new PaymentAddress(
+            StreetName: Optional(address.StreetName),
+            BuildingNumber: Optional(address.BuildingNumber),
+            PostCode: Optional(address.PostCode),
+            TownName: Optional(address.TownName),
+            CountrySubdivision: Optional(address.CountrySubdivision),
+            Country: Optional(address.Country),
+            AddressLines: address.AddressLines);
+    }
 
     private static PaymentInitiation? NormalizeInitiation(Pacs008PaymentInitiationInput? initiation)
     {
@@ -155,7 +171,7 @@ public sealed class ValidatedPacs008
         var geolocation = (initiation.Geolocation ?? [])
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Select(value => value.Trim());
-        return new(channelCode: Optional(initiation.ChannelCode), geolocation: Snapshot(geolocation));
+        return new PaymentInitiation(Optional(initiation.ChannelCode), Snapshot(geolocation));
     }
 
     private static PaymentInitiationChannel? NormalizeChannel(Pacs008InitiationChannelInstrumentInput? channel)
@@ -166,8 +182,7 @@ public sealed class ValidatedPacs008
         }
 
         var instruments = Snapshot(channel.InstrumentCodes!.Select(value => value.Trim()));
-        return new(channelCode: channel.ChannelCode!.Trim(), instrumentCodes: instruments,
-            electronicAddress: Optional(channel.ElectronicAddress));
+        return new PaymentInitiationChannel(channel.ChannelCode!.Trim(), instruments, Optional(channel.ElectronicAddress));
     }
 
     private static PaymentRemittance? NormalizeRemittance(Pacs008RemittanceInput? remittance)
@@ -178,28 +193,19 @@ public sealed class ValidatedPacs008
         }
 
         var references = Snapshot((remittance.Structured ?? []).Select(NormalizeReference));
-        return new(unstructured: Optional(remittance.Unstructured), structured: references);
+        return new PaymentRemittance(Optional(remittance.Unstructured), references);
     }
 
     private static PaymentRemittanceReference NormalizeReference(Pacs008StructuredRemittanceInput reference) =>
         new(
-            type: reference.ReferenceType!.Trim().ToUpperInvariant(),
-            reference: reference.Reference!.Trim(),
-            issuer: Optional(reference.ReferenceIssuer),
-            additionalInformation: Optional(reference.AdditionalInformation));
+            Type: reference.ReferenceType!.Trim().ToUpperInvariant(),
+            Reference: reference.Reference!.Trim(),
+            Issuer: Optional(reference.ReferenceIssuer),
+            AdditionalInformation: Optional(reference.AdditionalInformation));
 
     private static string? Optional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static IReadOnlyList<T> Snapshot<T>(IEnumerable<T> values) => Array.AsReadOnly(values.ToArray());
 }
 
-public sealed class Pacs008ValidationResult
-{
-    public Pacs008ValidationResult(ValidatedPacs008? payment, IReadOnlyList<IntakeValidationError> errors)
-    {
-        Payment = payment;
-        Errors = errors;
-    }
-
-    public ValidatedPacs008? Payment { get; init; }
-    public IReadOnlyList<IntakeValidationError> Errors { get; init; }
-}
+public sealed record Pacs008ValidationResult(ValidatedPacs008? Payment, IReadOnlyList<IntakeValidationError> Errors);

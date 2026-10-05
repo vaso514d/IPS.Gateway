@@ -7,7 +7,7 @@ public sealed class Pacs008ValidationTests
 {
     private static readonly DateTimeOffset Created = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
     private static readonly Pacs008Policy Policy = new("BAGAGE22", "TRESGE22",
-        [new("GEL", minimum: 0.01m, maximum: 9999999999999.99999m)], ["INDIRECT"]);
+        [new("GEL", Minimum: 0.01m, Maximum: 9999999999999.99999m)], ["INDIRECT"]);
     public static Pacs008Request Minimal() => new()
     {
         ClientReference = "CORE-1",
@@ -24,150 +24,150 @@ public sealed class Pacs008ValidationTests
     public static IEnumerable<object[]> InvalidCases()
     {
         var r = Minimal();
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             ClientReference = null
         }, "clientReference"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             ClientReference = new string ('x', 36)
         }, "clientReference"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             InstructionId = "ქართული"
         }, "instructionId"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             EndToEndId = "PSP-"
         }, "endToEndId"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             CreationDateTime = null
         }, "creationDateTime"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             AcceptanceDateTime = null
         }, "acceptanceDateTime"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             AcceptanceDateTime = Created.AddMilliseconds(-1)
         }, "acceptanceDateTime"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             AcceptanceDateTime = Created.AddMilliseconds(1001)
         }, "acceptanceDateTime"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             EndToEndId = "RTP-original"
         }, "acceptanceDateTime"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Amount = decimal.MinValue
         }, "amount"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Amount = 0
         }, "amount"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Amount = 0.123456m
         }, "amount"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Amount = 10000000000000m
         }, "amount"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Currency = "gel"
         }, "currency"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Currency = "USD"
         }, "currency"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             InstructionPriority = "normal"
         }, "instructionPriority"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             CategoryPurposeCode = "ABCDE"
         }, "categoryPurposeCode"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Debtor = null
         }, "debtor"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Creditor = null
         }, "creditor"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 Type = 2
             }
         }, "debtor.type"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 Type = 0,
                 Identifier = "400000001"
             }
         }, "debtor.identifier"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Creditor = new Pacs008CreditorInput(r.Creditor!)
+            Creditor = r.Creditor! with
             {
                 Type = 0,
                 Identifier = null
             }
         }, "creditor.identifier"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 ParticipantBic = "OTHER"
             }
         }, "debtor.participantBic"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 IndirectParticipantBic = "UNKNOWN"
             }
         }, "debtor.indirectParticipantBic"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 Account = "GE95TB0000000123456780"
             }
         }, "debtor.account"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Creditor = new Pacs008CreditorInput(r.Creditor!)
+            Creditor = r.Creditor! with
             {
                 Account = r.Debtor!.Account
             }
         }, "creditor.account"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Creditor = new Pacs008CreditorInput(r.Creditor!)
+            Creditor = r.Creditor! with
             {
                 ParticipantBic = "BAGAGE22"
             }
         }, "creditor.participantBic"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Creditor = new Pacs008CreditorInput(r.Creditor!)
+            Creditor = r.Creditor! with
             {
                 Account = "300773150"
             }
         }, "creditor.account"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
-            Debtor = new Pacs008DebtorInput(r.Debtor!)
+            Debtor = r.Debtor! with
             {
                 Address = new()
                 {
@@ -175,14 +175,14 @@ public sealed class Pacs008ValidationTests
                 }
             }
         }, "debtor.address.addressLines"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             UltimateDebtor = new()
             {
                 Name = "Missing type"
             }
         }, "ultimateDebtor.type"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             InitiationChannelInstrument = new()
             {
@@ -190,7 +190,7 @@ public sealed class Pacs008ValidationTests
                 InstrumentCodes = []
             }
         }, "initiationChannelInstrument.instrumentCodes"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             InitiationChannelInstrument = new()
             {
@@ -198,7 +198,7 @@ public sealed class Pacs008ValidationTests
                 InstrumentCodes = Enumerable.Repeat("CARD", 11).ToArray()
             }
         }, "initiationChannelInstrument.instrumentCodes"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Remittance = new()
             {
@@ -211,7 +211,7 @@ public sealed class Pacs008ValidationTests
                 ]
             }
         }, "remittance.structured.reference"];
-        yield return [new Pacs008Request(r)
+        yield return [r with
         {
             Remittance = new()
             {
@@ -248,7 +248,7 @@ public sealed class Pacs008ValidationTests
 
         )
         {
-            AssertValid(new Pacs008Request(request) { AcceptanceDateTime = accepted });
+            AssertValid(request with { AcceptanceDateTime = accepted });
         }
 
         foreach (var prefix in new[]
@@ -259,7 +259,7 @@ public sealed class Pacs008ValidationTests
 
         )
         {
-            AssertValid(new Pacs008Request(request) { EndToEndId = prefix + "original", AcceptanceDateTime = Created.AddMinutes(-1) });
+            AssertValid(request with { EndToEndId = prefix + "original", AcceptanceDateTime = Created.AddMinutes(-1) });
         }
     }
 
@@ -267,19 +267,19 @@ public sealed class Pacs008ValidationTests
     public void Treasury_and_resident_tax_code_rules_follow_source_scenarios()
     {
         var request = Minimal();
-        AssertValid(new Pacs008Request(request) { Creditor = new Pacs008CreditorInput(request.Creditor!) { ParticipantBic = "TRESGE22", Account = "300773150" } });
-        AssertValid(new Pacs008Request(request) { Debtor = new Pacs008DebtorInput(request.Debtor!) { Type = 0, Identifier = "400000002" } });
-        AssertValid(new Pacs008Request(request) { Debtor = new Pacs008DebtorInput(request.Debtor!) { IndirectParticipantBic = "INDIRECT" } });
+        AssertValid(request with { Creditor = request.Creditor! with { ParticipantBic = "TRESGE22", Account = "300773150" } });
+        AssertValid(request with { Debtor = request.Debtor! with { Type = 0, Identifier = "400000002" } });
+        AssertValid(request with { Debtor = request.Debtor! with { IndirectParticipantBic = "INDIRECT" } });
     }
 
     [Theory]
     [InlineData(0.01)]
     [InlineData(9999999999999)]
-    public void Amount_boundaries_are_accepted(double amount) => AssertValid(new Pacs008Request(Minimal()) { Amount = (decimal)amount });
+    public void Amount_boundaries_are_accepted(double amount) => AssertValid(Minimal() with { Amount = (decimal)amount });
     [Fact]
     public void Currency_enablement_and_limits_come_from_policy()
     {
-        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", minimum: 10, maximum: 20), new("USD", false)]);
+        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", Minimum: 10, Maximum: 20), new("USD", false)]);
         foreach (var amount in new[]
         {
             10m,
@@ -288,7 +288,7 @@ public sealed class Pacs008ValidationTests
 
         )
         {
-            Assert.NotNull(ValidatedPacs008.Validate(new Pacs008Request(Minimal()) { Amount = amount }, policy).Payment);
+            Assert.NotNull(ValidatedPacs008.Validate(Minimal() with { Amount = amount }, policy).Payment);
         }
 
         foreach (var amount in new[]
@@ -299,10 +299,10 @@ public sealed class Pacs008ValidationTests
 
         )
         {
-            Assert.Null(ValidatedPacs008.Validate(new Pacs008Request(Minimal()) { Amount = amount }, policy).Payment);
+            Assert.Null(ValidatedPacs008.Validate(Minimal() with { Amount = amount }, policy).Payment);
         }
 
-        Assert.Null(ValidatedPacs008.Validate(new Pacs008Request(Minimal()) { Currency = "USD" }, policy).Payment);
+        Assert.Null(ValidatedPacs008.Validate(Minimal() with { Currency = "USD" }, policy).Payment);
     }
 
     [Fact]
@@ -324,7 +324,7 @@ public sealed class Pacs008ValidationTests
                 Reference = "original"
             }
         };
-        var input = new Pacs008Request(Minimal())
+        var input = Minimal() with
         {
             PaymentInitiation = new() { Geolocation = geo },
             InitiationChannelInstrument = new() { ChannelCode = "MOBL", InstrumentCodes = instruments },
@@ -344,7 +344,7 @@ public sealed class Pacs008ValidationTests
     public void Successful_validation_normalizes_required_values_and_resolves_account_kind()
     {
         var input = Minimal();
-        var result = ValidatedPacs008.Validate(new Pacs008Request(input) { InstructionId = " instruction ", CategoryPurposeCode = "othr", CreationDateTime = Created.ToOffset(TimeSpan.FromHours(4)), Debtor = new Pacs008DebtorInput(input.Debtor!) { Name = " Debtor ", BillIdentifier = " bill " }, Creditor = new Pacs008CreditorInput(input.Creditor!) { ParticipantBic = "TRESGE22", Account = "300773150" }, Remittance = new() { Structured = [new() { ReferenceType = "serv", Reference = " ref ", ReferenceIssuer = " issuer " }] } }, Policy);
+        var result = ValidatedPacs008.Validate(input with { InstructionId = " instruction ", CategoryPurposeCode = "othr", CreationDateTime = Created.ToOffset(TimeSpan.FromHours(4)), Debtor = input.Debtor! with { Name = " Debtor ", BillIdentifier = " bill " }, Creditor = input.Creditor! with { ParticipantBic = "TRESGE22", Account = "300773150" }, Remittance = new() { Structured = [new() { ReferenceType = "serv", Reference = " ref ", ReferenceIssuer = " issuer " }] } }, Policy);
         Assert.Empty(result.Errors);
         var payment = Assert.IsType<ValidatedPacs008>(result.Payment);
         Assert.Equal("instruction", payment.InstructionId);
@@ -360,7 +360,7 @@ public sealed class Pacs008ValidationTests
     [Fact]
     public void Child_validation_accumulates_errors_with_existing_paths_and_messages()
     {
-        var result = ValidatedPacs008.Validate(new Pacs008Request(Minimal())
+        var result = ValidatedPacs008.Validate(Minimal() with
         {
             Debtor = null,
             Creditor = null,

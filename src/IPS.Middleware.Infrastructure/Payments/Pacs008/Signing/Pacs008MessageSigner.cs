@@ -20,7 +20,7 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
                 throw new SigningCertificateException("A signing certificate is required.");
             }
 
-            return new(unsignedXml, isSigned: false);
+            return new(unsignedXml, IsSigned: false);
         }
 
         ValidateCertificate(certificate);
@@ -41,7 +41,7 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         IpsSignatureXml.SetSignatureValue(signature, signatureBytes);
         var signedXml = document.OuterXml;
         validate(signedXml);
-        return new(signedXml, isSigned: true);
+        return new(signedXml, IsSigned: true);
     }
 
     private static XmlDocument ReadUnsignedMessage(string xml, Action<string> validate)
@@ -85,17 +85,7 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
     }
 }
 
-public sealed class Pacs008SigningResult
-{
-    public Pacs008SigningResult(string xml, bool isSigned)
-    {
-        Xml = xml;
-        IsSigned = isSigned;
-    }
-
-    public string Xml { get; init; }
-    public bool IsSigned { get; init; }
-}
+public sealed record Pacs008SigningResult(string Xml, bool IsSigned);
 
 /// <summary>No usable signing certificate is available; replacing the certificate can resolve it.</summary>
 public sealed class SigningCertificateException(string message) : InvalidOperationException(message);

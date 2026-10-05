@@ -57,7 +57,7 @@ internal static class OutgoingProcessProbe
         {
             await using var scope = host.Services.CreateAsyncScope();
             var now = DateTimeOffset.UtcNow;
-            var request = new Pacs008Request(Pacs008Fixture.Request())
+            var request = Pacs008Fixture.Request() with
             {
                 ClientReference = "crash",
                 CreationDateTime = now.AddMilliseconds(-500),

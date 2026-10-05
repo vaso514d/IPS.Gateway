@@ -10,15 +10,5 @@ public enum InvestigationOutcome
     Unresolved
 }
 
-/// <summary>Meaning of investigation evidence; NotFound is not itself permission to send a payment.</summary>
-public sealed class InvestigationReply
-{
-    public InvestigationReply(InvestigationOutcome outcome, PaymentDetails details)
-    {
-        Outcome = outcome;
-        Details = details;
-    }
-
-    public InvestigationOutcome Outcome { get; init; }
-    public PaymentDetails Details { get; init; }
-}
+// Meaning of investigation evidence; NotFound is not itself permission to send a payment.
+public sealed record InvestigationReply(InvestigationOutcome Outcome, PaymentDetails Details);

@@ -11,29 +11,10 @@ public enum IncomingRegistrationOutcome
     LostOwnership
 }
 
-/// <summary>For a conflict, PaymentId is the unchanged canonical payment.</summary>
-public sealed class IncomingRegistration
+// For a conflict, PaymentId is the unchanged canonical payment.
+public sealed record IncomingRegistration(IncomingRegistrationOutcome Outcome, Guid? PaymentId)
 {
-    public IncomingRegistration(IncomingRegistrationOutcome outcome, Guid? paymentId)
-    {
-        Outcome = outcome;
-        PaymentId = paymentId;
-    }
-
-    public IncomingRegistrationOutcome Outcome { get; init; }
-    public Guid? PaymentId { get; init; }
-
     public static readonly IncomingRegistration LostOwnership = new(IncomingRegistrationOutcome.LostOwnership, null);
 }
 
-public sealed class RegisteredIncomingPayment
-{
-    public RegisteredIncomingPayment(IncomingPayment payment, Pacs008Request request)
-    {
-        Payment = payment;
-        Request = request;
-    }
-
-    public IncomingPayment Payment { get; init; }
-    public Pacs008Request Request { get; init; }
-}
+public sealed record RegisteredIncomingPayment(IncomingPayment Payment, Pacs008Request Request);

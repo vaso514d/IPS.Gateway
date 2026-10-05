@@ -127,7 +127,7 @@ public sealed class PaymentSubmissionTests
         var now = invalid == "expired" ? claim.ExpiresAtUtc : Now;
         if (invalid == "wrong-token")
         {
-            claim = new TransactionClaim(claim)
+            claim = claim with
             {
                 Token = Guid.NewGuid()
             };
@@ -135,7 +135,7 @@ public sealed class PaymentSubmissionTests
 
         if (invalid == "wrong-payment")
         {
-            claim = new TransactionClaim(claim)
+            claim = claim with
             {
                 TransactionId = Guid.NewGuid()
             };

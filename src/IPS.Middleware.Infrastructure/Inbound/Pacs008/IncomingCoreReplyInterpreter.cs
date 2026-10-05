@@ -16,7 +16,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
     };
     public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original)
     {
-        var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, description: completion.Failure);
+        var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, Description: completion.Failure);
         if (completion.Response is not { StatusCode: >= 200 and < 300 } response || Read(response.Body) is not { } reply)
         {
             return unknown;
@@ -57,7 +57,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
 
     // A supplied identifier must match exactly; a missing one trusts the request or query it answers.
     private static bool Matches(string? actual, string? expected) => actual is null || actual == expected;
-    private sealed class CoreReply
+    private sealed record CoreReply
     {
         public string? Status { get; init; }
         public string? EndToEndId { get; init; }

@@ -458,7 +458,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
             {
                 payments.Add(payment, incoming.Payment, new(registered.JournalId, Time.Now, Time.Now.AddSeconds(20), incoming.Original));
                 payment.BeginSubmission(Time.Now);
-                payment.RecordCoreResult(new(accepted ? CoreOutcome.Accepted : CoreOutcome.Rejected, Time.Now, reasonCode: accepted ? null : "AC01"), Time.Now);
+                payment.RecordCoreResult(new(accepted ? CoreOutcome.Accepted : CoreOutcome.Rejected, Time.Now, ReasonCode: accepted ? null : "AC01"), Time.Now);
                 payment.DecideIps(true, Time.Now);
             }
 

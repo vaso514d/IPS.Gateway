@@ -19,7 +19,7 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
     [Fact]
     public async Task Request_repeats_original_references_and_time_and_has_an_independently_verified_signature()
     {
-        var payment = ValidatedPacs008.Validate(new Pacs008Request(Request()) { AcceptanceDateTime = Created.AddTicks(1234567) }, Policy).Payment!;
+        var payment = ValidatedPacs008.Validate(Request() with { AcceptanceDateTime = Created.AddTicks(1234567) }, Policy).Payment!;
         var xml = new Pacs028Xml(new("NBGEGE22")).Build(payment, Original, Context);
         var document = XDocument.Parse(xml);
         Assert.Equal("original-message", document.Descendants(P + "OrgnlMsgId").Single().Value);

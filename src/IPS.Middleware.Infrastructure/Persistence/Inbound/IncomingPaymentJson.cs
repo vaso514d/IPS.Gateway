@@ -10,15 +10,5 @@ internal static class IncomingPaymentJson
             { Version: Version, Value: { } value } => value,
             var other => throw new NotSupportedException($"Incoming payment snapshot version {other?.Version} is not supported.")
         };
-    private sealed class Versioned<T>
-    {
-        public Versioned(int version, T value)
-        {
-            Version = version;
-            Value = value;
-        }
-
-        public int Version { get; init; }
-        public T Value { get; init; }
-    }
+    private sealed record Versioned<T>(int Version, T Value);
 }

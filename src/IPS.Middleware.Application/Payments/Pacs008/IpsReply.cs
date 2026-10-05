@@ -9,38 +9,8 @@ public enum IpsReplyStatus
     Unresolved
 }
 
-/// <summary>The business meaning of a stored IPS response. Unresolved replies require investigation.</summary>
-public sealed class IpsReply
-{
-    public IpsReply(IpsReplyStatus status, PaymentDetails details)
-    {
-        Status = status;
-        Details = details;
-    }
+// The business meaning of a stored IPS response. Unresolved replies require investigation.
+public sealed record IpsReply(IpsReplyStatus Status, PaymentDetails Details);
 
-    public IpsReplyStatus Status { get; init; }
-    public PaymentDetails Details { get; init; }
-}
-
-/// <summary>The identifiers a reply must reference to belong to the submitted payment.</summary>
-public sealed class IpsReplyCorrelation
-{
-    [System.Text.Json.Serialization.JsonConstructor]
-    public IpsReplyCorrelation(string messageId, string transactionId, string endToEndId)
-    {
-        MessageId = messageId;
-        TransactionId = transactionId;
-        EndToEndId = endToEndId;
-    }
-
-    public string MessageId { get; init; }
-    public string TransactionId { get; init; }
-    public string EndToEndId { get; init; }
-
-    public IpsReplyCorrelation(IpsReplyCorrelation original)
-    {
-        MessageId = original.MessageId;
-        TransactionId = original.TransactionId;
-        EndToEndId = original.EndToEndId;
-    }
-}
+// The identifiers a reply must reference to belong to the submitted payment.
+public sealed record IpsReplyCorrelation(string MessageId, string TransactionId, string EndToEndId);

@@ -107,7 +107,7 @@ public sealed class IncomingReconciliation(
             await processing.StageCompletionAsync(claim, call.Id, completion, Now, persistence.Token);
             await run.CommitAsync(persistence.Token);
             token.ThrowIfCancellationRequested();
-            await InterpretAsync(run.Payment, run.Snapshot, claim, new IncomingCoreCall(call) { Completion = completion }, token);
+            await InterpretAsync(run.Payment, run.Snapshot, claim, call with { Completion = completion }, token);
         }
         else if (kind == CoreCallKind.Reversal)
         {

@@ -125,7 +125,7 @@ public sealed class IncomingReplyProcessing(
         await replies.StageCompletionAsync(claim, attempt.Id, completion, Now, persistence.Token);
         await unit.SaveAsync(persistence.Token);
         cancellationToken.ThrowIfCancellationRequested();
-        if (await InterpretAsync(claim, reply.Envelope, new IncomingReplyAttempt(attempt) { Completion = completion }, cancellationToken))
+        if (await InterpretAsync(claim, reply.Envelope, attempt with { Completion = completion }, cancellationToken))
         {
             return;
         }

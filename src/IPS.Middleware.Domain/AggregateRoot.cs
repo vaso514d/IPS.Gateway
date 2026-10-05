@@ -1,13 +1,14 @@
-using System.Collections.ObjectModel;
-
 namespace IPS.Middleware.Domain;
 
 public abstract class AggregateRoot
 {
-    private readonly List<DomainEvent> _events = [];
-    private readonly ReadOnlyCollection<DomainEvent> _eventView;
-    protected AggregateRoot() => _eventView = _events.AsReadOnly();
-    protected AggregateRoot(Guid id) : this()
+    private readonly List<DomainEvent> _pendingEvents = [];
+
+    protected AggregateRoot()
+    {
+    }
+
+    protected AggregateRoot(Guid id)
     {
         if (id == Guid.Empty)
         {
@@ -19,30 +20,29 @@ public abstract class AggregateRoot
 
     public Guid Id { get; private set; }
     public int EventSequence { get; private set; }
-    public IReadOnlyList<DomainEvent> PendingEvents => _eventView;
+    public IReadOnlyList<DomainEvent> PendingEvents => _pendingEvents.AsReadOnly();
 
-    protected void Raise(Func<Guid, int, DomainEvent> create)
+    // Only events included in a successfully committed transaction are acknowledged.
+    public void AcknowledgeCommittedEvents(IReadOnlyCollection<Guid> eventIds)
     {
-        var sequence = checked(EventSequence + 1);
-        var occurrence = create(Guid.NewGuid(), sequence);
-        _events.Add(occurrence);
-        EventSequence = sequence;
+        _pendingEvents.RemoveAll(pending => eventIds.Contains(pending.EventId));
     }
 
-    /// <summary>Acknowledge only the events included in a successfully committed transaction.</summary>
-    public void AcknowledgeCommittedEvents(IReadOnlyCollection<Guid> eventIds) => _events.RemoveAll(occurrence => eventIds.Contains(occurrence.EventId));
+    protected void Raise(DomainEvent occurrence, DateTimeOffset occurredAt)
+    {
+        EventSequence = checked(EventSequence + 1);
+        _pendingEvents.Add(occurrence with
+        {
+            EventId = Guid.NewGuid(),
+            AggregateId = Id,
+            Sequence = EventSequence,
+            OccurredAtUtc = occurredAt.ToUniversalTime()
+        });
+    }
 }
 
-public abstract class DomainEvent
+public abstract record DomainEvent
 {
-    protected DomainEvent(Guid eventId, Guid aggregateId, int sequence, DateTimeOffset occurredAtUtc)
-    {
-        EventId = eventId;
-        AggregateId = aggregateId;
-        Sequence = sequence;
-        OccurredAtUtc = occurredAtUtc;
-    }
-
     public Guid EventId { get; init; }
     public Guid AggregateId { get; init; }
     public int Sequence { get; init; }

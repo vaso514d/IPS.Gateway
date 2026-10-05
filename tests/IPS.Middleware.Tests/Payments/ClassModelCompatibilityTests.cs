@@ -35,18 +35,18 @@ public sealed class ClassModelCompatibilityTests
         var frozen = new IncomingPacs008(request, original);
         var restored = JsonSerializer.Deserialize<Pacs008Request>(JsonSerializer.Serialize(request))!;
         Assert.True(frozen.HasSameContents(restored));
-        Assert.True(frozen.HasSameContents(new Pacs008Request(restored)
+        Assert.True(frozen.HasSameContents(restored with
         {
             CreationDateTime = restored.CreationDateTime!.Value.ToOffset(TimeSpan.FromHours(4))
         }));
         coordinates[0] = "changed";
         Assert.False(frozen.HasSameContents(request));
         Assert.True(frozen.HasSameContents(restored));
-        Assert.False(frozen.HasSameContents(new Pacs008Request(restored)
+        Assert.False(frozen.HasSameContents(restored with
         {
             PaymentInitiation = new() { Geolocation = ["2", "1"] }
         }));
-        Assert.False(frozen.HasSameContents(new Pacs008Request(restored)
+        Assert.False(frozen.HasSameContents(restored with
         {
             Remittance = new() { Structured = [new() { Reference = "changed" }] }
         }));

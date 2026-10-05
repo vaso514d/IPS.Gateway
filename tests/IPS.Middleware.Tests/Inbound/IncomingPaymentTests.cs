@@ -31,7 +31,7 @@ public sealed class IncomingPaymentTests
     public void Equal_contents_compare_numerically_by_instant_and_by_ordered_list_values()
     {
         var incoming = Incoming(Request());
-        var restated = new Pacs008Request(Request())
+        var restated = Request() with
         {
             Amount = 12.5m,
             AcceptanceDateTime = Now.ToUniversalTime(),
@@ -53,38 +53,38 @@ public sealed class IncomingPaymentTests
         var request = Request();
         var changed = change switch
         {
-            "amount" => new Pacs008Request(request)
+            "amount" => request with
             {
                 Amount = 12.51m
             },
-            "case" => new Pacs008Request(request)
+            "case" => request with
             {
                 Currency = "gel"
             },
-            "trailing" => new Pacs008Request(request)
+            "trailing" => request with
             {
-                Debtor = new Pacs008DebtorInput(request.Debtor!)
+                Debtor = request.Debtor! with
                 {
                     Name = "Debtor "
                 }
             },
-            "order" => new Pacs008Request(request)
+            "order" => request with
             {
-                InitiationChannelInstrument = new Pacs008InitiationChannelInstrumentInput(request.InitiationChannelInstrument!)
+                InitiationChannelInstrument = request.InitiationChannelInstrument! with
                 {
                     InstrumentCodes = ["NFC", "QR"]
                 }
             },
-            "empty" => new Pacs008Request(request)
+            "empty" => request with
             {
-                PaymentInitiation = new Pacs008PaymentInitiationInput(request.PaymentInitiation!)
+                PaymentInitiation = request.PaymentInitiation! with
                 {
                     Geolocation = []
                 }
             },
-            _ => new Pacs008Request(request)
+            _ => request with
             {
-                Remittance = new Pacs008RemittanceInput(request.Remittance!)
+                Remittance = request.Remittance! with
                 {
                     Structured = [new()
                     {
@@ -102,14 +102,14 @@ public sealed class IncomingPaymentTests
     [Fact]
     public void Missing_list_differs_from_an_empty_list()
     {
-        var withoutLocation = new Pacs008Request(Request())
+        var withoutLocation = Request() with
         {
             PaymentInitiation = new()
             {
                 ChannelCode = "WEB"
             }
         };
-        Assert.False(Incoming(withoutLocation).HasSameContents(new Pacs008Request(withoutLocation) { PaymentInitiation = new() { ChannelCode = "WEB", Geolocation = [] } }));
+        Assert.False(Incoming(withoutLocation).HasSameContents(withoutLocation with { PaymentInitiation = new() { ChannelCode = "WEB", Geolocation = [] } }));
     }
 
     private static IncomingPacs008 Incoming(Pacs008Request request) => new(request, new("header", "group", request.EndToEndId!, null, null, null, null, null, null, null));

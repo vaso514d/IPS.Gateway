@@ -81,17 +81,7 @@ internal static class OutgoingExecutionConfiguration
         _ = services.GetRequiredService<PaymentProfile>();
     }
 
-    private sealed class PaymentProfile
-    {
-        public PaymentProfile(Pacs008Policy policy, Pacs008ProtocolProfile protocol)
-        {
-            Policy = policy;
-            Protocol = protocol;
-        }
-
-        public Pacs008Policy Policy { get; init; }
-        public Pacs008ProtocolProfile Protocol { get; init; }
-    }
+    private sealed record PaymentProfile(Pacs008Policy Policy, Pacs008ProtocolProfile Protocol);
 
     private sealed class PolicySettings
     {

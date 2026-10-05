@@ -95,7 +95,7 @@ public sealed class IncomingPacs008Processing(
         await processing.StageCompletionAsync(claim, call.Id, completion, Now, persistence.Token);
         await run.CommitAsync(persistence.Token);
         run.Token.ThrowIfCancellationRequested();
-        await InterpretAsync(run, claim, new IncomingCoreCall(call) { Completion = completion });
+        await InterpretAsync(run, claim, call with { Completion = completion });
     }
 
     private Task<CoreCallCompletion> DispatchAsync(ProcessingAttempt run, CoreCallKind kind, TimeSpan budget) => CoreCallExecution.ExecuteAsync(token => kind == CoreCallKind.Submission

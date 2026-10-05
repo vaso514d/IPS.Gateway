@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace IPS.Middleware.Application.Payments.Pacs008;
 
 public sealed class Pacs008Policy
@@ -8,46 +10,52 @@ public sealed class Pacs008Policy
         IEnumerable<PaymentCurrency> currencies,
         IEnumerable<string>? indirectParticipants = null)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(participantBic, Pacs008Text.Bic))
+        if (!Regex.IsMatch(participantBic, Pacs008Text.Bic))
         {
             throw new ArgumentException("A participant BIC is required.", nameof(participantBic));
         }
 
-        ParticipantBic = participantBic;
-        TreasuryBic = string.IsNullOrWhiteSpace(treasuryBic) ? null : treasuryBic.Trim();
-        Currencies = Array.AsReadOnly(currencies.ToArray());
-        if (Currencies.Count == 0 || Currencies.Any(c => c.Code.Length != 3 || !c.Code.All(char.IsAsciiLetterUpper) ||
-                c.Minimum < 0 || c.Maximum < 0 || c.Minimum > c.Maximum) ||
-            Currencies.Select(c => c.Code).Distinct(StringComparer.OrdinalIgnoreCase).Count() != Currencies.Count)
+        var configuredCurrencies = currencies.ToArray();
+        if (!AreValid(configuredCurrencies))
         {
             throw new ArgumentException("Configure distinct currencies with valid amount limits.", nameof(currencies));
         }
 
-        IndirectParticipants = Array.AsReadOnly((indirectParticipants ?? []).Select(p => p.Trim()).ToArray());
+        ParticipantBic = participantBic;
+        TreasuryBic = string.IsNullOrWhiteSpace(treasuryBic) ? null : treasuryBic.Trim();
+        Currencies = Array.AsReadOnly(configuredCurrencies);
+        IndirectParticipants = Array.AsReadOnly((indirectParticipants ?? []).Select(participant => participant.Trim()).ToArray());
     }
 
-    internal PaymentCurrency? FindCurrency(string? code) => Currencies.FirstOrDefault(currency =>
-        string.Equals(currency.Code, code?.Trim(), StringComparison.OrdinalIgnoreCase));
-    internal bool IsTreasury(string? bic) => TreasuryBic is not null &&
-        string.Equals(bic?.Trim(), TreasuryBic, StringComparison.OrdinalIgnoreCase);
     public string ParticipantBic { get; }
     public string? TreasuryBic { get; }
     public IReadOnlyList<PaymentCurrency> Currencies { get; }
     public IReadOnlyList<string> IndirectParticipants { get; }
+
+    internal PaymentCurrency? FindCurrency(string? code) =>
+        Currencies.FirstOrDefault(currency => string.Equals(currency.Code, code?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    internal bool IsTreasury(string? bic) =>
+        TreasuryBic is not null && string.Equals(bic?.Trim(), TreasuryBic, StringComparison.OrdinalIgnoreCase);
+
+    private static bool AreValid(IReadOnlyCollection<PaymentCurrency> currencies)
+    {
+        var distinctCodes = currencies
+            .Select(currency => currency.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+
+        return currencies.Count > 0
+            && distinctCodes == currencies.Count
+            && currencies.All(currency => currency.HasValidCode && currency.HasValidLimits);
+    }
 }
 
-public sealed class PaymentCurrency
+public sealed record PaymentCurrency(string Code, bool Enabled = true, decimal? Minimum = null, decimal? Maximum = null)
 {
-    public PaymentCurrency(string code, bool enabled = true, decimal? minimum = null, decimal? maximum = null)
-    {
-        Code = code;
-        Enabled = enabled;
-        Minimum = minimum;
-        Maximum = maximum;
-    }
+    internal bool HasValidCode => Code.Length == 3 && Code.All(char.IsAsciiLetterUpper);
 
-    public string Code { get; init; }
-    public bool Enabled { get; init; }
-    public decimal? Minimum { get; init; }
-    public decimal? Maximum { get; init; }
+    internal bool HasValidLimits => Minimum is null or >= 0
+        && Maximum is null or >= 0
+        && !(Minimum > Maximum);
 }
