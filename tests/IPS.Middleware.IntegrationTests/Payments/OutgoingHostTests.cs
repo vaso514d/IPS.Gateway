@@ -151,6 +151,8 @@ public sealed class OutgoingHostTests
     }
 
     [Theory]
+    [InlineData("Payments:Outgoing:Investigation:MaxCycles", "-1")]
+    [InlineData("Payments:Outgoing:Investigation:Ownership", "00:00:37")]
     [InlineData("Payments:Outgoing:Transport:Enabled", "false")]
     [InlineData("Payments:Outgoing:Execution:Concurrency", "101")]
     [InlineData("Payments:Outgoing:Execution:CallbackConcurrency", "101")]

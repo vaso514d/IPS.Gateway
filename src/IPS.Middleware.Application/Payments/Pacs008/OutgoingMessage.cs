@@ -8,4 +8,4 @@ public sealed record OutgoingMessage(
     Guid Id, Guid PaymentId, OutgoingMessageDirection Direction, string? MessageDefinition,
     string Content, DateTimeOffset CreatedAtUtc, Guid? OriginatingMessageId, MessageJournalStatus Status,
     SubmissionMessageKind? Disposition, SubmissionMarker? Submission, IpsSubmissionResponse? Response,
-    DateTimeOffset? ProcessedAtUtc, string? Failure);
+    DateTimeOffset? ProcessedAtUtc, string? Failure, Guid? InvestigationId = null);

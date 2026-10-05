@@ -26,8 +26,8 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
         db.RequireUsable();
         if (!await db.Payments.AnyAsync(p => p.Id == paymentId && p.MessageType == Pacs008, cancellationToken)) return null;
         var rows = await ReadJournalAsync(paymentId, cancellationToken);
-        return new(rows.SingleOrDefault(p => p.Direction == OutgoingMessageDirection.Outbound)?.Submission,
-            rows.SingleOrDefault(p => p.Direction == OutgoingMessageDirection.Response)?.Response);
+        return new(rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Outbound)?.Submission,
+            rows.SingleOrDefault(p => p.InvestigationId == null && p.Direction == OutgoingMessageDirection.Response)?.Response);
     }
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, SubmissionMessageKind messageKind, DateTimeOffset now)

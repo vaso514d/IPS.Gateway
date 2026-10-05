@@ -1,6 +1,6 @@
 # Review 003a.1: investigation protocol
 
-Branch codex/outgoing-investigation, base b2542e1. Owner approved and completed the outgoing-host fast-forward into codex/capability-rebuild. Owner approved committing this protocol increment on 2026-10-05. Merge approval remains pending.
+Branch codex/outgoing-investigation, base b2542e1. Owner approved and completed the outgoing-host fast-forward into codex/capability-rebuild. Owner approved committing and merging this protocol increment on 2026-10-05. Committed as 60988d9 and fast-forwarded into codex/capability-rebuild.
 
 ## Delivered
 

@@ -5,6 +5,7 @@ namespace IPS.Middleware.Infrastructure.Persistence.Outgoing;
 internal sealed class OutgoingMessageRow
 {
     public Guid Id { get; set; }
+    public Guid? InvestigationId { get; set; }
     public Guid PaymentId { get; set; }
     public OutgoingMessageDirection Direction { get; set; }
     public string? MessageDefinition { get; set; }
@@ -24,5 +25,5 @@ internal sealed class OutgoingMessageRow
         OriginatingMessageId, Status, Disposition,
         StartedAtUtc is { } started ? new(started, SubmissionOwner!.Value, Disposition!.Value) : null,
         HttpStatusCode is { } status ? new(status, Content, PaymentJson.Read<List<IpsResponseHeader>>(HeadersJson)!) : null,
-        ProcessedAtUtc, Failure);
+        ProcessedAtUtc, Failure, InvestigationId);
 }

@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments.Execution;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
@@ -12,6 +13,8 @@ internal static class OutgoingExecutionConfiguration
 {
     internal static IServiceCollection AddOutgoingExecutionConfiguration(this IServiceCollection services)
     {
+        services.AddSingleton(sp => sp.GetRequiredService<IConfiguration>().GetSection("Payments:Outgoing:Investigation")
+            .Get<InvestigationOptions>(o => o.ErrorOnUnknownConfiguration = true) ?? new());
         services.AddSingleton(sp => sp.GetRequiredService<IConfiguration>().GetSection("Payments:Outgoing:Execution")
             .Get<OutgoingExecutionOptions>(o => o.ErrorOnUnknownConfiguration = true) ?? new());
         services.AddSingleton(sp =>
@@ -49,6 +52,7 @@ internal static class OutgoingExecutionConfiguration
 
     internal static void ValidateOutgoingExecution(this IServiceProvider services)
     {
+        _ = services.GetRequiredService<InvestigationOptions>();
         var execution = services.GetRequiredService<OutgoingExecutionOptions>();
         if (!execution.Enabled) return;
         var transport = services.GetRequiredService<OutgoingTransportSettings>();

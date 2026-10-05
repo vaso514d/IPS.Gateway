@@ -9,8 +9,8 @@ namespace IPS.Middleware.Infrastructure.Persistence.Outgoing;
 internal static class OutgoingJournal
 {
     internal static OutgoingMessageRow? Find(TransactionDbContext db, Guid paymentId, OutgoingMessageDirection direction) =>
-        db.OutgoingMessages.Local.SingleOrDefault(p => p.PaymentId == paymentId && p.Direction == direction) ??
-        db.OutgoingMessages.SingleOrDefault(p => p.PaymentId == paymentId && p.Direction == direction);
+        db.OutgoingMessages.Local.SingleOrDefault(p => p.PaymentId == paymentId && p.InvestigationId == null && p.Direction == direction) ??
+        db.OutgoingMessages.SingleOrDefault(p => p.PaymentId == paymentId && p.InvestigationId == null && p.Direction == direction);
 
     internal static void Authorize(TransactionDbContext db, OutgoingPayment payment, OutgoingMessageRow row)
     {
