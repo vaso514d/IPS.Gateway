@@ -78,25 +78,6 @@ public sealed class AggregateOwnershipTests
     }
 
     [Fact]
-    public async Task Ordinary_writes_cannot_bypass_claim_fencing()
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        var id = await Intake(database, "fenced");
-        await using (var start = database.Session())
-        {
-            Assert.NotNull(await start.Processing(Now).TryStartAsync(id, Lease, default));
-        }
-
-        await using var wrongOwner = database.Session();
-        var payment = Assert.IsType<OutgoingPayment>(await wrongOwner.Payments.FindAsync(id, default));
-        payment.RecordAcceptance(StatusSource.Ips, Now.AddSeconds(1));
-        await Assert.ThrowsAsync<PersistenceConcurrencyException>(() => wrongOwner.Unit.SaveAsync(default));
-        Assert.Single(payment.PendingEvents);
-        await using var read = database.Session();
-        Assert.Equal(TransactionStatus.Sending, (await read.Payments.FindAsync(id, default))!.CurrentStatus);
-    }
-
-    [Fact]
     public async Task Recovery_and_old_completion_compete_atomically_and_the_loser_cannot_overwrite()
     {
         await using var database = await SqlTestDatabase.CreateAsync();

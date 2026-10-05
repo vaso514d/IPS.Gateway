@@ -14,7 +14,6 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
 {
     public async Task<OutgoingPayment?> FindAsync(Guid id, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         return (await db.OutgoingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == id, cancellationToken))?.Payment;
     }
 
@@ -23,7 +22,6 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
 
     public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
     {
-        db.RequireUsable();
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1 || payment.CurrentStatus != TransactionStatus.Received)
         {

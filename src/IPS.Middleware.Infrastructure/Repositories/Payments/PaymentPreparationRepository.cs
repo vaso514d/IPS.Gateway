@@ -14,7 +14,6 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
 {
     public async Task<PreparedPaymentMessage?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var stored = await db.OutgoingMetadata.AsNoTracking()
             .Where(p => p.Id == paymentId && p.MessageId != null)
             .Select(p => new
@@ -88,6 +87,6 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
             Disposition = kind
         };
         db.OutgoingMessages.Add(row);
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 }

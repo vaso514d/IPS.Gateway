@@ -17,7 +17,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
 {
     public async Task<IncomingProcessingSnapshot?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var row = await db.IncomingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
         if (row is null)
         {
@@ -31,7 +30,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
 
     public Task<bool> IsOwnerAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         return db.IncomingMetadata.AsNoTracking().AnyAsync(p => p.Id == claim.PaymentId &&
             p.ClaimToken == claim.Token && p.ClaimExpiresAtUtc > now, cancellationToken);
     }
@@ -82,7 +80,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
             StartedAtUtc = now.ToUniversalTime()
         };
         db.IncomingCoreCalls.Add(row);
-        db.Changes.AuthorizedIncomingCalls.Add(row.Id);
         return row.Snapshot();
     }
 
@@ -102,7 +99,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         }
 
         row.CompletionJson = IncomingPaymentJson.Write(completion);
-        db.Changes.AuthorizedIncomingCalls.Add(row.Id);
     }
 
     public async Task StageConsumptionAsync(IncomingPaymentClaim claim, Guid callId, DateTimeOffset now, CancellationToken cancellationToken)
@@ -115,7 +111,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
         }
 
         row.Consumed = true;
-        db.Changes.AuthorizedIncomingCalls.Add(row.Id);
     }
 
     public async Task StageFinishAsync(
@@ -148,7 +143,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
 
     internal async Task<IncomingPayment> TouchAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var metadata = await db.IncomingMetadata.Include(p => p.Payment).SingleOrDefaultAsync(p => p.Id == claim.PaymentId, cancellationToken)
             ?? throw new PersistenceConcurrencyException("The incoming payment no longer exists.");
         var payment = metadata.Payment;
@@ -160,8 +154,6 @@ public sealed class IncomingProcessingRepository(TransactionDbContext db) : IInc
 
         var revision = entry.Property(p => p.CheckpointVersion);
         revision.CurrentValue = checked(revision.CurrentValue + 1);
-        db.Changes.AuthorizedIncomingProcessing.Add(payment.Id);
-        db.Changes.AuthorizedIncomingPaymentWork.Add(payment.Id);
         return payment;
     }
 

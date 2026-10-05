@@ -287,8 +287,6 @@ public sealed class IncomingCbsProcessingTests
         var stored = (await new IncomingProcessingRepository(db).ReadAsync(id, default))!;
         Assert.Equal(Now.AddSeconds(19), stored.Context.DeadlineUtc);
         Assert.Empty(stored.Calls);
-        db.Metadata(stored.Payment).ContextJson = "{}";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
     }
 
     [Fact]

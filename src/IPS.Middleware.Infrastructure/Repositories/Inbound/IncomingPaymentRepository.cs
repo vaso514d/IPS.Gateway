@@ -3,11 +3,9 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
-using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
@@ -15,7 +13,6 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
 {
     public async Task<RegisteredIncomingPayment?> FindAsync(string participantBic, string endToEndId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var bic = participantBic.Trim().ToUpperInvariant();
         // SQL equality ignores trailing spaces, so the ordinal match is chosen among the padded candidates.
         var candidates = await db.IncomingMetadata.Include(p => p.Payment).Where(p => p.Payment.ParticipantBic == bic && p.Payment.EndToEndId == endToEndId)
@@ -27,7 +24,6 @@ public sealed class IncomingPaymentRepository(TransactionDbContext db) : IIncomi
 
     public void Add(IncomingPayment payment, Pacs008Request request, IncomingProcessingContext context)
     {
-        db.RequireUsable();
         if (payment.EventSequence != 1 || payment.PendingEvents.Count != 1)
         {
             throw new ArgumentException("Registration requires a newly registered payment.", nameof(payment));

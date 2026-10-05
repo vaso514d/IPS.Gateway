@@ -9,7 +9,6 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
 {
     public async Task<IncomingReceiptState?> ReadAsync(Guid journalId, CancellationToken token)
     {
-        db.RequireUsable();
         var row = await db.InboundJournal.AsNoTracking().Where(r => r.Id == journalId)
             .Select(r => new
             {
@@ -29,7 +28,6 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
 
     public async Task<bool> StageFirstReplyReadyAsync(Guid journalId, DateTimeOffset now, CancellationToken token)
     {
-        db.RequireUsable();
         var row = await db.InboundJournal.SingleOrDefaultAsync(r => r.Id == journalId, token);
         if (row is null || row.Status != InboundProcessingStatus.Pending ||
             row.ClaimToken is not null && row.ClaimExpiresAtUtc > now)
@@ -54,7 +52,6 @@ public sealed class IncomingCompositionRepository(TransactionDbContext db) : IIn
         }
 
         row.NextActionAtUtc = now.ToUniversalTime();
-        db.Changes.AuthorizedInboundWork.Add(journalId);
         return true;
     }
 }

@@ -16,7 +16,6 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
 {
     public async Task<InvestigationAttempt?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var row = await db.Investigations.AsNoTracking().Where(p => p.PaymentId == paymentId).OrderByDescending(p => p.Number).FirstOrDefaultAsync(cancellationToken);
         if (row is null)
         {
@@ -70,7 +69,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             DeadlineUtc = identity.DeadlineUtc.ToUniversalTime()
         };
         db.Investigations.Add(row);
-        Authorize(payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageUnsigned(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, string xml, DateTimeOffset now)
@@ -84,7 +83,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         }
 
         row.UnsignedXml = xml;
-        Authorize(payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageReady(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, SignedMessage message, DateTimeOffset now)
@@ -123,7 +122,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             Status = MessageJournalStatus.ReadyToSend
         };
         db.OutgoingMessages.Add(row);
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, Guid attemptId, DateTimeOffset now)
@@ -139,7 +138,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         row.Status = MessageJournalStatus.SendStarted;
         row.StartedAtUtc = now.ToUniversalTime();
         row.SubmissionOwner = claim.Token;
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageResponse(
@@ -176,7 +175,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             HeadersJson = PaymentJson.Write(response.Headers)
         };
         db.OutgoingMessages.Add(row);
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageResult(
@@ -206,7 +205,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             response.ProcessedAtUtc = now.ToUniversalTime();
             response.MessageDefinition = result.Outcome == InvestigationOutcome.Unresolved ? null : "pacs.002.001.14";
             response.Failure = result.Outcome == InvestigationOutcome.Unresolved ? result.Details.Description ?? "Unresolved investigation response." : null;
-            OutgoingJournal.Authorize(db, payment, response);
+            db.RequireCurrentVersion(payment);
         }
         else if (result.Outcome != InvestigationOutcome.Unresolved || string.IsNullOrWhiteSpace(transportFailure) ||
             db.Entry(CommittedMessage(attemptId, OutgoingMessageDirection.Outbound)).Property(p => p.Status).OriginalValue != MessageJournalStatus.SendStarted)
@@ -218,12 +217,11 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         attempt.DetailsJson = PaymentJson.Write(result.Details);
         attempt.TransportFailure = transportFailure;
         attempt.CompletedAtUtc = now.ToUniversalTime();
-        Authorize(payment, attempt);
+        db.RequireCurrentVersion(payment);
     }
 
     private void Own(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now)
     {
-        db.RequireUsable();
         var entry = db.Entry(db.Metadata(payment));
         if (entry.State is EntityState.Detached or EntityState.Added || payment.MessageType != Pacs008 || payment.CurrentStatus != TransactionStatus.Investigating)
         {
@@ -234,12 +232,6 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
         {
             throw new PersistenceConcurrencyException("Investigation requires a committed live owner.");
         }
-    }
-    private void Authorize(OutgoingPayment payment, InvestigationRow row)
-    {
-        db.Entry(db.Metadata(payment)).Property(p => p.NextActionAtUtc).IsModified = true;
-        db.Changes.AuthorizedOwnership.Add(payment.Id);
-        db.Changes.InvestigationChanges.Authorize(db.Entry(row));
     }
     private InvestigationRow Attempt(Guid paymentId, Guid id)
     {

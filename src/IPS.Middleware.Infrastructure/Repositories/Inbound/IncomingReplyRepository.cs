@@ -13,7 +13,6 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
 {
     public async Task<IncomingReplySnapshot?> ReadAsync(Guid journalId, CancellationToken token)
     {
-        db.RequireUsable();
         var row = await db.IncomingReplies.AsNoTracking().SingleOrDefaultAsync(r => r.JournalId == journalId, token);
         if (row is null)
         {
@@ -27,7 +26,6 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
 
     public async Task<IncomingReplyDecision?> ReadDecisionAsync(Guid journalId, CancellationToken token)
     {
-        db.RequireUsable();
         var paymentId = await db.InboundJournal.Where(r => r.Id == journalId).Select(r => r.IncomingPaymentId).SingleOrDefaultAsync(token);
         if (paymentId is null)
         {
@@ -170,7 +168,6 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
     }
     public async Task<bool> IsOwnerAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
-        db.RequireUsable();
         return await db.InboundJournal.AsNoTracking().AnyAsync(r => r.Id == claim.JournalId && r.Status == InboundProcessingStatus.Pending &&
             r.ClaimToken == claim.Token && r.ClaimExpiresAtUtc > now, token);
     }
@@ -181,7 +178,6 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
     }
     private async Task<InboundJournalEntry> TouchAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
-        db.RequireUsable();
         var receipt = await db.InboundJournal.FindAsync([claim.JournalId], token);
         if (receipt is null || !receipt.IsOwnedBy(claim, now))
         {
@@ -195,8 +191,6 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
         }
 
         receipt.ReplyCheckpoint = Guid.NewGuid();
-        db.Changes.AuthorizedInboundWork.Add(receipt.Id);
-        db.Changes.AuthorizedReplies.Add(receipt.Id);
         return receipt;
     }
     private async Task<IncomingReplyAttemptRow> OwnedAttemptAsync(InboundClaim claim, Guid id, DateTimeOffset now, CancellationToken token)

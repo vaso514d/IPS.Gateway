@@ -8,27 +8,33 @@ namespace IPS.Middleware.Infrastructure.Persistence.Configurations;
 
 internal sealed class AggregateIdentityConfiguration : IEntityTypeConfiguration<AggregateIdentity>
 {
-    public void Configure(EntityTypeBuilder<AggregateIdentity> identity)
+    public void Configure(EntityTypeBuilder<AggregateIdentity> builder)
     {
-        identity.ToTable("AggregateIdentities", table => table.HasCheckConstraint("CK_AggregateIdentities_Kind",
+        builder.ToTable("AggregateIdentities", table => table.HasCheckConstraint(
+            "CK_AggregateIdentities_Kind",
             $"[Kind] IN ('{OutgoingPaymentKind}', '{IncomingPaymentKind}')"));
-        identity.HasKey(i => i.Id);
-        identity.Property(i => i.Id).ValueGeneratedNever();
-        identity.Property(i => i.Kind).HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false);
-        identity.HasAlternateKey(i => new { i.Id, i.Kind });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).ValueGeneratedNever();
+        builder.Property(x => x.Kind).HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false);
+        builder.HasAlternateKey(x => new { x.Id, x.Kind });
     }
 }
 
 internal static class AggregateIdentityMapping
 {
-    /// <summary>A typed foreign key: the state row's fixed kind must match its shared identity.</summary>
-    internal static void HasAggregateIdentity<T>(this EntityTypeBuilder<T> state, string kind) where T : AggregateRoot
+    // A typed foreign key: the state row's fixed kind must match its shared identity.
+    internal static void HasAggregateIdentity<T>(this EntityTypeBuilder<T> builder, string kind) where T : AggregateRoot
     {
-        state.Property<string>(AggregateIdentity.KindColumn).IsRequired().HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false)
+        builder.Property<string>(AggregateIdentity.KindColumn)
+            .IsRequired()
+            .HasMaxLength(AggregateIdentity.KindLength)
+            .IsUnicode(false)
             .HasComputedColumnSql($"CONVERT(varchar({AggregateIdentity.KindLength}), '{kind}')", stored: true);
-        state.HasOne<AggregateIdentity>().WithOne()
+
+        builder.HasOne<AggregateIdentity>()
+            .WithOne()
             .HasForeignKey<T>(nameof(AggregateRoot.Id), AggregateIdentity.KindColumn)
-            .HasPrincipalKey<AggregateIdentity>(i => new { i.Id, i.Kind })
+            .HasPrincipalKey<AggregateIdentity>(x => new { x.Id, x.Kind })
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

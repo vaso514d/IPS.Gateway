@@ -11,7 +11,6 @@ public sealed class InboundReceiptRepository(TransactionDbContext db) : IInbound
 {
     public async Task<InboundRegistration> StageRegistrationAsync(InboundReceipt receipt, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         // Only a positive sequence identifies a delivery; anything else is stored held, never deduplicated or processed.
         var held = receipt.Sequence is not > 0;
         if (!held && await db.InboundJournal.SingleOrDefaultAsync(
@@ -45,7 +44,6 @@ public sealed class InboundReceiptRepository(TransactionDbContext db) : IInbound
 
     public async Task<IncomingPacs008Reference?> ReadOriginalReferencesAsync(Guid journalId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var json = await db.InboundJournal.AsNoTracking().Where(e => e.Id == journalId)
             .Select(e => e.OriginalJson).SingleOrDefaultAsync(cancellationToken);
         return json is null ? null : IncomingPaymentJson.Read<IncomingPacs008Reference>(json);
@@ -53,7 +51,6 @@ public sealed class InboundReceiptRepository(TransactionDbContext db) : IInbound
 
     public async Task<StoredInboundReceipt?> ReadAsync(Guid journalId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var entry = await db.InboundJournal.AsNoTracking().SingleOrDefaultAsync(e => e.Id == journalId, cancellationToken);
         return entry?.Snapshot();
     }

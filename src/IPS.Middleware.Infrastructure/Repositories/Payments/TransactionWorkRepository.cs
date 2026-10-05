@@ -88,12 +88,10 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         entry.Entity.ClaimToken = token;
         entry.Entity.ClaimExpiresAtUtc = expiry;
         entry.Entity.NextActionAtUtc = nextAction;
-        db.Changes.AuthorizedOwnership.Add(entry.Entity.Id);
     }
 
     private EntityEntry<OutgoingPaymentMetadata> Tracked(OutgoingPayment payment)
     {
-        db.RequireUsable();
         var entry = db.Entry(db.Metadata(payment));
         if (entry.State is EntityState.Detached or EntityState.Added)
         {

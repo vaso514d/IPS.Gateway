@@ -178,31 +178,6 @@ public sealed class AggregatePersistenceTests
     }
 
     [Fact]
-    public async Task Direct_saves_and_history_mutation_are_rejected()
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        Guid id;
-        await using (var intake = database.Session())
-        {
-            id = (await intake.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "immutable", "{}").Request!, default)).Payment.Id;
-        }
-
-        await using (var direct = database.Session())
-        {
-            var payment = Assert.IsType<OutgoingPayment>(await direct.Payments.FindAsync(id, default));
-            payment.BeginSending(Now);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => direct.Context.SaveChangesAsync());
-        }
-
-        await using var tamper = database.Session();
-        var eventType = tamper.Context.Model.GetEntityTypes().Single(t => t.GetTableName() == "TransactionEvents").ClrType;
-        var row = await tamper.Context.FindAsync(eventType, id, 1);
-        Assert.NotNull(row);
-        tamper.Context.Entry(row!).Property("PayloadJson").CurrentValue = "{}";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => tamper.Unit.SaveAsync(default));
-    }
-
-    [Fact]
     public async Task New_intake_event_failure_rolls_back_identity_and_request()
     {
         await using var database = await SqlTestDatabase.CreateAsync();

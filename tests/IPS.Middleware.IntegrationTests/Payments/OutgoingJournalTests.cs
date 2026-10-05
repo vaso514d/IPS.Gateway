@@ -89,36 +89,12 @@ public sealed class OutgoingJournalTests
         Assert.Equal(frozen, Assert.Single(harness.Ips.Received));
     }
 
-    [Theory]
-    [InlineData("Content")]
-    [InlineData("CreatedAtUtc")]
-    [InlineData("MessageDefinition")]
-    [InlineData("Disposition")]
-    public async Task Authorized_submission_cannot_launder_edits_to_frozen_evidence(string property)
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        await using var session = database.Session();
-        var (payment, claim) = await Ready(session);
-        var row = session.Context.Set<OutgoingMessageRow>().Local.Single();
-        session.Context.Entry(row).Property(property).CurrentValue = property switch
-        {
-            "Content" => "changed",
-            "CreatedAtUtc" => Start.AddDays(-1),
-            "MessageDefinition" => "pacs.009",
-            _ => SubmissionMessageKind.DevelopmentUnsigned
-        };
-        session.Submissions.StageSubmission(payment, claim, row.Disposition!.Value, Start);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
-    }
-
     [Fact]
-    public async Task Ready_message_requires_a_committed_claim_and_cannot_be_deleted()
+    public async Task Preparation_requires_a_committed_claim()
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         await using var session = database.Session();
         var (payment, claim) = await Ready(session);
-        session.Context.Remove(session.Context.Set<OutgoingMessageRow>().Local.Single());
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
         await using var fresh = database.Session();
         var other = (await fresh.Intake(Start).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "uncommitted", "{}").Request!, default)).Payment;
         var uncommitted = fresh.Work.StageClaim(other, Start, Ownership)!;

@@ -202,27 +202,6 @@ public sealed class InvestigationWorkflowTests
     }
 
     [Fact]
-    public async Task Investigation_evidence_cannot_be_edited_or_deleted_after_commit()
-    {
-        await using var h = await Harness.Create();
-        h.Core.Clock.Now += TimeSpan.FromSeconds(9);
-        await h.Run();
-        await using (var s = h.Core.Database.Session())
-        {
-            var attempt = await s.Context.Set<InvestigationRow>().SingleAsync();
-            attempt.MessageId = "changed";
-            await Assert.ThrowsAsync<InvalidOperationException>(() => s.Unit.SaveAsync());
-        }
-        await using (var s = h.Core.Database.Session())
-        {
-            s.Context.Remove(await s.Context.Set<InvestigationRow>().SingleAsync());
-            await Assert.ThrowsAsync<InvalidOperationException>(() => s.Unit.SaveAsync());
-        }
-        await using var read = h.Core.Database.Session();
-        Assert.NotEqual("changed", (await read.Context.Set<InvestigationRow>().SingleAsync()).MessageId);
-    }
-
-    [Fact]
     public async Task Recovery_after_initial_submission_abandonment_has_no_additional_first_delay()
     {
         await using var core = await ProcessingHarness.CreateAsync();

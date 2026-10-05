@@ -7,20 +7,23 @@ namespace IPS.Middleware.Infrastructure.Persistence.Configurations;
 
 internal sealed class TransactionEventConfiguration : IEntityTypeConfiguration<TransactionEventRow>
 {
-    public void Configure(EntityTypeBuilder<TransactionEventRow> occurrence)
+    public void Configure(EntityTypeBuilder<TransactionEventRow> builder)
     {
-        occurrence.ToTable("TransactionEvents", table => table.HasCheckConstraint("CK_TransactionEvents_Kind",
+        builder.ToTable("TransactionEvents", table => table.HasCheckConstraint(
+            "CK_TransactionEvents_Kind",
             $"([AggregateKind] = '{OutgoingPaymentKind}' AND [Name] LIKE 'payment.%') OR " +
             $"([AggregateKind] = '{IncomingPaymentKind}' AND [Name] LIKE 'incoming-payment.%')"));
-        occurrence.HasKey(e => new { e.TransactionId, e.Sequence });
-        occurrence.HasIndex(e => e.EventId).IsUnique();
-        occurrence.Property(e => e.EventId).ValueGeneratedNever();
-        occurrence.Property(e => e.AggregateKind).HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false);
-        occurrence.Property(e => e.Name).HasMaxLength(100);
-        occurrence.Property(e => e.PayloadJson).IsRequired();
-        occurrence.HasOne<AggregateIdentity>().WithMany()
-            .HasForeignKey(e => new { e.TransactionId, e.AggregateKind })
-            .HasPrincipalKey(i => new { i.Id, i.Kind })
+        builder.HasKey(x => new { x.TransactionId, x.Sequence });
+        builder.HasIndex(x => x.EventId).IsUnique();
+        builder.Property(x => x.EventId).ValueGeneratedNever();
+        builder.Property(x => x.AggregateKind).HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false);
+        builder.Property(x => x.Name).HasMaxLength(100);
+        builder.Property(x => x.PayloadJson).IsRequired();
+
+        builder.HasOne<AggregateIdentity>()
+            .WithMany()
+            .HasForeignKey(x => new { x.TransactionId, x.AggregateKind })
+            .HasPrincipalKey(x => new { x.Id, x.Kind })
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -440,13 +440,6 @@ public sealed class IncomingPaymentTests
         Assert.Throws<NotSupportedException>(() => ((IList<string>)stored.Request.InitiationChannelInstrument!.InstrumentCodes!)[0] = "changed");
         Assert.Throws<NotSupportedException>(() => ((IList<Pacs008StructuredRemittanceInput>)stored.Request.Remittance!.Structured!).Clear());
         Assert.Single(await Events(read, stored.Payment.Id));
-        read.Metadata(stored.Payment).RequestJson = "{}";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(read).SaveAsync());
-        await using var tamper = test.Database.Context();
-        var payment = (await new IncomingPaymentRepository(tamper).FindAsync(Participant, "E2E-1", default))!.Payment;
-        tamper.Metadata(payment).ClaimToken = Guid.NewGuid();
-        tamper.Metadata(payment).ClaimExpiresAtUtc = Now.AddHours(1);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(tamper).SaveAsync());
     }
 
     [Fact]
@@ -480,46 +473,6 @@ public sealed class IncomingPaymentTests
             INSERT INTO IncomingPayments (Id, ParticipantBic, EndToEndId, RegisteredAtUtc, RequestJson, LastSequence)
             VALUES ({mismatched}, 'BAGAGE22', 'E2E-9', {Now}, {"{}"}, 0)
             """));
-    }
-
-    [Theory]
-    [InlineData("add")]
-    [InlineData("modify")]
-    [InlineData("delete")]
-    public async Task Aggregate_identities_are_append_only_and_written_only_with_new_aggregates(string change)
-    {
-        await using var test = await Harness.CreateAsync();
-        var id = await test.RegisterNewAsync(1, "E2E-1");
-        await using var db = test.Database.Context();
-        var identityType = db.Model.GetEntityTypes().Single(t => t.GetTableName() == "AggregateIdentities").ClrType;
-        if (change == "add")
-        {
-            var entry = db.Entry(Activator.CreateInstance(identityType)!);
-            entry.Property("Id").CurrentValue = Guid.NewGuid();
-            entry.Property("Kind").CurrentValue = "incoming-payment";
-            entry.State = EntityState.Added;
-        }
-        else
-        {
-            var identity = (await db.FindAsync(identityType, id))!;
-            // Both identity columns are keys, so EF refuses to stage a change before the save rules are reached.
-            if (change == "modify")
-            {
-                Assert.Throws<InvalidOperationException>(() => db.Entry(identity).Property("Kind").CurrentValue = "outgoing-payment");
-            }
-            else
-            {
-                db.Remove(identity);
-            }
-        }
-
-        if (change != "modify")
-        {
-            await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
-        }
-
-        await using var read = test.Database.Context();
-        Assert.Equal(1, await Count(read, "SELECT COUNT(*) AS Value FROM AggregateIdentities WHERE Kind = 'incoming-payment'"));
     }
 
     [Fact]

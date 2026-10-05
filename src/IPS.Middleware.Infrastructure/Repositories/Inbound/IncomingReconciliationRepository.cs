@@ -13,7 +13,6 @@ public sealed class IncomingReconciliationRepository(TransactionDbContext db) : 
 {
     public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
         return await db.IncomingMetadata.AsNoTracking().Where(DueAt(now))
             .OrderBy(p => p.FollowUpAtUtc).ThenBy(p => p.Payment.RegisteredAtUtc).ThenBy(p => p.Id)
@@ -22,7 +21,6 @@ public sealed class IncomingReconciliationRepository(TransactionDbContext db) : 
 
     public async Task<IncomingPaymentClaim?> StageClaimAsync(Guid paymentId, DateTimeOffset now, TimeSpan ownership, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ownership, TimeSpan.Zero);
         var payment = await db.IncomingMetadata.Include(p => p.Payment).Where(DueAt(now)).SingleOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
         if (payment is null)
@@ -32,7 +30,6 @@ public sealed class IncomingReconciliationRepository(TransactionDbContext db) : 
 
         var claim = new IncomingPaymentClaim(paymentId, Guid.NewGuid(), now.ToUniversalTime() + ownership);
         payment.SetClaim(claim.Token, claim.ExpiresAtUtc);
-        db.Changes.AuthorizedIncomingPaymentWork.Add(paymentId);
         return claim;
     }
 

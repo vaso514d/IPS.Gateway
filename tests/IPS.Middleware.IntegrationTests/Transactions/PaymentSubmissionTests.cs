@@ -313,65 +313,6 @@ public sealed class PaymentSubmissionTests
         Assert.Equal(claim.Token, read.Context.Metadata(stored).ClaimToken);
     }
 
-    [Theory]
-    [InlineData("SubmissionJson", "insert")]
-    [InlineData("SubmissionJson", "alter-authorized")]
-    [InlineData("SubmissionJson", "replace")]
-    [InlineData("SubmissionJson", "clear")]
-    [InlineData("SubmissionResponseJson", "insert")]
-    [InlineData("SubmissionResponseJson", "alter-authorized")]
-    [InlineData("SubmissionResponseJson", "replace")]
-    [InlineData("SubmissionResponseJson", "clear")]
-    public async Task Direct_EF_cannot_bypass_immutable_authorized_checkpoints(string column, string edit)
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        await using var session = database.Session();
-        var (payment, claim) = await Start(session);
-        var repository = new PaymentSubmissionRepository(session.Context);
-        if (column == "SubmissionResponseJson" || edit != "insert")
-        {
-            repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now);
-            if (column == "SubmissionResponseJson" || edit != "alter-authorized")
-            {
-                await session.Unit.SaveAsync();
-            }
-        }
-
-        if (column == "SubmissionResponseJson" && edit != "insert")
-        {
-            repository.StageResponse(payment, claim, Response, Now);
-            if (edit != "alter-authorized")
-            {
-                await session.Unit.SaveAsync();
-            }
-        }
-
-        // Even an authorized ownership operation is not permission to write arbitrary checkpoint data.
-        session.Work.StageCompletion(payment, claim, Now, null);
-        var direction = column == "SubmissionJson" ? OutgoingMessageDirection.Outbound : OutgoingMessageDirection.Response;
-        var row = session.Context.Set<OutgoingMessageRow>().Local.SingleOrDefault(p => p.Direction == direction)
-            ?? await session.Context.Set<OutgoingMessageRow>().SingleOrDefaultAsync(p => p.Direction == direction);
-        if (row is null)
-        {
-            session.Context.Set<OutgoingMessageRow>().Add(new()
-            {
-                Id = Guid.NewGuid(),
-                PaymentId = payment.Id,
-                Direction = direction
-            });
-        }
-        else if (direction == OutgoingMessageDirection.Outbound)
-        {
-            row.SubmissionOwner = Guid.NewGuid();
-        }
-        else
-        {
-            row.Content = edit == "clear" ? null! : "{}";
-        }
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
-    }
-
     [Fact]
     public async Task Unstarted_other_type_and_missing_payments_do_not_offer_submission()
     {

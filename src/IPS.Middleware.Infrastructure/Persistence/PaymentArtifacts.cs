@@ -16,7 +16,6 @@ internal static class PaymentArtifacts
     internal static EntityEntry<OutgoingPaymentMetadata> OwnedPacs008(
         this TransactionDbContext db, OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now)
     {
-        db.RequireUsable();
         ArgumentNullException.ThrowIfNull(claim);
         var entry = db.Entry(db.Metadata(payment));
         if (entry.State is EntityState.Added or EntityState.Detached || payment.MessageType != Pacs008 ||
@@ -47,7 +46,5 @@ internal static class PaymentArtifacts
             return;
         }
         slot.CurrentValue = value;
-        db.Changes.AuthorizedOwnership.Add(entry.Entity.Id);
-        db.Changes.AuthorizedArtifacts.Add(entry.Entity.Id, value);
     }
 }

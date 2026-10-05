@@ -12,7 +12,6 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
 {
     public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
         return await db.IncomingMetadata.AsNoTracking().Where(DueAt(now))
             .OrderBy(p => p.NextActionAtUtc).ThenBy(p => p.Payment.RegisteredAtUtc).ThenBy(p => p.Id)
@@ -21,7 +20,6 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
 
     public async Task<IncomingPaymentClaim?> StageClaimAsync(Guid paymentId, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(duration, TimeSpan.Zero);
         var payment = await db.IncomingMetadata.Include(p => p.Payment).Where(DueAt(now)).SingleOrDefaultAsync(p => p.Id == paymentId, cancellationToken);
         if (payment is null)
@@ -40,7 +38,6 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
         DateTimeOffset nextActionAtUtc,
         CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         if (await db.IncomingMetadata.FindAsync([claim.PaymentId], cancellationToken) is not { } payment)
         {
             return false;
@@ -65,6 +62,5 @@ public sealed class IncomingPaymentWorkRepository(TransactionDbContext db) : IIn
     private void Own(IncomingPaymentMetadata payment, Guid? token, DateTimeOffset? expiresAtUtc)
     {
         payment.SetClaim(token, expiresAtUtc);
-        db.Changes.AuthorizedIncomingPaymentWork.Add(payment.Id);
     }
 }

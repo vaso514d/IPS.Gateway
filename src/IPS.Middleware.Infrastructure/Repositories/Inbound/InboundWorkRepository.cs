@@ -12,7 +12,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 {
     public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(take);
         return await db.InboundJournal.AsNoTracking().Where(DueAt(now))
             .OrderBy(e => e.NextActionAtUtc).ThenBy(e => e.ReceivedAtUtc).ThenBy(e => e.Id)
@@ -21,7 +20,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
     public async Task<InboundClaim?> StageClaimAsync(Guid journalId, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(duration, TimeSpan.Zero);
         var entry = await db.InboundJournal.Where(DueAt(now)).SingleOrDefaultAsync(e => e.Id == journalId, cancellationToken);
         if (entry is null)
@@ -88,7 +86,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         }
 
         entry.OriginalJson = IncomingPaymentJson.Write(original);
-        db.Changes.AuthorizedInboundWork.Add(entry.Id);
         return true;
     }
 
@@ -110,7 +107,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
         }
 
         entry.IncomingPaymentId = paymentId;
-        db.Changes.AuthorizedInboundWork.Add(entry.Id);
         return true;
     }
 
@@ -120,7 +116,6 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
     private async Task<InboundJournalEntry?> OwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var entry = await db.InboundJournal.FindAsync([claim.JournalId], cancellationToken);
         return entry is not null && entry.IsOwnedBy(claim, now) ? entry : null;
     }
@@ -129,6 +124,5 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
     {
         entry.ClaimToken = token;
         entry.ClaimExpiresAtUtc = expiresAtUtc;
-        db.Changes.AuthorizedInboundWork.Add(entry.Id);
     }
 }

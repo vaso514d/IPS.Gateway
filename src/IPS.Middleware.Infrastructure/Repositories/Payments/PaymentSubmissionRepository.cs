@@ -15,7 +15,6 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 {
     public async Task<IReadOnlyList<OutgoingMessage>> ReadJournalAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var rows = await db.OutgoingMessages.AsNoTracking().Where(p => p.PaymentId == paymentId)
             .OrderBy(p => p.Direction).ToListAsync(cancellationToken);
         return Array.AsReadOnly(rows.Select(p => p.Snapshot()).ToArray());
@@ -23,7 +22,6 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public async Task<PaymentSubmission?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         if (!await db.Payments.AnyAsync(p => p.Id == paymentId && p.MessageType == Pacs008, cancellationToken))
         {
             return null;
@@ -51,7 +49,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
         row.Status = MessageJournalStatus.SendStarted;
         row.StartedAtUtc = now.ToUniversalTime();
         row.SubmissionOwner = claim.Token;
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageResponse(OutgoingPayment payment, TransactionClaim claim, IpsSubmissionResponse response, DateTimeOffset now)
@@ -92,7 +90,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
             HeadersJson = headers
         };
         db.OutgoingMessages.Add(row);
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageInterpretation(OutgoingPayment payment, TransactionClaim claim, IpsReply reply, DateTimeOffset now)
@@ -115,7 +113,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
             row.Failure = row.Failure[..2000];
         }
 
-        OutgoingJournal.Authorize(db, payment, row);
+        db.RequireCurrentVersion(payment);
     }
 
     private OutgoingMessageRow Committed(Guid paymentId, OutgoingMessageDirection direction)

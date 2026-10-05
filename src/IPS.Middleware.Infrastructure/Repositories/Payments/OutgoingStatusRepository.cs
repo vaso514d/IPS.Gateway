@@ -11,7 +11,6 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
 {
     public async Task<OutgoingStatus?> ReadAsync(string reference, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var metadata = await db.OutgoingMetadata.AsNoTracking().Include(p => p.Payment)
             .SingleOrDefaultAsync(p => p.Payment.ClientReference == reference, cancellationToken);
         if (metadata is null)
@@ -26,7 +25,6 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
 
     public async Task<IReadOnlyList<StatusDeliveryKey>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         if (take is < 1 or > 1000)
         {
             throw new ArgumentOutOfRangeException(nameof(take));
@@ -60,7 +58,7 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         row.ClaimToken = Guid.NewGuid();
         row.ClaimExpiresAtUtc = now.ToUniversalTime() + duration;
         row.Attempts = checked(row.Attempts + 1);
-        Authorize(row);
+        RequireCurrentPaymentVersion(row);
         return row.ClaimToken;
     }
 
@@ -91,7 +89,7 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         row.ClaimToken = null;
         row.ClaimExpiresAtUtc = null;
         row.LastFailure = failure?.Length > 2000 ? failure[..2000] : failure;
-        Authorize(row);
+        RequireCurrentPaymentVersion(row);
         return true;
     }
 
@@ -108,7 +106,7 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         row.NextAtUtc = null;
         row.ClaimToken = null;
         row.ClaimExpiresAtUtc = null;
-        Authorize(row);
+        RequireCurrentPaymentVersion(row);
         return true;
     }
 
@@ -117,7 +115,6 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
 
     private async Task<OutgoingStatusDeliveryRow?> LoadAsync(StatusDeliveryKey key, CancellationToken cancellationToken)
     {
-        db.RequireUsable();
         var row = await Current().SingleOrDefaultAsync(r => r.PaymentId == key.PaymentId && r.Sequence == key.Sequence, cancellationToken);
         if (row is null)
         {
@@ -130,11 +127,9 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         return payment.CurrentSequence == key.Sequence ? row : null;
     }
 
-    private void Authorize(OutgoingStatusDeliveryRow row)
+    private void RequireCurrentPaymentVersion(OutgoingStatusDeliveryRow row)
     {
         var payment = db.Payments.Local.Single(p => p.Id == row.PaymentId);
-        db.Entry(db.Metadata(payment)).Property(p => p.NextActionAtUtc).IsModified = true;
-        db.Changes.AuthorizedOwnership.Add(payment.Id);
-        db.Changes.StatusChanges.Authorize(db.Entry(row));
+        db.RequireCurrentVersion(payment);
     }
 }

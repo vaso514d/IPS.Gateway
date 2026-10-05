@@ -24,14 +24,18 @@ internal sealed class InboundJournalConfiguration : IEntityTypeConfiguration<Inb
                 "([IncomingPaymentId] IS NULL AND [OriginalJson] IS NULL) OR ([OriginalJson] IS NOT NULL AND ISJSON([OriginalJson]) = 1)");
             table.HasCheckConstraint("CK_InboundJournal_Duplicates", "[DuplicateCount] >= 0");
         });
-        builder.HasKey(e => e.Id);
-        builder.Property(e => e.ParticipantBic).HasMaxLength(11).UseCollation(BinaryCollation).IsRequired();
-        builder.Property(e => e.MessageType).HasMaxLength(35).IsRequired();
-        builder.Property(e => e.RawXml).IsRequired();
-        builder.Property(e => e.HoldReason).HasMaxLength(InboundJournalEntry.HoldReasonLimit);
-        builder.Property(e => e.Version).IsRowVersion();
-        builder.HasOne<IncomingPayment>().WithMany().HasForeignKey(e => e.IncomingPaymentId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasIndex(e => new { e.ParticipantBic, e.Sequence }).IsUnique().HasFilter("[Sequence] > 0");
-        builder.HasIndex(e => new { e.Status, e.NextActionAtUtc, e.ReceivedAtUtc, e.Id });
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ParticipantBic).HasMaxLength(11).UseCollation(BinaryCollation).IsRequired();
+        builder.Property(x => x.MessageType).HasMaxLength(35).IsRequired();
+        builder.Property(x => x.RawXml).IsRequired();
+        builder.Property(x => x.HoldReason).HasMaxLength(InboundJournalEntry.HoldReasonLimit);
+        builder.Property(x => x.Version).IsRowVersion();
+        builder.HasIndex(x => new { x.ParticipantBic, x.Sequence }).IsUnique().HasFilter("[Sequence] > 0");
+        builder.HasIndex(x => new { x.Status, x.NextActionAtUtc, x.ReceivedAtUtc, x.Id });
+
+        builder.HasOne<IncomingPayment>()
+            .WithMany()
+            .HasForeignKey(x => x.IncomingPaymentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -247,22 +247,6 @@ public sealed class InboundJournalTests
         Assert.Empty(await new InboundWorkRepository(read).FindDueAsync(Now, 100, default));
     }
 
-    [Theory]
-    [InlineData("RawXml", "<replacement/>")]
-    [InlineData("MessageType", "pacs.009")]
-    public async Task Original_receipt_fields_cannot_be_modified(string property, string replacement)
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        var id = await Insert(database, Receipt(1));
-        await using var db = database.Context();
-        await new InboundWorkRepository(db).StageClaimAsync(id, Now, Lease, default);
-        var entry = Assert.Single(db.ChangeTracker.Entries());
-        entry.Property(property).CurrentValue = replacement;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
-        await using var read = database.Context();
-        Assert.Equal("<original/>", (await new InboundReceiptRepository(read).ReadAsync(id, default))!.Receipt.RawXml);
-    }
-
     [Fact]
     public async Task Cancellation_after_commit_leaves_receipt_recoverable_without_notification()
     {

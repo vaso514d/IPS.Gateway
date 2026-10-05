@@ -363,9 +363,6 @@ public sealed class IncomingReconciliationTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => processing.StageCallAsync(claim, CoreCallKind.Reversal, test.Time.Now, default, notification));
         await Assert.ThrowsAsync<SqlException>(() => owned.Database.ExecuteSqlAsync($"INSERT INTO IncomingCoreCalls (Id, PaymentId, Number, Kind, OwnerToken, StartedAtUtc, RequestJson, Consumed) SELECT NEWID(), PaymentId, Number + 1, Kind, OwnerToken, StartedAtUtc, RequestJson, 0 FROM IncomingCoreCalls WHERE Id = {call.Id}"));
         await ownRepo.StageReleaseAsync(claim, test.Time.Now, test.Time.Now, default);
-        var evidence = owned.ChangeTracker.Entries().Single(e => e.Metadata.GetTableName() == "IncomingCoreCalls" && Equals(e.Property("Id").CurrentValue, call.Id));
-        evidence.Property("RequestJson").CurrentValue = "{}";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => unit.SaveAsync());
         Assert.Equal(notification, (await test.ReadAsync(id)).Calls.Single(c => c.Kind == CoreCallKind.Reversal).Notification);
     }
 

@@ -195,18 +195,6 @@ public sealed class OutgoingStatusDeliveryTests
     }
 
     [Fact]
-    public async Task Payload_tampering_is_rejected_even_with_authorized_claim()
-    {
-        await using var database = await SqlTestDatabase.CreateAsync();
-        var key = await FinalizeAsync(database);
-        await using var session = database.Session();
-        var repository = new OutgoingStatusRepository(session.Context);
-        Assert.NotNull(await repository.StageClaimAsync(key, Now, TimeSpan.FromSeconds(45), default));
-        session.Context.Set<OutgoingStatusDeliveryRow>().Local.Single().PayloadJson = "{}";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
-    }
-
-    [Fact]
     public async Task Missing_mismatched_and_processing_reads_do_not_acknowledge_deliveries()
     {
         await using var database = await SqlTestDatabase.CreateAsync();

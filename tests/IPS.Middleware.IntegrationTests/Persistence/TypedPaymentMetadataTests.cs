@@ -19,23 +19,6 @@ public sealed class TypedPaymentMetadataTests
         CheckPair<IncomingPayment, IncomingPaymentMetadata>(context, "IncomingPayments", "RequestJson", "ContextJson", "CheckpointVersion");
     }
 
-    [Fact]
-    public void Repository_authorization_captures_values_including_mutable_rowversion_bytes()
-    {
-        using var context = new DesignTimeTransactionDbContextFactory().CreateDbContext([]);
-        var row = new OutgoingStatusDeliveryRow { PaymentId = Guid.NewGuid(), Sequence = 1, PayloadJson = "{}", RowVersion = [1, 2] };
-        var entry = context.Attach(row);
-        var changes = new StagedChanges<OutgoingStatusDeliveryRow>();
-        changes.Authorize(entry);
-        Assert.True(changes.Matches(entry));
-        row.RowVersion[0] = 3;
-        Assert.False(changes.Matches(entry));
-        row.RowVersion = [1, 2];
-        Assert.True(changes.Matches(entry));
-        row.PayloadJson = "changed";
-        Assert.False(changes.Matches(entry));
-    }
-
     private static void CheckPair<TPayment, TMetadata>(TransactionDbContext context, string table, params string[] required)
     {
         var payment = context.Model.FindEntityType(typeof(TPayment))!;

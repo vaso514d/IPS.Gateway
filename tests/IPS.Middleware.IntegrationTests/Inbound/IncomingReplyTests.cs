@@ -335,7 +335,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
     }
 
     [Fact]
-    public async Task Restored_response_headers_are_immutable_and_saved_XML_cannot_be_replaced()
+    public async Task Restored_response_headers_are_immutable()
     {
         await using var h = await Harness.CreateAsync(fixture);
         var id = await h.SeedAsync();
@@ -344,27 +344,6 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         var saved = await h.ReadAsync(id);
         var headers = Assert.Single(saved.Attempts).Completion!.Response!.Headers;
         Assert.Throws<NotSupportedException>(() => ((IList<IpsResponseHeader>)headers).Add(new("Changed", "true")));
-        await using var db = h.Database.Context();
-        var type = db.Model.GetEntityTypes().Single(t => t.GetTableName() == "IncomingReplies").ClrType;
-        var row = (await db.FindAsync(type, id))!;
-        db.Entry(row).Property("MessageXml").CurrentValue = "replacement";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
-        Assert.Equal(saved.MessageXml, (await h.ReadAsync(id)).MessageXml);
-    }
-
-    [Fact]
-    public async Task Owned_checkpoint_still_cannot_replace_saved_XML()
-    {
-        await using var h = await Harness.CreateAsync(fixture);
-        var id = await h.SeedAsync();
-        var prepared = await h.PrepareOnlyAsync(id);
-        await using var db = h.Database.Context();
-        var claim = await h.ClaimAsync(db, id);
-        await new IncomingReplyRepository(db).StageAttemptAsync(claim, h.Time.Now, default); // Authorizes reply changes for this receipt.
-        var type = db.Model.GetEntityTypes().Single(t => t.GetTableName() == "IncomingReplies").ClrType;
-        db.Entry((await db.FindAsync(type, id))!).Property("MessageXml").CurrentValue = "replacement";
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new UnitOfWork(db).SaveAsync());
-        Assert.Equal(prepared.MessageXml, (await h.ReadAsync(id)).MessageXml);
     }
 
     [Fact]
