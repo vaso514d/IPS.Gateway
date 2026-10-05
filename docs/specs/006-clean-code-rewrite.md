@@ -1,6 +1,6 @@
 # 006: Clean-code rewrite (supersedes 005)
 
-Owner-approved plan, 2026-10-06. Branch `codex/readability-refactor`, on top of the unmerged 005 commit `becb5ee`. One commit per slice, owner review after each; no merge is authorized. No business process, external behavior, Contracts, JSON shape, event name/version or database schema changes.
+Owner-approved plan, 2026-10-06. Branch `codex/readability-refactor`, on top of the unmerged 005 commit `becb5ee`. One commit per slice, owner review after each. The owner approved the merge on 2026-10-06; codex/capability-rebuild was fast-forwarded to the merge checkpoint. No business process, external behavior, Contracts, JSON shape, event name/version or database schema changes.
 
 ## Why
 
@@ -50,7 +50,7 @@ DR is `rsi-daily-reports/DailyReports/src` and LS is `ListingSearchDataSync/src`
 | 4 | cbe9bf1 | `ClaimedPayment` shared by the pacs.008 and investigation workflows; explicit cancellation tokens | No test changes |
 | 5 | 8e18524 | `ClaimedIncomingPayment`, `IncomingProcessingResult.Of`, `PaymentMessageTypes.IsPacs008`, `IncomingReplyContext.New` | No test changes |
 | 6 | 583fd89 | `SupervisedBackgroundService` shared by incoming workers and `OutgoingRuntime`; discovery query moved into the repository; `IpsHeaders`; certificate and reply checks named | No test changes |
-| 7 | this commit | Api `AddMiddleware`/`ValidateMiddleware`, shared configuration reading, consistent registration names; 005 documents replaced by this spec | No test changes |
+| 7 | 7347752 | Api `AddMiddleware`/`ValidateMiddleware`, shared configuration reading, consistent registration names; 005 documents replaced by this spec | No test changes |
 
 The 005 migration `20261005181308_TypedPaymentMetadata` (discovery indexes for typed metadata) remains. 006 adds no migration.
 

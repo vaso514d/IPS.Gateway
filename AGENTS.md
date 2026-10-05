@@ -13,4 +13,4 @@ Keep development and Git operations in this rebuilt repository. The original rep
 
 - Before changing persistence or repository layout, read [the shared unit of work revision](docs/specs/001e-shared-unit-of-work.md). Keep shared save orchestration separate from payment persistence policy.
 
-- Before changing authored C# code, follow [coding style](docs/coding-style.md) and its reference examples in [006](docs/specs/006-clean-code-rewrite.md). The 006 clean-code rewrite awaits the owner's review; do not start the next capability until the owner decides.
+- Before changing authored C# code, follow [coding style](docs/coding-style.md) and its reference examples in [006](docs/specs/006-clean-code-rewrite.md). The 006 clean-code rewrite is merged into codex/capability-rebuild.
