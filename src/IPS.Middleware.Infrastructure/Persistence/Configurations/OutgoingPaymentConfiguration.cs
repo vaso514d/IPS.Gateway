@@ -30,20 +30,12 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         payment.Property<string>(MessageId).HasMaxLength(35);
         payment.Property<string>(ProtocolTransactionId).HasMaxLength(35);
         payment.Property<string>(UnsignedXml);
-        payment.Property<string>(SignedXml);
-        payment.Property<string>(SubmissionJson);
-        payment.Property<string>(SubmissionResponseJson);
-        payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Submission",
-            "([SubmissionJson] IS NULL AND [SubmissionResponseJson] IS NULL) OR " +
-            "([SubmissionJson] IS NOT NULL AND ISJSON([SubmissionJson]) = 1 AND [MessageType] = 'pacs.008' " +
-            "AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL AND [UnsignedXml] IS NOT NULL " +
-            "AND ([SubmissionResponseJson] IS NULL OR ISJSON([SubmissionResponseJson]) = 1))"));
         payment.HasIndex(MessageId).IsUnique().HasFilter("[MessageId] IS NOT NULL");
         payment.HasIndex(ProtocolTransactionId).IsUnique().HasFilter("[ProtocolTransactionId] IS NOT NULL");
         payment.ToTable(table => table.HasCheckConstraint("CK_Transactions_Preparation",
-            "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL AND [SignedXml] IS NULL) OR " +
+            "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR " +
             "([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL " +
-            "AND ([SignedXml] IS NULL OR [UnsignedXml] IS NOT NULL))"));
+            ")"));
         payment.Property<TransactionDirection>(Direction);
         payment.Property<Guid?>(ClaimToken);
         payment.Property<DateTimeOffset?>(ClaimExpiresAtUtc);

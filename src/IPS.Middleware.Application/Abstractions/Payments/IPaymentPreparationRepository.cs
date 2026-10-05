@@ -10,5 +10,6 @@ public interface IPaymentPreparationRepository
 
     /// <summary>Stage immutable content under a live claim; the shared unit of work makes it durable.</summary>
     void StageUnsignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now);
+    void StageDevelopmentUnsigned(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now);
     void StageSignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now);
 }

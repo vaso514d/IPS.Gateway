@@ -1,6 +1,7 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -64,7 +65,7 @@ public sealed class PaymentPreparationTests
         Assert.Equal(0, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(payment, claim, Xml + " ", Now));
         repository.StageSignedXml(payment, claim, Signed, Now);
-        Assert.Equal(1, await session.Unit.SaveAsync());
+        Assert.Equal(2, await session.Unit.SaveAsync());
         repository.StageSignedXml(payment, claim, Signed, Now);
         Assert.Equal(0, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageSignedXml(payment, claim, Signed + " ", Now));
@@ -226,7 +227,9 @@ public sealed class PaymentPreparationTests
         {
             await using var tamper = database.Session();
             var payment = (await tamper.Payments.FindAsync(id, default))!;
-            tamper.Context.Entry(payment).Property<string?>(property).CurrentValue = replacement;
+            if (property == "SignedXml")
+                (await tamper.Context.Set<OutgoingMessageRow>().SingleAsync()).Content = replacement!;
+            else tamper.Context.Entry(payment).Property<string?>(property).CurrentValue = replacement;
             await Assert.ThrowsAsync<InvalidOperationException>(() => tamper.Unit.SaveAsync());
         }
     }
@@ -270,7 +273,8 @@ public sealed class PaymentPreparationTests
             await session.Unit.SaveAsync();
             repository.StageSignedXml(payment, claim, Signed, Now);
         }
-        session.Context.Entry(payment).Property<string?>(signed ? "SignedXml" : "UnsignedXml").CurrentValue = replacement;
+        if (signed) session.Context.Set<OutgoingMessageRow>().Local.Single().Content = replacement;
+        else session.Context.Entry(payment).Property<string?>("UnsignedXml").CurrentValue = replacement;
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
         await using var read = database.Session();
         var stored = (await new PaymentPreparationRepository(read.Context).ReadAsync(payment.Id, default))!;

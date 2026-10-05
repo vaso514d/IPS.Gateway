@@ -35,6 +35,8 @@ Persist the submission marker before remote I/O. A crash between the marker and 
 
 ## Stage 2c: host, transport, HTTP and delivery
 
+Owner adaptation (2026-10-05): first implement [2c.0 explicit outgoing message journal](specs/002c0-outgoing-journal.md), keeping the aggregate/Contracts. Separate reviews then add callbacks and synchronous HTTP. Use the owner-supplied outbound flow with separately committed response evidence, pre-send recovery, and service-owned execution.
+
 Run the initial attempt immediately in a service-owned, supervised scope. The HTTP caller awaits the attempt; response completion or caller disconnect must not dispose its execution scope.
 
 - Default HTTP wait: 30 seconds after durable intake.

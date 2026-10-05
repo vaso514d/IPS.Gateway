@@ -16,9 +16,6 @@ internal static class PaymentColumns
     internal const string MessageId = nameof(MessageId);
     internal const string ProtocolTransactionId = nameof(ProtocolTransactionId);
     internal const string UnsignedXml = nameof(UnsignedXml);
-    internal const string SignedXml = nameof(SignedXml);
-    internal const string SubmissionJson = nameof(SubmissionJson);
-    internal const string SubmissionResponseJson = nameof(SubmissionResponseJson);
     internal const string ClaimToken = nameof(ClaimToken);
     internal const string ClaimExpiresAtUtc = nameof(ClaimExpiresAtUtc);
     internal const string NextActionAtUtc = nameof(NextActionAtUtc);

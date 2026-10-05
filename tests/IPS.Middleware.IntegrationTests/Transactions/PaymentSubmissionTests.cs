@@ -2,6 +2,7 @@ using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -30,13 +31,13 @@ public sealed class PaymentSubmissionTests
         repository.StageSubmission(payment, claim, kind, Now.ToOffset(TimeSpan.FromHours(4)));
         await using (var before = database.Session())
             Assert.Null((await new PaymentSubmissionRepository(before.Context).ReadAsync(payment.Id, default))!.Marker);
-        Assert.Equal(1, await session.Unit.SaveAsync());
+        Assert.Equal(2, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageSubmission(payment, claim, kind, Now));
         var response = Response;
         repository.StageResponse(payment, claim, response, Now.AddSeconds(1));
         await using (var before = database.Session())
             Assert.Null((await new PaymentSubmissionRepository(before.Context).ReadAsync(payment.Id, default))!.Response);
-        Assert.Equal(1, await session.Unit.SaveAsync());
+        Assert.Equal(2, await session.Unit.SaveAsync());
         repository.StageResponse(payment, claim, Response, Now.AddSeconds(2));
         Assert.Equal(0, await session.Unit.SaveAsync());
         Assert.Throws<InvalidOperationException>(() => repository.StageResponse(payment, claim, new(500, "changed", []), Now));
@@ -55,9 +56,10 @@ public sealed class PaymentSubmissionTests
         var prepared = (await new PaymentPreparationRepository(read.Context).ReadAsync(payment.Id, default))!;
         Assert.Equal(kind == SubmissionMessageKind.Signed ? Signed : null, prepared.SignedXml);
         var current = (await read.Payments.FindAsync(payment.Id, default))!;
-        var json = read.Context.Entry(current).Property<string>("SubmissionJson").CurrentValue;
-        Assert.Contains("\"startedAtUtc\"", json);
-        Assert.DoesNotContain("$type", json);
+        var journal = await new PaymentSubmissionRepository(read.Context).ReadJournalAsync(payment.Id, default);
+        Assert.Equal(MessageJournalStatus.SendStarted, journal[0].Status);
+        Assert.Equal(MessageJournalStatus.Received, journal[1].Status);
+        Assert.Equal(journal[0].Id, journal[1].OriginatingMessageId);
     }
 
     [Fact]
@@ -295,7 +297,13 @@ public sealed class PaymentSubmissionTests
         }
         // Even an authorized ownership operation is not permission to write arbitrary checkpoint data.
         session.Work.StageCompletion(payment, claim, Now, null);
-        session.Context.Entry(payment).Property<string?>(column).CurrentValue = edit == "clear" ? null : "{}";
+        var direction = column == "SubmissionJson" ? OutgoingMessageDirection.Outbound : OutgoingMessageDirection.Response;
+        var row = session.Context.Set<OutgoingMessageRow>().Local.SingleOrDefault(p => p.Direction == direction)
+            ?? await session.Context.Set<OutgoingMessageRow>().SingleOrDefaultAsync(p => p.Direction == direction);
+        if (row is null)
+            session.Context.Set<OutgoingMessageRow>().Add(new() { Id = Guid.NewGuid(), PaymentId = payment.Id, Direction = direction });
+        else if (direction == OutgoingMessageDirection.Outbound) row.SubmissionOwner = Guid.NewGuid();
+        else row.Content = edit == "clear" ? null! : "{}";
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.Unit.SaveAsync());
     }
 
@@ -323,11 +331,9 @@ public sealed class PaymentSubmissionTests
             var repository = new PaymentPreparationRepository(session.Context);
             repository.StageUnsignedXml(payment, claim, Xml, Now);
             await session.Unit.SaveAsync();
-            if (signed)
-            {
-                repository.StageSignedXml(payment, claim, Signed, Now);
-                await session.Unit.SaveAsync();
-            }
+            if (signed) repository.StageSignedXml(payment, claim, Signed, Now);
+            else repository.StageDevelopmentUnsigned(payment, claim, Now);
+            await session.Unit.SaveAsync();
         }
         return (payment, claim);
     }

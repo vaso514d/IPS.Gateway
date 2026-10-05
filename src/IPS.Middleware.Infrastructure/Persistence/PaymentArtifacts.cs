@@ -21,7 +21,7 @@ internal static class PaymentArtifacts
         if (entry.State is EntityState.Added or EntityState.Detached || payment.MessageType != Pacs008 ||
             payment.CurrentStatus != TransactionStatus.Sending || entry.TextOf(MessageId).CurrentValue is null)
             throw new InvalidOperationException("Payment artifacts require a persisted pacs.008 in Sending with stored identifiers.");
-        if (!entry.HasLiveClaim(claim, now))
+        if (!entry.HasLiveClaim(claim, now) || entry.ClaimTokenOf().OriginalValue != claim.Token)
             throw new PersistenceConcurrencyException("Payment artifacts require the current unexpired claim.");
         return entry;
     }

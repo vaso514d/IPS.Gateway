@@ -6,6 +6,9 @@ namespace IPS.Middleware.Application.Abstractions.Payments;
 
 public interface IPaymentSubmissionRepository
 {
+    Task<IReadOnlyList<OutgoingMessage>> ReadJournalAsync(Guid paymentId, CancellationToken cancellationToken);
+    void StageInterpretation(OutgoingPayment payment, TransactionClaim claim, IpsReply reply, DateTimeOffset now);
+
     Task<PaymentSubmission?> ReadAsync(Guid paymentId, CancellationToken cancellationToken);
 
     /// <summary>Stage initial submission once. The caller must commit successfully before remote I/O.</summary>

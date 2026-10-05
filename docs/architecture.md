@@ -62,6 +62,8 @@ Mappings and interceptors live under Infrastructure/Persistence. TransactionDbCo
 
 ## Outgoing preparation storage
 
+Historical Stage 2a layout, superseded by the explicit outgoing journal below for send-ready messages. The accepted snapshot, identifiers and unsigned preparation checkpoint remain on Transactions.
+
 Stage 2a.1 keeps generated protocol identifiers and two immutable XML slots in Infrastructure shadow metadata on Transactions. The existing rowversion fences artifact writes without a second concurrency mechanism. IPaymentPreparationRepository reads detached snapshots and stages exact content under the current claim; IUnitOfWork still owns commit. Metadata-only saves do not invent business events; changes to Domain properties continue to require pending events.
 
 This small first capability stores XML alongside the parent, so tracked aggregate loads include those values. Separate artifact tables/projections can be considered with measured access patterns; no generic document subsystem is introduced. XML validation and cryptographic verification belong to the following protocol-preparation slice.
@@ -86,6 +88,8 @@ Pacs008MessageSigner consumes stored unsigned XML and a caller-owned certificate
 The signature uses .NET cryptographic primitives with no process-wide CryptoConfig registrations. Inclusive C14N1.1 is supported only for the freshly generated SignedInfo profile without inherited xml:* attributes; those attributes are actively rejected and ancestor namespace bindings are included. This limited equivalence is independently checked by Java's JSR105 verifier, including extra and default namespace contexts. It is not advertised as a general canonicalization library. Production needs no Java runtime; the integration suite requires JDK17+ and CI provisions it. Certificate validity/key usage checks do not perform remote chain/revocation validation or establish IPS trust.
 
 ## Initial submission evidence
+
+Historical Stage 2b layout: SignedXml, SubmissionJson and SubmissionResponseJson shadow columns are removed by Stage 2c.0. Their authoritative replacement is the explicit outgoing journal below.
 
 Stage 2b.1 adds IPaymentSubmissionRepository using the same scoped context and unit of work. SubmissionJson stores the UTC submission marker, originating claim token and selected message disposition. SubmissionResponseJson stores the complete supplied HTTP status, decoded body and ordered headers without interpreting them. These are immutable Infrastructure shadow artifacts, protected by exact-value authorization and the parent rowversion.
 
@@ -156,3 +160,11 @@ IncomingCompositionRepository reads existing receipt/payment/reply routing and s
 Review 004c.3 supplies four Infrastructure BackgroundService roles in the existing Api: receive, processing dispatch, reply dispatch and CBS follow-up. They start work only when explicitly enabled. Application composition and existing feature workflows retain payment decisions. Persistence registration accepts a connection-string factory so final host configuration is used without resolving SQL during disabled startup.
 
 Receive commits the journal before notifying. Separate SQL discovery queries route receipts with stored replies to the reply channel and other pending receipts to processing; both reuse the same due/ownership predicate as receipt claims. Processing concurrency is derived from transport pools, CBS follow-up has reserved slots, and a shared reply semaphore admits both immediate and retry execution before claiming. All handler tasks are tracked and awaited on shutdown. No additional database schema, broker, MessageAck path or outgoing HTTP endpoint is introduced. See [worker specification](specs/004c3-incoming-workers.md) and [runtime settings](configuration.md).
+
+## Explicit outgoing message journal
+
+Stage 2c.0 keeps OutgoingPayment as the business aggregate and adds Infrastructure OutgoingMessages for technical records. Application sees immutable journal projections through the existing preparation/submission repository boundaries. The accepted snapshot, stable IDs and unfinished unsigned preparation remain on Transactions. ReadyToSend stores the exact selected wire content with Signed or DevelopmentUnsigned disposition; SendStarted commits once before I/O. A separate correlated response stores the exact body, ordered headers and HTTP status as Received before interpretation. Trusted final acceptance or rejection makes it Processed; an inconclusive response makes it Failed while the business payment remains Uncertain. Message definition is unknown for untrusted response content.
+
+Journal records use the committed payment claim and parent rowversion, without separate ownership. The journal interceptor validates exact authorized mutations, temporarily detaches journal writes for the parent entity save, and restores them during the existing second save alongside events. Thus a parent concurrency failure precedes journal uniqueness and rolls back the entire shared transaction. The shared UnitOfWork remains unchanged. Failed scopes are discarded. Technical journal changes do not create business events by themselves.
+
+SQL currently permits one initial pacs.008 and one response per payment and enforces correlation within that payment. Investigation messages need a reviewed extension when that capability arrives. Incoming journals/replies remain separate and unchanged. See [002c.0](specs/002c0-outgoing-journal.md).

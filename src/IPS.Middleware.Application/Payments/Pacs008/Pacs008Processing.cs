@@ -72,6 +72,11 @@ public sealed class Pacs008Processing(
 
         // Commit the marker before remote I/O: from here on a lost reply is uncertain, never resent.
         var prepared = (SignedMessage)signing;
+        if (prepared.Kind == SubmissionMessageKind.DevelopmentUnsigned)
+        {
+            preparation.StageDevelopmentUnsigned(payment, claim, Now);
+            await run.CommitAsync();
+        }
         submissions.StageSubmission(payment, claim, prepared.Kind, Now);
         await run.CommitAsync();
         // IPS may act on the message now; its response and the outcome are stored even if the caller stops waiting.
@@ -104,6 +109,9 @@ public sealed class Pacs008Processing(
         }
         // The current host policy decides each time whether development may submit unsigned XML.
         var signing = await protocol.SignAsync(unsigned, run.Token);
+        if (message.ReadyDisposition == SubmissionMessageKind.DevelopmentUnsigned &&
+            signing is not SignedMessage { Kind: SubmissionMessageKind.DevelopmentUnsigned })
+            return new SigningDeferred("The frozen development-unsigned message cannot be replaced; current signing policy did not authorize its disposition.");
         if (signing is not SignedMessage { Kind: SubmissionMessageKind.Signed } signature) return signing;
         preparation.StageSignedXml(run.Payment, claim, signature.Xml, Now);
         run.Payment.RecordStep(ProcessingStep.Signed, Now);
@@ -118,6 +126,7 @@ public sealed class Pacs008Processing(
             return FinishAsync(run, claim, at => payment.MarkOutcomeUnknown(StatusSource.Gateway, at,
                 new(description: "The stored response cannot be correlated without accepted payment data.")));
         var reply = replies.Interpret(response, new(message.MessageId, message.TransactionId, message.Accepted.Payment.EndToEndId));
+        submissions.StageInterpretation(payment, claim, reply, Now);
         return FinishAsync(run, claim, at =>
         {
             switch (reply.Status)

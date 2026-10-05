@@ -7,7 +7,7 @@ namespace IPS.Middleware.IntegrationTests.Inbound;
 
 public sealed class IncomingPacs008Fixture : IAsyncLifetime
 {
-    internal X509Certificate2 Certificate { get; } = IpsReplies.Certificate();
+    internal X509Certificate2 Certificate { get; } = IpsReplies.Certificate(validAt: new DateTimeOffset(2026, 10, 4, 12, 0, 0, TimeSpan.Zero));
     internal Dictionary<string, string> Signed { get; } = [];
     internal static readonly XNamespace Pacs = "urn:iso:std:iso:20022:tech:xsd:pacs.008.001.12";
     internal static readonly XNamespace Head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";

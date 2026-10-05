@@ -3,6 +3,8 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Persistence.Outgoing;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 using static IPS.Middleware.IntegrationTests.Payments.ProcessingHarness;
 
@@ -100,8 +102,8 @@ public sealed class Pacs008ProcessingTests
         var crash = new CrashOnSave(entry => checkpoint switch
         {
             "accepted" => entry.Property("UnsignedXml").IsModified,
-            "unsigned" => entry.Property("SignedXml").IsModified,
-            "signed" => entry.Property("SubmissionJson").IsModified,
+            "unsigned" => entry.Context.ChangeTracker.Entries<OutgoingMessageRow>().Any(p => p.State == EntityState.Added && p.Entity.Direction == OutgoingMessageDirection.Outbound),
+            "signed" => entry.Context.ChangeTracker.Entries<OutgoingMessageRow>().Any(p => p.Entity.Status == MessageJournalStatus.SendStarted && p.Property(r => r.Status).IsModified),
             _ => entry.Entity.IsFinal && entry.Property(nameof(OutgoingPayment.CurrentStatus)).IsModified
         });
         await Assert.ThrowsAsync<SimulatedCrash>(() => harness.ProcessAsync(id, default, crash));

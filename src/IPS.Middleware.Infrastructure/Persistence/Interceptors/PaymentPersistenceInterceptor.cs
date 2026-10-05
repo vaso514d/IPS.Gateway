@@ -10,7 +10,7 @@ namespace IPS.Middleware.Infrastructure.Persistence.Interceptors;
 internal sealed class PaymentPersistenceInterceptor : SaveRuleInterceptor
 {
     internal static readonly PaymentPersistenceInterceptor Instance = new();
-    private static readonly string[] Artifacts = [UnsignedXml, SignedXml, SubmissionJson, SubmissionResponseJson];
+    private static readonly string[] Artifacts = [UnsignedXml];
 
     protected override void Apply(TransactionDbContext db)
     {

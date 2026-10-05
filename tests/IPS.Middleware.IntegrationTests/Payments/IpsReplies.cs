@@ -44,12 +44,13 @@ internal static class IpsReplies
             transaction + "</pacs:FIToFIPmtStsRpt></pacs:Document></Message>";
     }
 
-    internal static X509Certificate2 Certificate(string subject = "CN=Simulated IPS")
+    internal static X509Certificate2 Certificate(string subject = "CN=Simulated IPS", DateTimeOffset? validAt = null)
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var request = new CertificateRequest(subject, key, HashAlgorithmName.SHA256);
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, critical: true));
-        return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+        var at = validAt ?? DateTimeOffset.UtcNow;
+        return request.CreateSelfSigned(at.AddDays(-1), at.AddYears(1));
     }
 
     /// <summary>Signs every message in one JVM run; certificates must carry an ECDSA private key.</summary>
