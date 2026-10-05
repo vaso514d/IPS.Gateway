@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
@@ -21,6 +22,7 @@ public sealed class PaymentSettingsTests
     {
         using var factory = new SettingsFactory(new()
         {
+            ["Payments:Incoming:Composition:ContinuationDelay"] = "00:00:02",
             ["Payments:Incoming:Replies:MaxAttempts"] = "3",
             ["Payments:Incoming:Replies:RetryDelay"] = "00:00:00.500",
             ["Payments:Outgoing:Pacs008:SubmissionWindow"] = "00:00:12",
@@ -46,6 +48,7 @@ public sealed class PaymentSettingsTests
             ["Payments:Incoming:Scheduling:RegistrationMaxAttempts"] = "3"
         });
         var services = factory.Services;
+        Assert.Equal(TimeSpan.FromSeconds(2), services.GetRequiredService<IncomingCompositionOptions>().ContinuationDelay);
         var replies = services.GetRequiredService<IncomingReplyOptions>();
         Assert.Equal(3, replies.MaxAttempts);
         Assert.Equal(TimeSpan.FromMilliseconds(500), replies.RetryDelay);
@@ -70,6 +73,8 @@ public sealed class PaymentSettingsTests
     }
 
     [Theory]
+    [InlineData("Payments:Incoming:Composition:ContinuationDelay", "00:00:00")]
+    [InlineData("Payments:Incoming:Composition:ContinuationDelay", "-00:00:01")]
     [InlineData("Payments:Outgoing:Pacs008:PreparationRetryDelay", "00:00:00")]
     [InlineData("Payments:Incoming:Processing:StatusBudget", "00:00:19")]
     [InlineData("Payments:Incoming:Processing:FollowUpDelay", "00:00:00")]

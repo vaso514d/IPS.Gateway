@@ -17,7 +17,14 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
     /// Uniqueness and concurrency failures propagate and fail this scope. A fresh attempt reuses the persisted winner
     /// only when its contents match; otherwise the receipt is held.
     /// </summary>
-    public async Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken)
+    public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken) =>
+        RegisterAsync(claim, incoming, null, cancellationToken);
+
+    public Task<IncomingRegistration> RegisterAndReleaseAsync(InboundClaim claim, IncomingPacs008 incoming,
+        DateTimeOffset nextActionAtUtc, CancellationToken cancellationToken) => RegisterAsync(claim, incoming, nextActionAtUtc, cancellationToken);
+
+    private async Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming,
+        DateTimeOffset? nextActionAtUtc, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
         if (await receipts.FindOwnedAsync(claim, now, cancellationToken) is not { } receipt) return IncomingRegistration.LostOwnership;
@@ -36,6 +43,8 @@ public sealed class IncomingPaymentIntake(IIncomingPaymentRepository payments, I
         var payment = existing?.Payment ?? IncomingPayment.Register(Guid.NewGuid(), receipt.ParticipantBic, endToEndId, now);
         if (!await receipts.StageAttachmentAsync(claim, payment.Id, now, cancellationToken))
             return IncomingRegistration.LostOwnership;
+        if (nextActionAtUtc is { } due && !await receipts.StageFinishAsync(claim, now, due, cancellationToken))
+            throw new PersistenceConcurrencyException("Receipt ownership expired during registration.");
         if (existing is not null) return await CommitAsync(IncomingRegistrationOutcome.Existing, payment.Id, cancellationToken);
         payments.Add(payment, incoming.Payment, new(receipt.JournalId, receipt.ReceivedAtUtc,
             (incoming.Payment.AcceptanceDateTime ?? receipt.ReceivedAtUtc).ToUniversalTime() + options.PaymentWindow,

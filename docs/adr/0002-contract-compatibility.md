@@ -35,3 +35,7 @@ The new interpreter follows Annex D rather than the source receiver's unchecked 
 ## Incoming HTTP adapters (2026-10-05)
 
 Review 004c.1 keeps imported Contracts and baselines unchanged. CBS receive/status/reversal routes, JSON mapping, exact EndToEndId submission key and `in:{CoreReference}:{Status}` notification key match the pinned source. IPS uses GET/POST Message with the participant/version headers and UTF-8 XML replies. No MessageAck is exposed by this adapter. Unlike source EnsureSuccessStatusCode shortcuts, non-success status, headers and body remain evidence for the already-approved interpreters (including reconciliation 404 unknown). No payment endpoints or workers are enabled by this increment. Automatic redirects, retries and hedging are disabled; durable workflows own subsequent attempts.
+
+## Incoming composition (2026-10-05)
+
+Review 004c.2 changes no Contracts, endpoints, wire formats, payment identity, CBS outcomes or durable reply policy. It composes the reviewed workflows, preserving FF01 without CBS, no pacs.008 MessageAck, immutable per-receipt correlation and completed duplicates without another send. One-second configurable continuation scheduling and first-reply readiness are internal orchestration behavior. Live activation and IPS late-reply verification remain deferred.

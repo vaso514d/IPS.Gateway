@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
@@ -15,12 +16,14 @@ internal static class PaymentSettings
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Processing", () => new IncomingProcessingOptions()));
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Reconciliation", () => new ReconciliationSettings()).ToOptions());
         services.AddSingleton(sp => Read(sp, "Payments:Incoming:Scheduling", () => new InboundSchedulingOptions()));
+        services.AddSingleton(sp => Read(sp, "Payments:Incoming:Composition", () => new IncomingCompositionOptions()));
         return services;
     }
 
     // Resolve after host configuration is finalized. Constructor validation rejects invalid budgets before serving requests.
     internal static void ValidatePaymentSettings(this IServiceProvider services)
     {
+        _ = services.GetRequiredService<IncomingCompositionOptions>();
         _ = services.GetRequiredService<Pacs008Options>();
         _ = services.GetRequiredService<IncomingProcessingOptions>();
         _ = services.GetRequiredService<IncomingReplyOptions>();
