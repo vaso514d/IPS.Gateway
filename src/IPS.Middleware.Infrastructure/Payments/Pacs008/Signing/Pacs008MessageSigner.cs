@@ -13,6 +13,9 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
     public Pacs008SigningResult PrepareReply(string unsignedXml, X509Certificate2? certificate) =>
         Sign(unsignedXml, certificate, xml => Pacs008Schema.ValidateReply(xml));
 
+    public Pacs008SigningResult PrepareInvestigation(string unsignedXml, X509Certificate2? certificate) =>
+        Sign(unsignedXml, certificate, Pacs008Schema.ValidateInvestigation);
+
     private Pacs008SigningResult Sign(string unsignedXml, X509Certificate2? certificate, Action<string> validate)
     {
         var document = ReadUnsignedMessage(unsignedXml, validate);

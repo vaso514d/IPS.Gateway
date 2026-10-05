@@ -71,7 +71,7 @@ public sealed class OutgoingHostTests
         fixture.Configuration["Payments:Outgoing:Execution:AttemptBudget"] = "00:00:01";
         using var host = fixture.Host(); using var client = host.CreateClient();
         var response = await client.PostAsJsonAsync(Send, Request());
-        Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
+        Assert.True(response.StatusCode == HttpStatusCode.GatewayTimeout, $"Expected 504, received {response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
         var status = (await response.Content.ReadFromJsonAsync<TransactionStatusDto>())!;
         Assert.Equal(TransactionStatus.Processing, status.Status);
         Assert.NotEqual(Guid.Empty, status.TransactionId);

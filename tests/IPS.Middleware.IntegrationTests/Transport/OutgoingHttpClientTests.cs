@@ -14,6 +14,7 @@ using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Transport;
 
+[Collection("Outgoing transport timing")]
 public sealed class OutgoingHttpClientTests
 {
     [Theory]
@@ -107,7 +108,9 @@ public sealed class OutgoingHttpClientTests
         var status = new OutgoingStatus(Guid.NewGuid(), 3, "pacs.008", "original", TransactionStatus.Accepted, DateTimeOffset.UtcNow, new(), "message", "e2e");
         Task call = callback ? services.GetRequiredService<IOutgoingStatusReceiver>().SendAsync(status, status.IdempotencyKey, stop.Token)
             : services.GetRequiredService<IIpsTransport>().SendAsync("<payment/>", stop.Token);
-        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var first = await Task.WhenAny(started.Task, call).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(first == started.Task, $"Request ended before response-body handshake: calls={calls}, status={call.Status}, error={call.Exception}");
+        await started.Task;
         if (cancel)
         {
             stop.Cancel();
@@ -148,3 +151,7 @@ public sealed class OutgoingHttpClientTests
         return services.BuildServiceProvider();
     }
 }
+
+// Keep wall-clock body-timeout tests out of parallel SQL/process startup load, so they reach the body phase.
+[CollectionDefinition("Outgoing transport timing", DisableParallelization = true)]
+public sealed class OutgoingTransportTimingCollection;

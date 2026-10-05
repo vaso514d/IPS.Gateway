@@ -17,6 +17,8 @@ public static class Pacs008Schema
 
     internal static XDocument ValidateReply(string xml) => ValidateMessage(xml, ReplyNamespace);
 
+    internal static void ValidateInvestigation(string xml) => ValidateMessage(xml, Investigation.Pacs028Xml.DocumentNamespace);
+
     private static XDocument ValidateMessage(string xml, string documentNamespace)
     {
         using var reader = XmlReader.Create(new StringReader(xml), SafeReader);
@@ -34,7 +36,7 @@ public static class Pacs008Schema
     private static XmlSchemaSet Load()
     {
         var schemas = new XmlSchemaSet { XmlResolver = null };
-        foreach (var file in new[] { "head.001.001.03.xsd", "pacs.008.001.12.xsd", "pacs.002.001.14.xsd" })
+        foreach (var file in new[] { "head.001.001.03.xsd", "pacs.008.001.12.xsd", "pacs.002.001.14.xsd", "pacs.028.001.06.xsd" })
         {
             using var stream = typeof(Pacs008Schema).Assembly.GetManifestResourceStream(
                 "IPS.Middleware.Infrastructure.Payments.Pacs008.Schemas." + file)!;

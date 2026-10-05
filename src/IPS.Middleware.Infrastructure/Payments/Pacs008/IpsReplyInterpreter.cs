@@ -22,6 +22,12 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
     private const string Rejected = "RJCT";
 
     public IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent)
+        => Interpret(response, sent, Pacs008Message.MessageDefinition, strictEvidence: false);
+
+    internal IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition) =>
+        Interpret(response, sent, messageDefinition, strictEvidence: true);
+
+    private IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition, bool strictEvidence)
     {
         var headers = response.Headers.Where(header => string.Equals(header.Name, RequestStatusHeader, StringComparison.OrdinalIgnoreCase))
             .Select(header => header.Value.Trim()).Distinct().ToArray();
@@ -49,10 +55,14 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
         var group = groups[0];
         var transaction = transactions.SingleOrDefault();
         if (Value(group, "OrgnlMsgId") != sent.MessageId ||
-            !string.Equals(Value(group, "OrgnlMsgNmId"), Pacs008Message.MessageDefinition, StringComparison.Ordinal) ||
+            !string.Equals(Value(group, "OrgnlMsgNmId"), messageDefinition, StringComparison.Ordinal) ||
             (transaction is not null && (Value(transaction, "OrgnlTxId") != sent.TransactionId ||
                 Value(transaction, "OrgnlEndToEndId") != sent.EndToEndId)))
             return Unresolved("The IPS reply does not reference this payment.");
+
+        if (strictEvidence && transaction?.Element(P + "OrgnlGrpInf") is { } nested &&
+            (Value(nested, "OrgnlMsgId") != sent.MessageId || Value(nested, "OrgnlMsgNmId") != messageDefinition))
+            return Unresolved("The IPS reply contains conflicting original message references.");
 
         var statuses = new[] { Value(group, "GrpSts"), Value(transaction, "TxSts") }.OfType<string>().ToArray();
         if (statuses.Length == 0) return Unresolved("The IPS reply contains no payment status.");
@@ -65,12 +75,16 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
 
         // Source mapping: the first reason code and additional information in document order.
         var reasons = report.Descendants(P + "StsRsnInf").ToArray();
+        var reasonCodes = reasons.Elements(P + "Rsn").Elements().Where(code => code.Name == P + "Cd" || code.Name == P + "Prtry")
+            .Select(code => code.Value.Trim()).Where(code => code.Length > 0).ToArray();
+        if (strictEvidence && reasonCodes.Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any())
+            return Unresolved("The IPS reply contains conflicting reason codes.");
+        var messageName = messageDefinition == Pacs008Message.MessageDefinition ? "pacs.008" : "pacs.028";
         var description = reasons.Elements(P + "AddtlInf").Select(element => element.Value.Trim()).FirstOrDefault(text => text.Length > 0);
         if (outcome == IpsReplyStatus.Accepted)
-            return new(outcome, new(description: description ?? "IPS accepted the pacs.008."));
-        var reason = reasons.Elements(P + "Rsn").Elements().Where(code => code.Name == P + "Cd" || code.Name == P + "Prtry")
-            .Select(code => code.Value.Trim()).FirstOrDefault(code => code.Length > 0);
-        return new(outcome, new(reason ?? "NARR", InternalCode(requestStatus), description ?? "IPS rejected the pacs.008."));
+            return new(outcome, new(description: description ?? $"IPS accepted the {messageName}."));
+        var reason = reasonCodes.FirstOrDefault();
+        return new(outcome, new(reason ?? "NARR", InternalCode(requestStatus), description ?? $"IPS rejected the {messageName}."));
     }
 
     private static IpsReplyStatus? Classify(string status) => status.Trim().ToUpperInvariant() switch
