@@ -22,9 +22,9 @@ namespace IPS.MiidleWear.Contracts.Abstractions;
 /// </summary>
 public interface IGatewayApi
 {
-    [RestEndpoint("POST", Pacs008RestApiRoutes.Send, Tag = "Pacs008", MessageType = "pacs.008", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Pacs008RestApiRoutes.Send, Tag = "Pacs008", MessageType = "pacs.008", SuccessStatusCode = 200,
         Summary = "Send an outbound pacs.008 instant payment.",
-        Description = "Accepts a Bank/Core instant-payment request and answers 202 with status Processing; the gateway sends it to IPS, recovers an unknown outcome (pacs.008 status investigation) and delivers the final status to the core system. It generates MsgId, TxId, the settlement date and every fixed XML value. clientReference is the idempotency key across every message type: a repeated request returns the existing transaction. 400 = validation.")]
+        Description = "Processes a durably accepted Bank/Core instant payment. Returns 200 with the final outcome, including business rejection, or 504 with the current status after the configured HTTP wait (default 30 seconds). A repeated clientReference immediately returns 200 with the existing status and never starts another attempt. Final-status callbacks remain reliable regardless of the HTTP response. 400 = validation.")]
     Task<TransactionStatusDto> SendPacs008Async(Pacs008InstantPaymentRequestDto payment, CancellationToken cancellationToken);
 
     [RestEndpoint("POST", Pacs009RestApiRoutes.Send, Tag = "Pacs009", MessageType = "pacs.009", SuccessStatusCode = 202,

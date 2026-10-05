@@ -20,6 +20,7 @@ internal static class WorkerProcessProbe
 {
     public static async Task Main(string[] args)
     {
+        if (args is ["--outgoing-probe", var outgoingPath]) { await IPS.Middleware.IntegrationTests.Payments.OutgoingProcessProbe.RunAsync(outgoingPath); return; }
         if (args is not ["--worker-probe", var path]) throw new ArgumentException("Expected worker-probe configuration.");
         var settings = JsonSerializer.Deserialize<ProbeSettings>(await File.ReadAllTextAsync(path))!;
         if (!settings.Connection.Contains("IPS_Middleware_Tests_", StringComparison.Ordinal) ||

@@ -21,7 +21,7 @@ Before implementing each review, inspect the corresponding original tests (Api/O
 
 ## Review order
 
-Owner-approved adaptation on 2026-10-05 inserts [2c.0 explicit outgoing journal](002c0-outgoing-journal.md) before these two reviews. The journal prerequisite is merged as f9a8030. [2c.1 callback/status-read implementation](002c1-outgoing-status-delivery.md) is approved and merged as 0837192. The [2c.2 execution specification](002c2-outgoing-execution.md) is split into [2c.2a transport and bounded evidence persistence](002c2a-outgoing-transport.md), under review on codex/outgoing-execution, then 2c.2b endpoint/supervisor integration. Endpoint implementation has not started.
+Owner-approved adaptation on 2026-10-05 inserts [2c.0 explicit outgoing journal](002c0-outgoing-journal.md) before these two reviews. The journal prerequisite is merged as f9a8030. [2c.1 callback/status-read implementation](002c1-outgoing-status-delivery.md) is approved and merged as 0837192. The [2c.2 execution specification](002c2-outgoing-execution.md) is split into [2c.2a transport and bounded evidence persistence](002c2a-outgoing-transport.md), merged as 03f4976, then [2c.2b endpoint/supervisor integration](002c2b-outgoing-host.md), implemented on codex/outgoing-host for review.
 
 Keep two focused review gates within this stage:
 

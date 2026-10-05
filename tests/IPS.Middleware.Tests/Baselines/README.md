@@ -15,3 +15,5 @@ The 15 wire cases exercise nested models, optional fields, property casing, date
 `ContractSnapshot.cs` computes the actual public surface in tests using the normal Contracts project reference; source files are not linked or copied into the test output. There is intentionally no automatic baseline refresh step. An external contract or compatibility baseline change requires an approved compatibility decision with independently established expectations.
 
 The original project file preserves its NuGet package metadata. The root configuration keeps it packable without publishing a package.
+
+Approved exception (Stage 2c.2b, 2026-10-05): only IGatewayApi.SendPacs008Async's RestEndpoint success code changes from 202 to 200, with its description specifying final 200, unresolved 504 after the default 30-second wait, duplicate immediate 200 and reliable callbacks. The public-api.json entry was edited explicitly for this method; it was not regenerated from the changed assembly. Original source-manifest provenance and wire fixtures remain unchanged.
