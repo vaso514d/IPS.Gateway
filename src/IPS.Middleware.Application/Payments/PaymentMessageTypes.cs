@@ -27,6 +27,10 @@ public static class PaymentMessageTypes
 
     public static bool IsPacs002(string messageType) => messageType is Pacs002 or Pacs002Definition;
 
+    // An incoming recall request or refusal is only acknowledged and archived; nothing is delivered to the core system.
+    public static bool IsArchivedRecall(string messageType) =>
+        messageType is Camt056 or Camt056Definition or Camt029 or Camt029Definition;
+
     public static bool IsOutgoing(string messageType) => Outgoing.Contains(messageType);
 
     // Only pacs.008 has a status investigation (pacs.028); every other outgoing type is resent as a possible duplicate.

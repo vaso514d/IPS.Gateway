@@ -80,8 +80,9 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     [Theory]
     [InlineData("untrusted", "pacs.008", 1)]
     [InlineData("wrong-version", "pacs.008", 1)]
-    [InlineData("valid", "camt.056", 1)]
+    [InlineData("valid", "camt.053", 1)]
     [InlineData("valid", "pacs.008", 0)]
+    [InlineData("valid", "camt.056", 0)]
     public async Task Held_receipts_never_call_remote_systems(string input, string type, long sequence)
     {
         await using var h = await Harness.CreateAsync(fixture);
@@ -89,6 +90,29 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         Assert.Equal(IncomingCompositionStatus.Held, (await h.RunAsync(id)).Status);
         Assert.Empty(h.Core.Submissions);
         Assert.Empty(h.Reply.Messages);
+    }
+
+    [Theory]
+    [InlineData("camt.056")]
+    [InlineData("camt.056.001.11")]
+    [InlineData("camt.029")]
+    [InlineData("camt.029.001.13")]
+    public async Task A_recall_is_archived_without_a_payment_a_reply_or_any_remote_call(string type)
+    {
+        await using var h = await Harness.CreateAsync(fixture);
+        var id = await h.SeedAsync(1, rawXml: "<archived recall />", type: type);
+
+        var result = await h.RunAsync(id);
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        var state = (await h.Execution.ReadAsync(id, default))!;
+        Assert.Equal(InboundProcessingStatus.Processed, state.Status);
+        Assert.Null(state.PaymentId);
+        Assert.False(state.HasReply);
+        Assert.Empty(h.Core.Submissions);
+        Assert.Empty(h.Reply.Messages);
+        await using var db = h.Database.Context();
+        Assert.Equal("<archived recall />", (await new InboundReceiptRepository(db).ReadAsync(id, default))!.Receipt.RawXml);
     }
 
     [Fact]

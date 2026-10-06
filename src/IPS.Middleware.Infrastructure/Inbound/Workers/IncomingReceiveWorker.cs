@@ -66,14 +66,15 @@ public sealed class IncomingReceiveWorker(
             response.Transport.Body, response.PossibleDuplicate, response.ReceivedAtUtc);
     }
 
-    // IPS expects a status report, a financial-institution transfer or a payment return to be acknowledged, and only once
-    // it is stored. A failed acknowledgement never stops polling: IPS redelivers the message and the duplicate receipt is
+    // IPS expects a status report, a financial-institution transfer, a payment return or a recall to be acknowledged, and
+    // only once it is stored. A failed acknowledgement never stops polling: IPS redelivers the message and the duplicate receipt is
     // acknowledged again.
     private async Task AcknowledgeAsync(InboundReceipt receipt, CancellationToken token)
     {
         var needsAcknowledgement = PaymentMessageTypes.IsPacs002(receipt.MessageType)
             || PaymentMessageTypes.IsPacs009(receipt.MessageType)
-            || PaymentMessageTypes.IsPacs004(receipt.MessageType);
+            || PaymentMessageTypes.IsPacs004(receipt.MessageType)
+            || PaymentMessageTypes.IsArchivedRecall(receipt.MessageType);
         if (!needsAcknowledgement || receipt.Sequence is not > 0)
         {
             return;

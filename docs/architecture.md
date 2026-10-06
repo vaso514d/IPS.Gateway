@@ -241,6 +241,11 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Shared profile.** `IpsMessageProfile` (IPS BIC and service level) serves pacs.009, pacs.004 and camt.056.
 - See [007a](specs/007a-outgoing-camt056.md).
 
+## Incoming recalls (007c)
+
+- An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
+- See [007c](specs/007c-incoming-recalls.md).
+
 ## Outgoing camt.029 and the shared recall parts (007b)
 
 - **One more type on the shared core.** `PaymentMessageTypes.Camt029` joins the outgoing set. `Camt029Intake` validates the source rules (the creditor agent must be us, the quoted currency enabled, settlement date not in the future, reason code 1-4 uppercase characters) and snapshots `AcceptedCamt029`. The message id is the caller's `Id` and the transaction id its cancellation status id. The answer is always a refusal (RJCR).
