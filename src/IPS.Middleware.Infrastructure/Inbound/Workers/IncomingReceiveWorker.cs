@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Payments;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -34,7 +35,10 @@ public sealed class IncomingReceiveWorker(
                     await Task.Delay(Options.EmptyDelay, Time, stop);
                     continue;
                 }
-                await PersistReceiptAsync(CreateReceipt(response), work);
+
+                var receipt = CreateReceipt(response);
+                await PersistReceiptAsync(receipt, work);
+                await AcknowledgeAsync(receipt, stop);
                 await Task.Delay(Options.MessageDelay, Time, stop);
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested || work.IsCancellationRequested)
@@ -60,6 +64,31 @@ public sealed class IncomingReceiveWorker(
 
         return new InboundReceipt(response.ParticipantBic, response.Sequence, messageType,
             response.Transport.Body, response.PossibleDuplicate, response.ReceivedAtUtc);
+    }
+
+    // IPS expects a status report to be acknowledged, and only once it is stored. A failed acknowledgement never stops
+    // polling: IPS redelivers the report and the duplicate receipt is acknowledged again.
+    private async Task AcknowledgeAsync(InboundReceipt receipt, CancellationToken token)
+    {
+        if (!PaymentMessageTypes.IsPacs002(receipt.MessageType) || receipt.Sequence is not > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            var client = scope.ServiceProvider.GetRequiredService<IIncomingAckClient>();
+            var response = await client.AcknowledgeAsync(receipt.ParticipantBic, receipt.Sequence.Value, token);
+            if (response.HttpStatusCode is < 200 or >= 300)
+            {
+                Logger.LogWarning("IPS acknowledgement of sequence {Sequence} returned HTTP {Status}", receipt.Sequence, response.HttpStatusCode);
+            }
+        }
+        catch (Exception error) when (error is not OperationCanceledException || !token.IsCancellationRequested)
+        {
+            Logger.LogWarning(error, "IPS acknowledgement of sequence {Sequence} failed; redelivery will repeat it", receipt.Sequence);
+        }
     }
 
     private async Task PersistReceiptAsync(InboundReceipt receipt, CancellationToken cancellationToken)

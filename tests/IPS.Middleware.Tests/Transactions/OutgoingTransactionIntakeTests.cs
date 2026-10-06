@@ -103,6 +103,8 @@ public sealed class OutgoingTransactionIntakeTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(CommitCalls == 0 ? Existing : Winner);
         }
+        public Task<OutgoingPayment?> FindByMessageIdAsync(string messageId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Intake never looks a payment up by protocol message id.");
         public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
         {
             Added = payment;

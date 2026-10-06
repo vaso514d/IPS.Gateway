@@ -12,4 +12,11 @@ public interface ITransactionWorkRepository
     TransactionClaim? StageClaim(OutgoingPayment payment, DateTimeOffset now, TimeSpan duration);
     bool StageCompletion(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now, DateTimeOffset? nextActionAtUtc);
     bool StageRecovery(OutgoingPayment payment, DateTimeOffset now);
+
+    // Prepare the payment for an IPS report: drop an expired claim and automatic scheduling, and fence the row version.
+    // False while another owner holds a live claim.
+    bool StageSettlement(OutgoingPayment payment, DateTimeOffset now);
+
+    // Fence the row version for a change that does not touch ownership or scheduling.
+    void StageObservation(OutgoingPayment payment);
 }

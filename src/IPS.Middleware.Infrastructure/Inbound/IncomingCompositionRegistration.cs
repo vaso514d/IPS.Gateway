@@ -2,6 +2,7 @@ using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Inbound.StatusReports;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Inbound.Workers;
@@ -28,6 +29,7 @@ public static class IncomingCompositionRegistration
         services.AddSingleton<IncomingComposition>();
         services.AddScoped<IIncomingCompositionRepository, IncomingCompositionRepository>();
         services.AddScoped<IncomingReceiptPreparation>();
+        services.AddScoped<IncomingStatusReportProcessing>();
         services.AddScoped<IncomingPacs008Processing>();
         services.AddScoped<IncomingReplyProcessing>();
         return services;

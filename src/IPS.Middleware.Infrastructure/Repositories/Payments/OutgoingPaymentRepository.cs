@@ -20,6 +20,14 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
         return metadata?.Payment;
     }
 
+    public async Task<OutgoingPayment?> FindByMessageIdAsync(string messageId, CancellationToken cancellationToken)
+    {
+        var metadata = await db.OutgoingMetadata
+            .Include(x => x.Payment)
+            .SingleOrDefaultAsync(x => x.MessageId == messageId, cancellationToken);
+        return metadata?.Payment;
+    }
+
     public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
         db.Payments
             .AsNoTracking()

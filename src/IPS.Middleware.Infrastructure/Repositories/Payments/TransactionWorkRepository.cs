@@ -55,6 +55,25 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         return true;
     }
 
+    public bool StageSettlement(OutgoingPayment payment, DateTimeOffset now)
+    {
+        var metadata = PersistedMetadata(payment);
+        if (metadata.IsClaimLive(now))
+        {
+            return false;
+        }
+
+        SetOwnership(metadata, token: null, expiresAtUtc: null, nextActionAtUtc: null);
+        db.RequireCurrentVersion(payment);
+        return true;
+    }
+
+    public void StageObservation(OutgoingPayment payment)
+    {
+        PersistedMetadata(payment);
+        db.RequireCurrentVersion(payment);
+    }
+
     // Unowned Sending is preparation released for retry; recovery turns abandoned submissions into Uncertain.
     private static Expression<Func<OutgoingPaymentMetadata, bool>> IsDue(TransactionStatus status, DateTimeOffset now) =>
         x => x.Payment.CurrentStatus == status

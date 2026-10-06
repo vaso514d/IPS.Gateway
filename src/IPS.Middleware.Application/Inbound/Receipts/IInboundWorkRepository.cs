@@ -17,7 +17,8 @@ public interface IInboundWorkRepository
         CancellationToken cancellationToken);
     // The receipt behind a live claim, tracked for staged changes in this scope; otherwise null.
     Task<OwnedInboundReceipt?> FindOwnedAsync(InboundClaim claim, DateTimeOffset now, CancellationToken cancellationToken);
-    // Stage a held disposition and drop ownership and scheduling; false when the claim is no longer live.
+    // Stage a held disposition and drop ownership and scheduling; false when the claim is no longer live. A reason longer
+    // than the stored limit is cut at the limit.
     Task<bool> StageHoldAsync(InboundClaim claim, DateTimeOffset now, string reason, CancellationToken cancellationToken);
     // Save trusted original references once under a live claim; identical repeats do not change them.
     Task<bool> StageOriginalReferencesAsync(

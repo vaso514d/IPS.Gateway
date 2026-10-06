@@ -52,6 +52,8 @@ public sealed class IncomingTransportConfigurationTests
     [InlineData("Ips:BaseUrl", "http://external.example")]
     [InlineData("MessagePath", "https://other.example/Message")]
     [InlineData("MessagePath", "//other.example/Message")]
+    [InlineData("AckPath", "https://other.example/MessageAck")]
+    [InlineData("AckPath", "//other.example/MessageAck")]
     [InlineData("Ips:ConnectionLimit", "1")]
     [InlineData("Cbs:ConnectionLimit", "2")]
     [InlineData("Ips:ConnectTimeout", "00:00:21")]

@@ -12,6 +12,7 @@ public sealed class IncomingTransportSettings
     public HttpEndpointSettings Cbs { get; init; } = new();
     public string IpsVersion { get; init; } = "1";
     public string MessagePath { get; init; } = "Message";
+    public string AckPath { get; init; } = "MessageAck";
     public string SubmissionPath { get; init; } = Pacs008RestApiRoutes.Receive;
     public string StatusPath { get; init; } = TransactionRestApiRoutes.PaymentStatus;
     public string ReversalPath { get; init; } = TransactionRestApiRoutes.ReceiveStatus;
@@ -38,7 +39,7 @@ public sealed class IncomingTransportSettings
 
         Ips.Validate(development);
         Cbs.Validate(development);
-        foreach (var path in new[] { MessagePath, SubmissionPath, StatusPath, ReversalPath })
+        foreach (var path in new[] { MessagePath, AckPath, SubmissionPath, StatusPath, ReversalPath })
         {
             TransportPath.Validate(path);
         }

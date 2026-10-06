@@ -6,10 +6,12 @@ using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Inbound.StatusReports;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
+using IPS.Middleware.Infrastructure.Inbound.StatusReports;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
@@ -417,6 +419,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddSingleton(new Pacs008ProtocolProfile("NBGEGE22"));
             services.AddSingleton<IIncomingReplyProtocol>(new IncomingReplyProtocol(new(new(false, false), h.Time),
                 new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]));
+            services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol([fixture.Input.Certificate]));
             services.AddIncomingComposition();
             configure?.Invoke(services);
             h.Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

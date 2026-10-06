@@ -139,6 +139,44 @@ public sealed class OutgoingPaymentTests
     }
 
     [Theory]
+    [InlineData(TransactionStatus.Sending)]
+    [InlineData(TransactionStatus.Uncertain)]
+    [InlineData(TransactionStatus.Investigating)]
+    [InlineData(TransactionStatus.Resending)]
+    public void An_ips_report_settles_a_payment_that_awaits_its_outcome(TransactionStatus status)
+    {
+        var accepted = In(status);
+        Assert.True(accepted.AwaitsOutcome);
+        accepted.RecordReport(TransactionStatus.Accepted, StatusSource.Ips, Now);
+        Assert.Equal(TransactionStatus.Accepted, accepted.CurrentStatus);
+        Assert.Equal(StatusSource.Ips, accepted.CurrentSource);
+        var rejected = In(status);
+        rejected.RecordReport(TransactionStatus.Rejected, StatusSource.Ips, Now, new("AC04"));
+        Assert.Equal(TransactionStatus.Rejected, rejected.CurrentStatus);
+        Assert.Equal("AC04", rejected.CurrentReasonCode);
+    }
+
+    [Theory]
+    [InlineData(TransactionStatus.Received, TransactionStatus.Accepted, true)]
+    [InlineData(TransactionStatus.ManualReview, TransactionStatus.Rejected, true)]
+    [InlineData(TransactionStatus.Accepted, TransactionStatus.Rejected, true)]
+    [InlineData(TransactionStatus.Accepted, TransactionStatus.Accepted, false)]
+    [InlineData(TransactionStatus.NotSent, TransactionStatus.Accepted, true)]
+    public void An_ips_report_only_observes_any_other_payment(TransactionStatus status, TransactionStatus reported, bool conflicting)
+    {
+        var payment = In(status);
+        Assert.False(payment.AwaitsOutcome);
+        var sequence = payment.EventSequence;
+        payment.RecordReport(reported, StatusSource.Ips, Now, new("AC01"));
+        Assert.Equal(status, payment.CurrentStatus);
+        var observed = Assert.IsType<PaymentOutcomeObserved>(payment.PendingEvents[^1]);
+        Assert.Equal(sequence + 1, observed.Sequence);
+        Assert.Equal(conflicting, observed.Conflicting);
+        Assert.Equal(reported, observed.ReportedStatus);
+        Assert.Equal("AC01", observed.Details.ReasonCode);
+    }
+
+    [Theory]
     [InlineData(TransactionStatus.Accepted)]
     [InlineData(TransactionStatus.Rejected)]
     [InlineData(TransactionStatus.NotSent)]
@@ -196,7 +234,7 @@ public sealed class OutgoingPaymentTests
         {
             [TransactionStatus.Received] = new() { [PaymentOperation.BeginSending] = TransactionStatus.Sending, [PaymentOperation.Reject] = TransactionStatus.Rejected },
             [TransactionStatus.Sending] = new() { [PaymentOperation.Accept] = TransactionStatus.Accepted, [PaymentOperation.Reject] = TransactionStatus.Rejected, [PaymentOperation.NotSent] = TransactionStatus.NotSent, [PaymentOperation.OutcomeUnknown] = TransactionStatus.Uncertain, [PaymentOperation.RetryConnection] = TransactionStatus.Received },
-            [TransactionStatus.Uncertain] = new() { [PaymentOperation.BeginInvestigation] = TransactionStatus.Investigating, [PaymentOperation.BeginResending] = TransactionStatus.Resending, [PaymentOperation.RequireManualReview] = TransactionStatus.ManualReview },
+            [TransactionStatus.Uncertain] = new() { [PaymentOperation.Accept] = TransactionStatus.Accepted, [PaymentOperation.Reject] = TransactionStatus.Rejected, [PaymentOperation.BeginInvestigation] = TransactionStatus.Investigating, [PaymentOperation.BeginResending] = TransactionStatus.Resending, [PaymentOperation.RequireManualReview] = TransactionStatus.ManualReview },
             [TransactionStatus.Investigating] = new() { [PaymentOperation.Accept] = TransactionStatus.Accepted, [PaymentOperation.Reject] = TransactionStatus.Rejected, [PaymentOperation.OutcomeUnknown] = TransactionStatus.Uncertain, [PaymentOperation.BeginResending] = TransactionStatus.Resending, [PaymentOperation.RequireManualReview] = TransactionStatus.ManualReview },
             [TransactionStatus.Resending] = new() { [PaymentOperation.Accept] = TransactionStatus.Accepted, [PaymentOperation.Reject] = TransactionStatus.Rejected, [PaymentOperation.OutcomeUnknown] = TransactionStatus.Uncertain, [PaymentOperation.RequireManualReview] = TransactionStatus.ManualReview },
             [TransactionStatus.ManualReview] = new() { [PaymentOperation.ResolveManually] = TransactionStatus.ManuallyResolved },

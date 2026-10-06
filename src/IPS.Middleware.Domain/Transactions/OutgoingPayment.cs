@@ -49,6 +49,11 @@ public sealed class OutgoingPayment : AggregateRoot
         or TransactionStatus.NotSent
         or TransactionStatus.ManuallyResolved;
 
+    public bool AwaitsOutcome => CurrentStatus is TransactionStatus.Sending
+        or TransactionStatus.Uncertain
+        or TransactionStatus.Investigating
+        or TransactionStatus.Resending;
+
     public static OutgoingPayment Receive(Guid id, string messageType, string clientReference, DateTimeOffset at) =>
         new(id, messageType, clientReference, at);
 
@@ -60,6 +65,19 @@ public sealed class OutgoingPayment : AggregateRoot
 
     public void RecordRejection(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) =>
         RecordOutcome(PaymentOperation.Reject, TransactionStatus.Rejected, source, at, details);
+
+    // An IPS report settles a payment that is still awaiting its outcome; any other payment only observes it.
+    public void RecordReport(TransactionStatus reported, StatusSource source, DateTimeOffset at, PaymentDetails? details = null)
+    {
+        if (AwaitsOutcome)
+        {
+            var operation = reported == TransactionStatus.Accepted ? PaymentOperation.Accept : PaymentOperation.Reject;
+            RecordOutcome(operation, reported, source, at, details);
+            return;
+        }
+
+        Observe(reported, source, at, details);
+    }
 
     public void ScheduleConnectionRetry(DateTimeOffset at, PaymentDetails? details = null) =>
         Transition(PaymentOperation.RetryConnection, StatusSource.Gateway, at, details);
@@ -105,14 +123,20 @@ public sealed class OutgoingPayment : AggregateRoot
         DateTimeOffset at,
         PaymentDetails? details)
     {
-        RequireDefined(source);
         if (IsObservationOnly(operation))
         {
-            Raise(new PaymentOutcomeObserved(CurrentStatus, reported, CurrentStatus != reported, source, details ?? new()), at);
+            Observe(reported, source, at, details);
             return;
         }
 
         Transition(operation, source, at, details);
+    }
+
+    // A report that does not change the payment is recorded, flagged when it contradicts the current status.
+    private void Observe(TransactionStatus reported, StatusSource source, DateTimeOffset at, PaymentDetails? details)
+    {
+        RequireDefined(source);
+        Raise(new PaymentOutcomeObserved(CurrentStatus, reported, CurrentStatus != reported, source, details ?? new()), at);
     }
 
     // Operator resolution is an explicit correction; any other final report on a final payment is only observed.
@@ -159,6 +183,8 @@ public sealed class OutgoingPayment : AggregateRoot
             .Permit(PaymentOperation.RetryConnection, TransactionStatus.Received);
 
         machine.Configure(TransactionStatus.Uncertain)
+            .Permit(PaymentOperation.Accept, TransactionStatus.Accepted)
+            .Permit(PaymentOperation.Reject, TransactionStatus.Rejected)
             .Permit(PaymentOperation.BeginInvestigation, TransactionStatus.Investigating)
             .Permit(PaymentOperation.BeginResending, TransactionStatus.Resending)
             .Permit(PaymentOperation.RequireManualReview, TransactionStatus.ManualReview);

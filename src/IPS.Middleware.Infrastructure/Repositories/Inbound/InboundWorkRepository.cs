@@ -56,15 +56,15 @@ public sealed class InboundWorkRepository(TransactionDbContext db) : IInboundWor
 
     public async Task<bool> StageHoldAsync(InboundClaim claim, DateTimeOffset now, string reason, CancellationToken cancellationToken)
     {
-        // Reasons may carry protocol detail; the column has a fixed limit.
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(reason.Trim().Length, InboundJournalEntry.HoldReasonLimit, nameof(reason));
         if (await OwnedAsync(claim, now, cancellationToken) is not { } entry)
         {
             return false;
         }
 
+        // Reasons may carry protocol detail; the column keeps the start of the text.
+        var text = reason.Trim();
         entry.Status = InboundProcessingStatus.Held;
-        entry.HoldReason = reason.Trim();
+        entry.HoldReason = text.Length > InboundJournalEntry.HoldReasonLimit ? text[..InboundJournalEntry.HoldReasonLimit] : text;
         entry.NextActionAtUtc = null;
         SetClaim(entry, null, null);
         return true;

@@ -18,7 +18,8 @@ internal sealed class OutgoingPaymentMetadata
     public DateTimeOffset? NextActionAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = [];
 
+    public bool IsClaimLive(DateTimeOffset now) => ClaimToken is not null && ClaimExpiresAtUtc > now;
+
     public bool HasLiveClaim(TransactionClaim claim, DateTimeOffset now) =>
-        claim.Token != Guid.Empty && claim.TransactionId == Id &&
-        ClaimToken == claim.Token && ClaimExpiresAtUtc > now;
+        claim.Token != Guid.Empty && claim.TransactionId == Id && ClaimToken == claim.Token && IsClaimLive(now);
 }

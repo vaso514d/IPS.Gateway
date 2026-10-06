@@ -210,6 +210,14 @@ OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, iden
 
 See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above and the next one describe the current implementation.
 
+## Unsolicited incoming pacs.002 (003a.4)
+
+- **Intake.** A status report IPS sends on its own arrives through the same pull as every inbound message and is stored in the inbound journal. After that commit, `IncomingReceiveWorker` acknowledges it with `POST MessageAck` and the sequence header; a failed ack is only logged, and a redelivery is acknowledged again.
+- **Processing.** `IncomingReceiptPreparation` routes a claimed pacs.002 receipt to `IncomingStatusReportProcessing`. It finds the outgoing payment by protocol message id and verifies the report with `IpsReplyInterpreter` (through `IStatusReportProtocol`): schema, trusted IPS signature, exact identifiers and one status table shared with direct replies. Anything unverifiable or unmatched holds the receipt and changes nothing.
+- **Effect.** `OutgoingPayment.RecordReport` settles a payment that awaits its outcome (Sending, Uncertain, Investigating or Resending); every other payment only records an observation event. A payment under a live claim defers its receipt.
+- **Atomicity.** Payment state, events, the callback outbox row and the receipt completion commit in one `UnitOfWork` save, fenced by the parent row version.
+- See [003a.4](specs/003a4-incoming-status-reports.md).
+
 ## Outgoing investigation and authorized resend (003a.3)
 
 - **Investigation.** OutgoingInvestigation runs one pacs.028 cycle per due Uncertain or Investigating payment. A trusted NotFound (1016) result commits atomically with:

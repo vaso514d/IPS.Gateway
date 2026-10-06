@@ -2,7 +2,9 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Inbound.StatusReports;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
+using IPS.Middleware.Infrastructure.Inbound.StatusReports;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Transport;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +24,9 @@ public static class IncomingHttpRegistration
         services.AddTransient<IncomingIpsClient>();
         services.AddTransient<IIncomingReceiveClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
         services.AddTransient<IIncomingReplyClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
+        services.AddTransient<IIncomingAckClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
+        services.AddTransient<IStatusReportProtocol>(sp =>
+            new StatusReportProtocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
         services.AddTransient<IncomingCbsClient>();
         services.AddTransient<IIncomingCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingReversalClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
