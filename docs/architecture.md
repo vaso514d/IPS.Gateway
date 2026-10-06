@@ -241,6 +241,12 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Shared profile.** `IpsMessageProfile` (IPS BIC and service level) serves pacs.009, pacs.004 and camt.056.
 - See [007a](specs/007a-outgoing-camt056.md).
 
+## Incoming pain.001 (008a)
+
+- A pain.001 payment initiation is a third `IncomingTransfer` kind (`pain.001`, key `PmtInfId`). `IncomingPain001Protocol` verifies the signature before trusting anything, requires one payment instruction, an initiation id of at most 31 characters (so `PSP-` plus it fits the 35-character EndToEndId of the accepting pacs.008) and our participant as debtor agent, and holds anything else. Parties, accounts, agents, addresses and remittance are read by `IncomingPartyReader`, shared with the incoming pacs.008.
+- Delivery, recovery and the acknowledgement are those of 005c and 005d; the `PmtInfId` is the CBS key and status reference (`messageKind=Pain001`). The core answers IPS itself (a `PSP-` pacs.008, or a pain.002 from 008b); the initiation deadline is not enforced here.
+- See [008a](specs/008a-incoming-pain001.md).
+
 ## Incoming recalls (007c)
 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.

@@ -59,7 +59,7 @@ public sealed class IncomingReceiptPreparation(
             return await ArchiveAsync(claim, now, token);
         }
 
-        if (PaymentMessageTypes.IsPacs009(receipt.MessageType) || PaymentMessageTypes.IsPacs004(receipt.MessageType))
+        if (PaymentMessageTypes.IsIncomingTransfer(receipt.MessageType))
         {
             return await transfers.ProcessAsync(claim, receipt, token);
         }

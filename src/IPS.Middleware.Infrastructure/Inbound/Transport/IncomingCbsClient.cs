@@ -29,6 +29,7 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
         {
             IncomingPacs009 pacs009 => (settings.Pacs009SubmissionPath, JsonContent.Create(IncomingPacs009CoreMapping.ToContract(pacs009))),
             IncomingPacs004 pacs004 => (settings.Pacs004SubmissionPath, JsonContent.Create(IncomingPacs004CoreMapping.ToContract(pacs004))),
+            IncomingPain001 pain001 => (settings.Pain001SubmissionPath, JsonContent.Create(IncomingPain001CoreMapping.ToContract(pain001))),
             _ => throw new ArgumentOutOfRangeException(nameof(transfer), transfer.GetType().Name, "Unsupported incoming transfer.")
         };
         return SendAsync(participantBic, HttpMethod.Post, path, content, transfer.Key, cancellationToken);
@@ -40,6 +41,7 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
         {
             PaymentMessageTypes.Pacs009 => nameof(IpsMessageKind.Pacs009),
             PaymentMessageTypes.Pacs004 => nameof(IpsMessageKind.Pacs004),
+            PaymentMessageTypes.Pain001 => nameof(IpsMessageKind.Pain001),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported incoming transfer kind.")
         };
         return QueryAsync(participantBic, messageKind, key, cancellationToken);

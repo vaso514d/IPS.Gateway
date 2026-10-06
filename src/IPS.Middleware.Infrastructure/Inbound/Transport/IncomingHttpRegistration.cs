@@ -33,6 +33,8 @@ public static class IncomingHttpRegistration
             new IncomingPacs009Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
         services.AddTransient<IIncomingTransferProtocol>(sp =>
             new IncomingPacs004Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
+        services.AddTransient<IIncomingTransferProtocol>(sp =>
+            new IncomingPain001Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
         services.AddTransient<IncomingCbsClient>();
         services.AddTransient<IIncomingTransferCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());

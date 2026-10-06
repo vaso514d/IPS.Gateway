@@ -28,22 +28,24 @@ public static class IncomingPacs008CoreMapping
             { ChannelCode = initiation.ChannelCode, Geolocation = initiation.Geolocation },
             InitiationChannelInstrument = payment.InitiationChannelInstrument is not { } instrument ? null : new()
             { ChannelCode = instrument.ChannelCode, InstrumentCodes = instrument.InstrumentCodes, ElectronicAddress = instrument.ElectronicAddress },
-            Remittance = payment.Remittance is not { } remittance ? null : new()
-            {
-                Unstructured = remittance.Unstructured,
-                Structured = remittance.Structured is null ? null : Array.AsReadOnly(remittance.Structured.Select(reference =>
-                    new Pacs008StructuredRemittanceDto
-                    {
-                        ReferenceType = reference.ReferenceType,
-                        ReferenceIssuer = reference.ReferenceIssuer,
-                        Reference = reference.Reference,
-                        AdditionalInformation = reference.AdditionalInformation
-                    }).ToArray())
-            }
+            Remittance = Remittance(payment.Remittance)
         };
     }
 
-    private static Pacs008DebtorRequestDto? Debtor(Pacs008DebtorInput? value) => value is null ? null : new()
+    internal static Pacs008RemittanceDto? Remittance(Pacs008RemittanceInput? remittance) => remittance is null ? null : new()
+    {
+        Unstructured = remittance.Unstructured,
+        Structured = remittance.Structured is null ? null : Array.AsReadOnly(remittance.Structured.Select(reference =>
+            new Pacs008StructuredRemittanceDto
+            {
+                ReferenceType = reference.ReferenceType,
+                ReferenceIssuer = reference.ReferenceIssuer,
+                Reference = reference.Reference,
+                AdditionalInformation = reference.AdditionalInformation
+            }).ToArray())
+    };
+
+    internal static Pacs008DebtorRequestDto? Debtor(Pacs008DebtorInput? value) => value is null ? null : new()
     {
         Type = value.Type,
         Name = value.Name,
@@ -55,7 +57,7 @@ public static class IncomingPacs008CoreMapping
         Address = Address(value.Address)
     };
 
-    private static Pacs008CreditorRequestDto? Creditor(Pacs008CreditorInput? value) => value is null ? null : new()
+    internal static Pacs008CreditorRequestDto? Creditor(Pacs008CreditorInput? value) => value is null ? null : new()
     {
         Type = value.Type,
         Name = value.Name,
@@ -66,7 +68,7 @@ public static class IncomingPacs008CoreMapping
         Address = Address(value.Address)
     };
 
-    private static Pacs008UltimatePartyRequestDto? Ultimate(Pacs008UltimatePartyInput? value) => value is null ? null : new()
+    internal static Pacs008UltimatePartyRequestDto? Ultimate(Pacs008UltimatePartyInput? value) => value is null ? null : new()
     {
         Type = value.Type,
         Name = value.Name,

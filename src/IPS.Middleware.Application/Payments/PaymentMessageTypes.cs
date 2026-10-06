@@ -12,6 +12,8 @@ public static class PaymentMessageTypes
     public const string Camt056Definition = "camt.056.001.11";
     public const string Camt029 = "camt.029";
     public const string Camt029Definition = "camt.029.001.13";
+    public const string Pain001 = "pain.001";
+    public const string Pain001Definition = "pain.001.001.12";
     public const string Pacs002 = "pacs.002";
     public const string Pacs002Definition = "pacs.002.001.14";
 
@@ -24,6 +26,17 @@ public static class PaymentMessageTypes
     public static bool IsPacs004(string messageType) => messageType is Pacs004 or Pacs004Definition;
 
     public static bool IsPacs009(string messageType) => messageType is Pacs009 or Pacs009Definition;
+
+    // The registry of the source also lists the definition as pain.001.001.012.
+    public const string Pain001RegistryDefinition = "pain.001.001.012";
+
+    public static bool IsPain001(string messageType) => messageType is Pain001 or Pain001Definition or Pain001RegistryDefinition;
+
+    // A message that names its definition (the header of the message itself) rather than a short type.
+    public static bool IsPain001Definition(string definition) => definition is Pain001Definition or Pain001RegistryDefinition;
+
+    // Received from IPS and handed to the core system by the incoming transfer engine.
+    public static bool IsIncomingTransfer(string messageType) => IsPacs009(messageType) || IsPacs004(messageType) || IsPain001(messageType);
 
     public static bool IsPacs002(string messageType) => messageType is Pacs002 or Pacs002Definition;
 

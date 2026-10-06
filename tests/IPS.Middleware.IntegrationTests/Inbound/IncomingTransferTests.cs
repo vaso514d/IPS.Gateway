@@ -715,6 +715,254 @@ public sealed class IncomingTransferTests
         Assert.Equal(1, await check.Context.Set<InboundJournalEntry>().Where(entry => entry.Sequence == 11).Select(entry => entry.DuplicateCount).SingleAsync());
     }
 
+    [Fact]
+    public async Task A_verified_initiation_is_stored_with_the_content_the_core_will_receive()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        var (result, journalId) = await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation(full: true)), messageType: "pain.001");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Equal(InboundProcessingStatus.Processed, (await ReadReceiptAsync(core, journalId)).Status);
+        var stored = await ReadOnlyAsync(core);
+        Assert.Equal(("pain.001", "PMTINF-1"), (stored.Transfer.Kind, stored.Transfer.Key));
+        Assert.Equal(["incoming-transfer.registered"], stored.Events);
+        var initiation = stored.Pain001;
+        Assert.Equal(("PAIN001-MSG-1", "PISP LLC", "PISPGE22"), (initiation.MessageId, initiation.InitiatingParty!.Name, initiation.InitiatingParty.Bic));
+        Assert.Equal(new DateTimeOffset(2026, 10, 1, 14, 5, 7, 123, TimeSpan.FromHours(4)), initiation.CreatedAt);
+        Assert.Equal(TimeSpan.FromHours(4), initiation.CreatedAt.Offset);
+        Assert.Equal(("INST", "INST", "OTHR", new DateOnly(2026, 10, 1)), (initiation.ServiceLevelCode, initiation.LocalInstrumentCode, initiation.CategoryPurposeCode, initiation.RequestedExecutionDate));
+        Assert.Equal((1, "Giorgi Beridze", "01001012345", "BAGAGE22", "GE95TB0000000123456789"),
+            (initiation.Debtor.Type, initiation.Debtor.Name, initiation.Debtor.Identifier, initiation.Debtor.ParticipantBic, initiation.Debtor.Account));
+        Assert.Equal("Tbilisi", initiation.Debtor.Address!.TownName);
+        Assert.Equal((0, "400000002", "TBCBGE22", "GE29NB0000000101904917"),
+            (initiation.Creditor!.Type, initiation.Creditor.Identifier, initiation.Creditor.ParticipantBic, initiation.Creditor.Account));
+        Assert.Equal(("INS-1", "PISP-E2E-1", 25.50m, "GEL", "GDDS"), (initiation.InstructionId, initiation.EndToEndId, initiation.Amount, initiation.Currency, initiation.PurposeCode));
+        Assert.Equal("Invoice 77", initiation.Remittance!.Unstructured);
+        var structured = Assert.Single(initiation.Remittance.Structured!);
+        Assert.Equal(("SCOR", "ORDER-77"), (structured.ReferenceType, structured.Reference));
+        Assert.Equal("Ultimate Payer", initiation.UltimateDebtor!.Name);
+        Assert.Equal(core.Clock.Now + new IncomingReconciliationOptions().Window, stored.DeadlineUtc);
+    }
+
+    [Fact]
+    public async Task A_minimal_initiation_leaves_the_optional_parts_absent_and_takes_a_date_time_execution_date()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var unsigned = UnsignedInitiation()
+            .Replace("<ReqdExctnDt><Dt>2026-10-01</Dt></ReqdExctnDt>", "<ReqdExctnDt><DtTm>2026-10-02T09:00:00+04:00</DtTm></ReqdExctnDt>")
+            .Replace("<IBAN>GE29NB0000000101904917</IBAN>", "<Othr><Id>ACC-77</Id></Othr>");
+
+        await ApplyAsync(core, await SignedAsync(core, unsigned), messageType: "pain.001");
+
+        var initiation = (await ReadOnlyAsync(core)).Pain001;
+        Assert.Equal(new DateOnly(2026, 10, 2), initiation.RequestedExecutionDate);
+        Assert.Equal("ACC-77", initiation.Creditor!.Account);
+        Assert.Null(initiation.Remittance);
+        Assert.Null(initiation.UltimateDebtor);
+        Assert.Null(initiation.UltimateCreditor);
+        Assert.Null(initiation.PurposeCode);
+    }
+
+    // The schema makes the message id, the initiation id and the creation time mandatory, so those are held as malformed.
+    public static TheoryData<string, string> UnverifiableInitiations() => new()
+    {
+        { "definition", "Unsupported message definition." },
+        { "signature", "Untrusted message signature." },
+        { "schema", "Malformed or unsupported initiation content." },
+        { "two-payments", "exactly one payment instruction" },
+        { "no-initiation-id", "Malformed or unsupported initiation content." },
+        { "too-long-id", "longer than 31 characters" },
+        { "no-message-id", "Malformed or unsupported initiation content." },
+        { "no-creation-time", "Malformed or unsupported initiation content." },
+        { "out-of-range-creation-time", "Malformed or unsupported initiation content." },
+        { "no-debtor-bic", "no BICFI" },
+        { "not-ours", "not addressed to our participant" },
+        { "malformed", "Malformed or unsupported initiation content." }
+    };
+
+    [Theory]
+    [MemberData(nameof(UnverifiableInitiations))]
+    public async Task An_unverifiable_initiation_is_held_for_its_own_reason_and_nothing_is_stored(string problem, string reason)
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var xml = problem switch
+        {
+            "definition" => await SignedAsync(core, UnsignedInitiation().Replace("<head:MsgDefIdr>pain.001.001.12", "<head:MsgDefIdr>pain.001.001.11")),
+            "signature" => await SignedAsync(core, UnsignedInitiation(), core.SigningCertificate),
+            "schema" => await SignedAsync(core, UnsignedInitiation().Replace("<PmtMtd>TRF</PmtMtd>", "<PmtMtd>XXX</PmtMtd>")),
+            "two-payments" => await SignedAsync(core, UnsignedInitiation(payments: 2)),
+            "no-initiation-id" => await SignedAsync(core, UnsignedInitiation().Replace("<PmtInfId>PMTINF-1</PmtInfId>", string.Empty)),
+            "too-long-id" => await SignedAsync(core, UnsignedInitiation(paymentInformationId: new string('P', 32))),
+            "no-message-id" => await SignedAsync(core, UnsignedInitiation().Replace("<MsgId>PAIN001-MSG-1</MsgId>", string.Empty)),
+            "no-creation-time" => await SignedAsync(core, UnsignedInitiation().Replace("<CreDtTm>2026-10-01T14:05:07.123+04:00</CreDtTm>", string.Empty)),
+            "out-of-range-creation-time" => await SignedAsync(core, UnsignedInitiation().Replace("<CreDtTm>2026-10-01T14:05:07.123+04:00</CreDtTm>", "<CreDtTm>0001-01-01T00:00:00+04:00</CreDtTm>")),
+            "no-debtor-bic" => await SignedAsync(core, UnsignedInitiation().Replace("<DbtrAgt><FinInstnId><BICFI>BAGAGE22</BICFI>", "<DbtrAgt><FinInstnId><Nm>Bank</Nm>")),
+            "not-ours" => await SignedAsync(core, UnsignedInitiation(debtorBic: "TBCBGE22")),
+            _ => "<Message>"
+        };
+
+        var (result, journalId) = await ApplyAsync(core, xml, messageType: "pain.001");
+
+        Assert.Equal(IncomingCompositionStatus.Held, result.Status);
+        var receipt = await ReadReceiptAsync(core, journalId);
+        Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
+        Assert.Contains(reason, receipt.HoldReason);
+        await using var session = core.Database.Session();
+        Assert.False(await session.Context.Set<IncomingTransferMetadata>().AnyAsync());
+    }
+
+    [Fact]
+    public async Task The_definition_spelled_as_in_the_registry_is_accepted()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var unsigned = UnsignedInitiation().Replace("<head:MsgDefIdr>pain.001.001.12</head:MsgDefIdr>", "<head:MsgDefIdr>pain.001.001.012</head:MsgDefIdr>");
+
+        var (result, _) = await ApplyAsync(core, await SignedAsync(core, unsigned), messageType: "pain.001.001.012");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Equal("PMTINF-1", (await ReadOnlyAsync(core)).Transfer.Key);
+    }
+
+    [Fact]
+    public async Task An_execution_date_with_a_time_zone_is_left_out_and_the_initiation_is_still_stored()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var unsigned = UnsignedInitiation().Replace("<ReqdExctnDt><Dt>2026-10-01</Dt></ReqdExctnDt>", "<ReqdExctnDt><Dt>2026-10-01+04:00</Dt></ReqdExctnDt>");
+
+        var (result, _) = await ApplyAsync(core, await SignedAsync(core, unsigned), messageType: "pain.001");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Null((await ReadOnlyAsync(core)).Pain001.RequestedExecutionDate);
+    }
+
+    [Fact]
+    public async Task An_initiation_id_of_31_characters_is_accepted_and_32_is_held_for_its_length()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        var (accepted, _) = await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation(paymentInformationId: new string('P', 31))), sequence: 1, messageType: "pain.001");
+        var (held, journalId) = await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation(paymentInformationId: new string('Q', 32))), sequence: 2, messageType: "pain.001");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, accepted.Status);
+        Assert.Equal(IncomingCompositionStatus.Held, held.Status);
+        Assert.Contains("31", (await ReadReceiptAsync(core, journalId)).HoldReason);
+    }
+
+    [Fact]
+    public async Task A_redelivered_initiation_with_structured_remittance_is_the_same_transfer_and_changed_content_is_held()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var xml = await SignedAsync(core, UnsignedInitiation(full: true));
+        await ApplyAsync(core, xml, sequence: 1, messageType: "pain.001");
+
+        var (again, _) = await ApplyAsync(core, xml, sequence: 2, messageType: "pain.001");
+        var (changed, journalId) = await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation(full: true, amount: "30.00")), sequence: 3, messageType: "pain.001");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, again.Status);
+        Assert.Equal(IncomingCompositionStatus.Held, changed.Status);
+        Assert.Equal(IncomingTransferRegistration.ConflictReason, (await ReadReceiptAsync(core, journalId)).HoldReason);
+        await using var session = core.Database.Session();
+        Assert.Single(await session.Context.Set<IncomingTransfer>().ToListAsync());
+    }
+
+    [Fact]
+    public async Task An_initiation_and_a_pacs009_with_the_same_key_are_two_transfers()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation()), sequence: 1, messageType: "pain.001");
+        await ApplyAsync(core, await SignedAsync(core, Unsigned().Replace("E2E-IN-1", "PMTINF-1")), sequence: 2);
+
+        await using var session = core.Database.Session();
+        Assert.Equal(["pacs.009", "pain.001"], await session.Context.Set<IncomingTransfer>().OrderBy(transfer => transfer.Kind).Select(transfer => transfer.Kind).ToListAsync());
+    }
+
+    [Fact]
+    public async Task An_initiation_is_submitted_under_its_initiation_id_and_only_that_id_is_checked_in_the_answer()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        await ApplyAsync(core, await SignedAsync(core, UnsignedInitiation()), messageType: "pain.001");
+        var id = (await ReadOnlyAsync(core)).Transfer.Id;
+        var cbs = new TransferCore { Submit = _ => Json("ACCP", "PISP-E2E-1", id: "OTHER-INITIATION") };
+
+        await ProcessAsync(core, id, cbs);
+
+        Assert.Equal(CoreOutcome.Unknown, (await ReadOnlyAsync(core)).Transfer.CoreStatus);
+        Assert.Equal([("submit", "PMTINF-1")], cbs.Calls);
+
+        cbs.Query = _ => Json("ACCP", "ANY-E2E", id: "PMTINF-1");
+        core.Clock.Now += new IncomingReconciliationOptions().RetryDelay(1);
+        await ProcessAsync(core, id, cbs);
+
+        Assert.Equal(CoreOutcome.Accepted, (await ReadOnlyAsync(core)).Transfer.CoreStatus);
+        Assert.Equal([("submit", "PMTINF-1"), ("query", "PMTINF-1")], cbs.Calls);
+    }
+
+    [Fact]
+    public async Task Worker_acknowledges_hands_an_initiation_to_the_core_and_asks_for_its_status_by_initiation_kind()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var xml = await SignedAsync(core, UnsignedInitiation(full: true));
+        var deliveries = new ConcurrentQueue<(string Sequence, string Body)>([("21", xml)]);
+        var acknowledgements = new ConcurrentQueue<string?>();
+        var submissions = new ConcurrentQueue<(string? Key, string Body)>();
+        var queries = new ConcurrentQueue<string>();
+        await using var server = await HttpSimulator.StartAsync(async context =>
+        {
+            if (context.Request.Method == "GET" && context.Request.Path == "/Message")
+            {
+                if (deliveries.TryDequeue(out var delivery))
+                {
+                    context.Response.Headers["X-MONTRAN-IPS-MessageSeq"] = delivery.Sequence;
+                    context.Response.Headers["X-MONTRAN-IPS-MessageType"] = "pain.001";
+                    await context.Response.WriteAsync(delivery.Body);
+                }
+                else
+                {
+                    context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
+                }
+            }
+            else if (context.Request.Method == "POST" && context.Request.Path == "/MessageAck")
+            {
+                acknowledgements.Enqueue(context.Request.Headers["X-MONTRAN-IPS-MessageSeq"]);
+            }
+            else if (context.Request.Method == "POST" && context.Request.Path == "/api/ips/pain001/receive")
+            {
+                submissions.Enqueue((context.Request.Headers["Idempotency-Key"], await new StreamReader(context.Request.Body).ReadToEndAsync()));
+                context.Response.StatusCode = 503;
+            }
+            else if (context.Request.Method == "GET" && context.Request.Path == "/api/ips/payments/status")
+            {
+                queries.Enqueue(context.Request.QueryString.Value ?? string.Empty);
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"id\":\"PMTINF-1\"}");
+            }
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
+        });
+        using var certificates = new TransportCertificates();
+        using var host = Host(core, server.Url, certificates, new IncomingReconciliationOptions(retryDelays: [TimeSpan.FromMilliseconds(50)]));
+        await host.StartAsync();
+        try
+        {
+            await EventuallyAsync(async () => await HasAcceptedTransferAsync(core));
+        }
+        finally
+        {
+            await host.StopAsync();
+        }
+
+        Assert.Equal(["21"], acknowledgements);
+        var submission = Assert.Single(submissions);
+        Assert.Equal("PMTINF-1", submission.Key);
+        Assert.Contains("\"paymentInformationId\":\"PMTINF-1\"", submission.Body);
+        Assert.Contains("\"endToEndId\":\"PISP-E2E-1\"", submission.Body);
+        Assert.Equal("?messageKind=Pain001&reference=PMTINF-1", queries.First());
+    }
+
     private static string Unsigned(bool full = false, string creditorBic = Participant, int transactions = 1, string amount = "100.5", bool alternate = false)
     {
         const string head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
@@ -797,6 +1045,44 @@ public sealed class IncomingTransferTests
             "</pacs:PmtRtr></pacs:Document></Message>";
     }
 
+    private static string UnsignedInitiation(
+        bool full = false,
+        string paymentInformationId = "PMTINF-1",
+        string debtorBic = Participant,
+        int payments = 1,
+        string amount = "25.50")
+    {
+        const string head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
+        var ultimateDebtor = full ? "<UltmtDbtr><Nm>Ultimate Payer</Nm><Id><OrgId><Othr><Id>111222333</Id></Othr></OrgId></Id></UltmtDbtr>" : string.Empty;
+        var categoryPurpose = full ? "<CtgyPurp><Cd>OTHR</Cd></CtgyPurp>" : string.Empty;
+        var purpose = full ? "<Purp><Cd>GDDS</Cd></Purp>" : string.Empty;
+        var remittance = full
+            ? "<RmtInf><Ustrd>Invoice 77</Ustrd><Strd><CdtrRefInf><Tp><CdOrPrtry><Cd>SCOR</Cd></CdOrPrtry><Issr>PISP</Issr></Tp><Ref>ORDER-77</Ref></CdtrRefInf></Strd></RmtInf>"
+            : string.Empty;
+        var payment =
+            $"<PmtInf><PmtInfId>{paymentInformationId}</PmtInfId><PmtMtd>TRF</PmtMtd>" +
+            $"<PmtTpInf><SvcLvl><Cd>INST</Cd></SvcLvl><LclInstrm><Cd>INST</Cd></LclInstrm>{categoryPurpose}</PmtTpInf>" +
+            "<ReqdExctnDt><Dt>2026-10-01</Dt></ReqdExctnDt>" +
+            "<Dbtr><Nm>Giorgi Beridze</Nm><PstlAdr><TwnNm>Tbilisi</TwnNm><Ctry>GE</Ctry></PstlAdr><Id><PrvtId><Othr><Id>01001012345</Id></Othr></PrvtId></Id></Dbtr>" +
+            $"<DbtrAcct><Id><IBAN>GE95TB0000000123456789</IBAN></Id></DbtrAcct><DbtrAgt><FinInstnId><BICFI>{debtorBic}</BICFI></FinInstnId></DbtrAgt>{ultimateDebtor}" +
+            "<ChrgBr>SLEV</ChrgBr><CdtTrfTxInf>" +
+            "<PmtId><InstrId>INS-1</InstrId><EndToEndId>PISP-E2E-1</EndToEndId></PmtId>" +
+            $"<Amt><InstdAmt Ccy=\"GEL\">{amount}</InstdAmt></Amt>" +
+            "<CdtrAgt><FinInstnId><BICFI>TBCBGE22</BICFI></FinInstnId></CdtrAgt>" +
+            "<Cdtr><Nm>Receiver LLC</Nm><Id><OrgId><Othr><Id>400000002</Id></Othr></OrgId></Id></Cdtr>" +
+            $"<CdtrAcct><Id><IBAN>GE29NB0000000101904917</IBAN></Id></CdtrAcct>{purpose}{remittance}</CdtTrfTxInf></PmtInf>";
+        return
+            $"<Message xmlns:head=\"{head}\"><head:AppHdr>" +
+            "<head:Fr><head:FIId><head:FinInstnId><head:BICFI>NETCMNUB</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
+            $"<head:To><head:FIId><head:FinInstnId><head:BICFI>{Participant}</head:BICFI></head:FinInstnId></head:FIId></head:To>" +
+            "<head:BizMsgIdr>PAIN001-MSG-1</head:BizMsgIdr><head:MsgDefIdr>pain.001.001.12</head:MsgDefIdr><head:CreDt>2026-10-01T10:05:07.123Z</head:CreDt><head:Sgntr/></head:AppHdr>" +
+            "<Document xmlns=\"urn:iso:std:iso:20022:tech:xsd:pain.001.001.12\"><CstmrCdtTrfInitn><GrpHdr><MsgId>PAIN001-MSG-1</MsgId>" +
+            $"<CreDtTm>2026-10-01T14:05:07.123+04:00</CreDtTm><NbOfTxs>1</NbOfTxs><CtrlSum>{amount}</CtrlSum>" +
+            "<InitgPty><Nm>PISP LLC</Nm><Id><OrgId><AnyBIC>PISPGE22</AnyBIC></OrgId></Id></InitgPty></GrpHdr>" +
+            string.Concat(Enumerable.Repeat(payment, payments)) +
+            "</CstmrCdtTrfInitn></Document></Message>";
+    }
+
     private static async Task<string> SignedAsync(ProcessingHarness core, string unsigned, X509Certificate2? signer = null) =>
         (await IpsReplies.SignAsync(signer ?? core.IpsCertificate, unsigned))[0];
 
@@ -821,7 +1107,7 @@ public sealed class IncomingTransferTests
         await using var session = core.Database.Session();
         var receipt = (await new InboundReceiptRepository(session.Context).ReadAsync(journalId, default))!.Receipt;
         var handler = new IncomingTransferRegistration(
-            [new IncomingPacs009Protocol([core.IpsCertificate]), new IncomingPacs004Protocol([core.IpsCertificate])],
+            [new IncomingPacs009Protocol([core.IpsCertificate]), new IncomingPacs004Protocol([core.IpsCertificate]), new IncomingPain001Protocol([core.IpsCertificate])],
             new IncomingTransferRepository(session.Context),
             new InboundWorkRepository(session.Context),
             session.Unit,
@@ -945,6 +1231,8 @@ public sealed class IncomingTransferTests
         public IncomingPacs009 Pacs009 => (IncomingPacs009)Content;
 
         public IncomingPacs004 Pacs004 => (IncomingPacs004)Content;
+
+        public IncomingPain001 Pain001 => (IncomingPain001)Content;
     }
 
     // The core system: records each call and answers as scripted; by default every submission is accepted.

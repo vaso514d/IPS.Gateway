@@ -26,23 +26,7 @@ public sealed class IncomingPacs008(Pacs008Request payment, IncomingPacs008Refer
             : null
     };
 
-    private static ValueList<T>? Copy<T>(IReadOnlyList<T>? values) => values is null ? null : new ValueList<T>(values.ToArray());
-
-    private sealed class ValueList<T>(T[] values) : ReadOnlyCollection<T>(values)
-    {
-        public override bool Equals(object? obj) => obj is ValueList<T> other && this.SequenceEqual(other);
-
-        public override int GetHashCode()
-        {
-            var hash = new HashCode();
-            foreach (var value in this)
-            {
-                hash.Add(value);
-            }
-
-            return hash.ToHashCode();
-        }
-    }
+    private static ValueList<T>? Copy<T>(IReadOnlyList<T>? values) => ValueList<T>.Copy(values);
 }
 
 public sealed record IncomingPacs008Reference(

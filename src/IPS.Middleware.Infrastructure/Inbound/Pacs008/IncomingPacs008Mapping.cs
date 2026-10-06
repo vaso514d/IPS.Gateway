@@ -10,6 +10,7 @@ internal static class IncomingPacs008Mapping
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs008Xml.DocumentNamespace;
+    private static readonly IncomingPartyReader Parties = new(Pacs);
 
     internal static IncomingPacs008Reference Original(XElement header, XElement group, XElement transaction)
     {
@@ -24,7 +25,7 @@ internal static class IncomingPacs008Mapping
             Uetr: Guid.TryParse(Value(id, "UETR"), out var uetr) ? uetr : null,
             GroupCreatedAtUtc: Date(Value(group, "CreDtTm")),
             SettlementDate: settlement is null ? null : DateOnly.Parse(settlement, CultureInfo.InvariantCulture),
-            DebtorAgentBic: Agent(Child(transaction, "DbtrAgt")).Bic,
+            DebtorAgentBic: Parties.Agent(Child(transaction, "DbtrAgt")).Bic,
             ServiceLevelCode: Value(Child(type, "SvcLvl"), "Cd"),
             LocalInstrumentCode: Value(Child(type, "LclInstrm"), "Cd"));
     }
@@ -44,124 +45,16 @@ internal static class IncomingPacs008Mapping
             Currency = (string?)amount.Attribute("Ccy"),
             InstructionPriority = Value(type, "InstrPrty")?.ToUpperInvariant(),
             CategoryPurposeCode = Value(Child(type, "CtgyPurp"), "Cd"),
-            Debtor = Debtor(transaction),
-            Creditor = Creditor(transaction),
-            UltimateDebtor = Ultimate(Child(transaction, "UltmtDbtr")),
-            UltimateCreditor = Ultimate(Child(transaction, "UltmtCdtr")),
+            Debtor = Parties.Debtor(transaction),
+            Creditor = Parties.Creditor(transaction),
+            UltimateDebtor = Parties.Ultimate(Child(transaction, "UltmtDbtr")),
+            UltimateCreditor = Parties.Ultimate(Child(transaction, "UltmtCdtr")),
             PaymentInitiation = Initiation(transaction),
             InitiationChannelInstrument = Instruments(transaction),
-            Remittance = Remittance(Child(transaction, "RmtInf"))
+            Remittance = Parties.Remittance(Child(transaction, "RmtInf"))
         };
     }
 
-    private static Pacs008DebtorInput? Debtor(XElement transaction) => Party(transaction, "Dbtr") is not { } party ? null : new()
-    {
-        Type = party.Type,
-        Name = party.Name,
-        Identifier = party.Identifier,
-        BillIdentifier = party.Bill,
-        Address = party.Address,
-        ParticipantBic = party.Bic,
-        IndirectParticipantBic = party.Member,
-        Account = party.Account
-    };
-
-    private static Pacs008CreditorInput? Creditor(XElement transaction) => Party(transaction, "Cdtr") is not { } party ? null : new()
-    {
-        Type = party.Type,
-        Name = party.Name,
-        Identifier = party.Identifier,
-        Address = party.Address,
-        ParticipantBic = party.Bic,
-        IndirectParticipantBic = party.Member,
-        Account = party.Account
-    };
-
-    // Debtor and creditor share one layout: party, account and agent, each optional.
-    private static PartyFields? Party(XElement transaction, string role)
-    {
-        var party = Child(transaction, role);
-        var account = Child(transaction, role + "Acct");
-        var agent = Child(transaction, role + "Agt");
-        if (party is null && account is null && agent is null)
-        {
-            return null;
-        }
-
-        var (type, identifier, bill) = Identity(party);
-        var (bic, member) = Agent(agent);
-        return new(type, Value(party, "Nm"), identifier, bill, Address(Child(party, "PstlAdr")), bic, member, Account(account));
-    }
-
-    private sealed record PartyFields(
-        int? Type,
-        string? Name,
-        string? Identifier,
-        string? Bill,
-        Pacs008PostalAddressInput? Address,
-        string? Bic,
-        string? Member,
-        string? Account);
-
-    private static Pacs008UltimatePartyInput? Ultimate(XElement? party)
-    {
-        if (party is null)
-        {
-            return null;
-        }
-
-        var identity = Identity(party);
-        return new()
-        {
-            Type = identity.Type,
-            Name = Value(party, "Nm"),
-            Identifier = identity.Identifier
-        };
-    }
-
-    private static (int? Type, string? Identifier, string? Bill) Identity(XElement? party)
-    {
-        var id = Child(party, "Id");
-        var organization = Child(id, "OrgId");
-        var branch = organization ?? Child(id, "PrvtId");
-        if (branch is null)
-        {
-            return (null, null, null);
-        }
-
-        string? identifier = null, bill = null;
-        foreach (var other in Children(branch, "Othr"))
-        {
-            if (string.Equals(Value(Child(other, "SchmeNm"), "Cd"), "BILL", StringComparison.OrdinalIgnoreCase))
-            {
-                bill ??= Value(other, "Id");
-            }
-            else
-            {
-                identifier ??= Value(other, "Id");
-            }
-        }
-
-        return (organization is null ? 1 : 0, identifier ?? Value(branch, "AnyBIC") ?? Value(branch, "LEI"), bill);
-    }
-
-    private static (string? Bic, string? Member) Agent(XElement? agent)
-    {
-        var institution = Child(agent, "FinInstnId");
-        return (Value(institution, "BICFI"), Value(Child(institution, "ClrSysMmbId"), "MmbId"));
-    }
-
-    private static string? Account(XElement? account) => Value(Child(account, "Id"), "IBAN") ?? Value(Child(Child(account, "Id"), "Othr"), "Id");
-    private static Pacs008PostalAddressInput? Address(XElement? address) => address is null ? null : new()
-    {
-        StreetName = Value(address, "StrtNm"),
-        BuildingNumber = Value(address, "BldgNb"),
-        PostCode = Value(address, "PstCd"),
-        TownName = Value(address, "TwnNm"),
-        CountrySubdivision = Value(address, "CtrySubDvsn"),
-        Country = Value(address, "Ctry"),
-        AddressLines = Join(Children(address, "AdrLine"))
-    };
     private static Pacs008PaymentInitiationInput? Initiation(XElement transaction)
     {
         var details = Child(Child(transaction, "RgltryRptg"), "Dtls");
@@ -211,35 +104,11 @@ internal static class IncomingPacs008Mapping
         };
     }
 
-    private static Pacs008RemittanceInput? Remittance(XElement? remittance)
-    {
-        var text = Join(Children(remittance, "Ustrd"));
-        var references = Children(remittance, "Strd").Select(item =>
-        {
-            var reference = Child(item, "CdtrRefInf");
-            var type = Child(reference, "Tp");
-            var choice = Child(type, "CdOrPrtry");
-            return new Pacs008StructuredRemittanceInput
-            {
-                ReferenceType = Value(choice, "Prtry") ?? Value(choice, "Cd"),
-                ReferenceIssuer = Value(type, "Issr"),
-                Reference = Value(reference, "Ref"),
-                AdditionalInformation = Join(Children(item, "AddtlRmtInf"))
-            };
-        }).ToArray();
-        return text is null && references.Length == 0 ? null : new()
-        {
-            Unstructured = text,
-            Structured = references.Length == 0 ? null : references
-        };
-    }
-
     // Transaction-level payment type overrides the group default.
     private static XElement? PaymentType(XElement group, XElement transaction) => Child(transaction, "PmtTpInf") ?? Child(group, "PmtTpInf");
-    private static XElement? Child(XElement? element, string name) => element?.Element(Pacs + name);
-    private static IEnumerable<XElement> Children(XElement? element, string name) => element?.Elements(Pacs + name) ?? [];
-    private static string? Value(XElement? element, string name) => Child(element, name)?.Value.Trim() is { Length: > 0 } value ? value : null;
+    private static XElement? Child(XElement? element, string name) => Parties.Child(element, name);
+    private static IEnumerable<XElement> Children(XElement? element, string name) => Parties.Children(element, name);
+    private static string? Value(XElement? element, string name) => Parties.Value(element, name);
     private static string Required(string? value) => string.IsNullOrWhiteSpace(value) ? throw new FormatException("Missing correlation.") : value.Trim();
-    private static string? Join(IEnumerable<XElement> elements) => string.Concat(elements.Select(e => e.Value)) is { Length: > 0 } value ? value : null;
     private static DateTimeOffset? Date(string? value) => value is null ? null : DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal).ToUniversalTime();
 }
