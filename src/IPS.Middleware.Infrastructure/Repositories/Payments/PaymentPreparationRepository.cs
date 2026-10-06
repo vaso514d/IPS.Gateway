@@ -27,7 +27,9 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
 
         var ready = await db.OutgoingMessages
             .AsNoTracking()
-            .SingleOrDefaultAsync(x => x.PaymentId == paymentId && x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Outbound, cancellationToken);
+            .Where(x => x.PaymentId == paymentId && x.Direction == OutgoingMessageDirection.Outbound)
+            .Where(OutgoingJournal.IsInitial)
+            .SingleOrDefaultAsync(cancellationToken);
         var signedXml = ready?.Disposition == SubmissionMessageKind.Signed ? ready.Content : null;
 
         return new PreparedPaymentMessage(

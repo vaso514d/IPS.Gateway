@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Investigation;
+using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
@@ -22,10 +23,10 @@ public sealed class InvestigationWorkflowTests
     [Theory]
     [InlineData("ACCP", TransactionStatus.Accepted)]
     [InlineData("RJCT", TransactionStatus.Rejected)]
-    [InlineData("1016", TransactionStatus.Uncertain)]
+    [InlineData("1016", TransactionStatus.Resending)]
     [InlineData("1017", TransactionStatus.Uncertain)]
     [InlineData("malformed", TransactionStatus.Uncertain)]
-    public async Task Verified_outcomes_and_unresolved_evidence_commit_without_resending_payment(string answer, TransactionStatus expected)
+    public async Task Investigation_results_commit_without_the_investigation_sending_the_payment(string answer, TransactionStatus expected)
     {
         await using var h = await Harness.Create();
         h.Answer = answer;
@@ -218,18 +219,22 @@ public sealed class InvestigationWorkflowTests
     }
 
     [Fact]
-    public async Task Explicit_registration_runs_recovery_and_processing_in_independent_scopes()
+    public async Task Registration_composes_investigation_and_resend_workflows()
     {
         await using var h = await Harness.Create();
         h.Core.Clock.Now += TimeSpan.FromSeconds(9);
         using var db = h.Core.Database.Context();
-        var services = new ServiceCollection().AddPersistence(db.Database.GetConnectionString()!).AddOutgoingInvestigation(h.Options);
+        var services = new ServiceCollection().AddPersistence(db.Database.GetConnectionString()!).AddOutgoingInvestigation();
+        services.AddSingleton(h.Options);
         services.AddSingleton<TimeProvider>(h.Core.Clock);
         services.AddSingleton<IIpsTransport>(h);
+        services.AddSingleton<IIpsReplyInterpreter>(new IpsReplyInterpreter([h.Core.IpsCertificate]));
         var policy = new Pacs008SigningPolicy(false, false);
         services.AddSingleton<IInvestigationProtocol>(new InvestigationProtocol(new(policy, h.Core.Clock), h.Core.Certificates, policy, new([h.Core.IpsCertificate])));
         await using var provider = services.BuildServiceProvider();
-        Assert.Equal(TransactionStatus.Accepted, (await provider.GetRequiredService<InvestigationExecution>().RunAsync(h.Id, default))!.Status);
+        await using var scope = provider.CreateAsyncScope();
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutgoingResend>());
+        Assert.Equal(TransactionStatus.Accepted, (await scope.ServiceProvider.GetRequiredService<OutgoingInvestigation>().ProcessAsync(h.Id, default))!.Status);
         Assert.Equal(1, h.Calls);
     }
 
@@ -308,7 +313,7 @@ public sealed class InvestigationWorkflowTests
             var policy = new Pacs008SigningPolicy(false, false);
             var protocol = new InvestigationProtocol(new(policy, Core.Clock), Core.Certificates, policy, new([Core.IpsCertificate]));
             return await new OutgoingInvestigation(s.Payments, s.Work, new PaymentPreparationRepository(s.Context), new InvestigationRepository(s.Context),
-                s.Unit, protocol, this, Options, Core.Clock).ProcessAsync(Id, token);
+                new ResendRepository(s.Context), s.Unit, protocol, this, Options, Core.Clock).ProcessAsync(Id, token);
         }
         public async Task<IReadOnlyList<Guid>> Due()
         {
@@ -334,23 +339,7 @@ public sealed class InvestigationWorkflowTests
                 return new(503, "<bad", [new("X-Evidence", "preserved")]);
             }
 
-            XNamespace p = "urn:iso:std:iso:20022:tech:xsd:pacs.028.001.06";
-            var doc = XDocument.Parse(xml);
-            string Value(string name) => doc.Descendants(p + name).Single().Value;
-            var inquiry = Answer is "1016" or "1017";
-            var reply = new IpsReplies.Reply
-            {
-                MessageId = inquiry ? Value("MsgId") : Value("OrgnlMsgId"),
-                TransactionId = Value("OrgnlTxId"),
-                EndToEndId = Value("OrgnlEndToEndId"),
-                OriginalMessageName = inquiry ? "pacs.028.001.06" : "pacs.008.001.12",
-                IncludeTransaction = !inquiry,
-                GroupStatus = inquiry ? "RJCT" : Answer,
-                TransactionStatus = inquiry ? "RJCT" : Answer,
-                ReasonCode = inquiry ? "AG09" : Answer == "RJCT" ? "AC01" : null
-            };
-            var body = (await IpsReplies.SignAsync(Core.IpsCertificate, IpsReplies.Unsigned(reply)))[0];
-            return new(200, body, [new("X-MONTRAN-IPS-ReqSts", inquiry ? "RJCT/" + Answer : Answer)]);
+            return await IpsReplies.AnswerInvestigationAsync(Core.IpsCertificate, xml, Answer);
         }
         public ValueTask DisposeAsync() => Core.DisposeAsync();
     }

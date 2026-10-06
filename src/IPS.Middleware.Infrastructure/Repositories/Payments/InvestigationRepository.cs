@@ -17,7 +17,6 @@ namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 public sealed class InvestigationRepository(TransactionDbContext db) : IInvestigationRepository
 {
     private const string Pacs028Definition = "pacs.028.001.06";
-    private const string Pacs002Definition = "pacs.002.001.14";
     private const string UnresolvedResponse = "Unresolved investigation response.";
 
     public async Task<InvestigationAttempt?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
@@ -59,7 +58,6 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             .Where(IsUnresolvedPacs008())
             .Where(IsUnownedAndDue(now))
             .Where(HasWaitedForFirstInvestigation(firstDue))
-            .Where(x => !db.Investigations.Any(i => i.PaymentId == x.Id && i.Outcome == InvestigationOutcome.NotFound))
             // Without a scheduled action, a first cycle becomes due FirstDelay after the uncertain outcome.
             .OrderBy(x => x.NextActionAtUtc
                 ?? (x.Payment.CurrentSource == StatusSource.Recovery || db.Investigations.Any(i => i.PaymentId == x.Id)
@@ -218,16 +216,13 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
     private void ConsumeResponse(Guid attemptId, InvestigationReply result, string? transportFailure, DateTimeOffset now)
     {
         var response = CommittedMessage(attemptId, OutgoingMessageDirection.Response);
-        if (response.Status != MessageJournalStatus.Received || transportFailure is not null)
+        if (transportFailure is not null)
         {
             throw new InvalidOperationException("Interpret unconsumed response evidence only.");
         }
 
-        var unresolved = result.Outcome == InvestigationOutcome.Unresolved;
-        response.Status = unresolved ? MessageJournalStatus.Failed : MessageJournalStatus.Processed;
-        response.ProcessedAtUtc = now.ToUniversalTime();
-        response.MessageDefinition = unresolved ? null : Pacs002Definition;
-        response.Failure = unresolved ? result.Details.Description ?? UnresolvedResponse : null;
+        var conclusive = result.Outcome != InvestigationOutcome.Unresolved;
+        OutgoingJournal.Consume(response, conclusive, result.Details.Description ?? UnresolvedResponse, now);
     }
 
     // Without a response, only an unresolved result for a committed, abandoned submission may be recorded.

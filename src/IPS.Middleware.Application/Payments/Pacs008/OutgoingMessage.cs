@@ -30,4 +30,5 @@ public sealed record OutgoingMessage(
     IpsSubmissionResponse? Response,
     DateTimeOffset? ProcessedAtUtc,
     string? Failure,
-    Guid? InvestigationId = null);
+    Guid? InvestigationId = null,
+    Guid? ResendId = null);

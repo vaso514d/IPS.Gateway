@@ -8,8 +8,7 @@ public interface IInvestigationProtocol
     string Build(AcceptedPacs008 accepted, IpsReplyCorrelation original, InvestigationIdentity identity);
     Task<SigningResult> SignAsync(string xml, CancellationToken cancellationToken);
     InvestigationReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation original, string investigationMessageId);
-    bool AllowsDevelopmentUnsigned
-    {
-        get;
-    }
+
+    // Current policy decides whether frozen development-unsigned content may still be sent.
+    bool MaySend(SubmissionMessageKind? disposition);
 }

@@ -166,10 +166,44 @@ public sealed class OutgoingHostTests
     }
 
     [Fact]
+    public async Task Runtime_waits_the_first_delay_then_investigates_and_sends_the_authorized_resend()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.AnswerUnresolved(1);
+        fixture.InvestigationAnswer = "1016";
+        fixture.Configuration["Payments:Outgoing:Investigation:DiscoveryInterval"] = "00:00:00.050";
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+        await client.PostAsJsonAsync(Send, Request());
+
+        // Poll SQL, not the status route: a status read acknowledges the outcome and would cancel its callback.
+        await using var db = fixture.Database.Context();
+        await EventuallyAsync(() => db.Payments.AsNoTracking().AnyAsync(p => p.CurrentStatus == Domain.Transactions.TransactionStatus.Accepted));
+
+        Assert.True(fixture.FirstInvestigationAtUtc - fixture.FirstSendAtUtc >= TimeSpan.FromSeconds(9));
+        var payments = fixture.PaymentSubmissions;
+        Assert.Equal(2, payments.Length);
+        Assert.Equal(payments[0], payments[1]);
+        await EventuallyAsync(() => Task.FromResult(!fixture.Callbacks.IsEmpty));
+    }
+
+    [Fact]
+    public async Task Shipped_timeouts_start_with_execution_enabled()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.Configuration.Remove("Payments:Outgoing:Transport:Ips:RequestTimeout");
+        fixture.Configuration.Remove("Payments:Outgoing:Execution:HttpWait");
+        fixture.Configuration.Remove("Payments:Outgoing:Execution:AttemptBudget");
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live")).StatusCode);
+    }
+
+    [Fact]
     public async Task Stop_after_dispose_is_safe_and_does_not_admit_work()
     {
         using var services = new ServiceCollection().BuildServiceProvider();
-        using var runtime = new OutgoingRuntime(services.GetRequiredService<IServiceScopeFactory>(), new(enabled: true), new(),
+        using var runtime = new OutgoingRuntime(services.GetRequiredService<IServiceScopeFactory>(), new(enabled: true), new(), new(),
             TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<OutgoingRuntime>.Instance);
         runtime.Dispose();
         await runtime.StopAsync(default);
@@ -178,6 +212,7 @@ public sealed class OutgoingHostTests
 
     [Theory]
     [InlineData("Payments:Outgoing:Investigation:MaxCycles", "-1")]
+    [InlineData("Payments:Outgoing:Investigation:MaxResends", "-1")]
     [InlineData("Payments:Outgoing:Investigation:Ownership", "00:00:37")]
     [InlineData("Payments:Outgoing:Transport:Enabled", "false")]
     [InlineData("Payments:Outgoing:Execution:Concurrency", "101")]

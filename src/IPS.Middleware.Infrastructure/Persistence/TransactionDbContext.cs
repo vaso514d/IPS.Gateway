@@ -16,6 +16,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal DbSet<OutgoingMessageRow> OutgoingMessages => Set<OutgoingMessageRow>();
     internal DbSet<OutgoingStatusDeliveryRow> OutgoingStatusDeliveries => Set<OutgoingStatusDeliveryRow>();
     internal DbSet<InvestigationRow> Investigations => Set<InvestigationRow>();
+    internal DbSet<ResendRow> Resends => Set<ResendRow>();
     internal DbSet<IncomingPayment> IncomingPayments => Set<IncomingPayment>();
     internal DbSet<IncomingPaymentMetadata> IncomingMetadata => Set<IncomingPaymentMetadata>();
     internal DbSet<IncomingCoreCallRow> IncomingCoreCalls => Set<IncomingCoreCallRow>();
@@ -46,6 +47,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new OutgoingStatusDeliveryConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingMessageConfiguration());
         modelBuilder.ApplyConfiguration(new InvestigationConfiguration());
+        modelBuilder.ApplyConfiguration(new ResendConfiguration());
         modelBuilder.ApplyConfiguration(new InboundJournalConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingReplyConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingReplyAttemptConfiguration());

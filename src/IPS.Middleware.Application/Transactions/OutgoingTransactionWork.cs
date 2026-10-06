@@ -62,10 +62,21 @@ public sealed class OutgoingTransactionWork(
 
     // An abandoned pacs.008 is released for its next owner unless it was submitted without a stored response:
     // preparation is safe to repeat and a stored response is interpreted without sending again.
+    // A resend is always released: its next owner records an abandoned submission itself.
     // The parent row version fences a checkpoint committed after this read.
     private async Task<bool> IsResumableAsync(OutgoingPayment payment, CancellationToken cancellationToken)
     {
-        if (payment.CurrentStatus != TransactionStatus.Sending || payment.MessageType != PaymentMessageTypes.Pacs008)
+        if (payment.MessageType != PaymentMessageTypes.Pacs008)
+        {
+            return false;
+        }
+
+        if (payment.CurrentStatus == TransactionStatus.Resending)
+        {
+            return true;
+        }
+
+        if (payment.CurrentStatus != TransactionStatus.Sending)
         {
             return false;
         }

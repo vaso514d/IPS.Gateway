@@ -94,6 +94,7 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
     {
         var entries = db.ChangeTracker.Entries<OutgoingMessageRow>().Cast<EntityEntry>()
             .Concat(db.ChangeTracker.Entries<InvestigationRow>())
+            .Concat(db.ChangeTracker.Entries<ResendRow>())
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
             .ToArray();
 

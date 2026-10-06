@@ -11,7 +11,8 @@ public sealed class InvestigationProtocol(
         Pacs008SigningPolicy policy,
         Pacs028ReplyInterpreter replies) : IInvestigationProtocol
 {
-    public bool AllowsDevelopmentUnsigned => policy.AllowUnsignedWithoutCertificate;
+    public bool MaySend(SubmissionMessageKind? disposition) =>
+        disposition != SubmissionMessageKind.DevelopmentUnsigned || policy.AllowUnsignedWithoutCertificate;
     public string Build(AcceptedPacs008 accepted, IpsReplyCorrelation original, InvestigationIdentity identity) =>
         new Pacs028Xml(accepted.Profile).Build(accepted.Payment, original, new(identity.MessageId, identity.StatusRequestId, identity.CreatedAtUtc));
     public Task<SigningResult> SignAsync(string xml, CancellationToken cancellationToken) =>

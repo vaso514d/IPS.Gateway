@@ -208,4 +208,20 @@ OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, iden
 - **Hosting.** Hosted runtimes derive from SupervisedBackgroundService. Shutdown stops admission, drains running work within the shutdown budget, then cancels its bounded attempts.
 - **API.** The host composes everything through Api DependencyInjection.AddMiddleware and validates settings once with ValidateMiddleware. OutgoingPaymentsController preserves the existing routes, JSON and HTTP results, and is removed from the application model while outgoing execution is disabled.
 
-See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above describe the current implementation.
+See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above and the next one describe the current implementation.
+
+## Outgoing investigation and authorized resend (003a.3)
+
+- **Investigation.** OutgoingInvestigation runs one pacs.028 cycle per due Uncertain or Investigating payment. A trusted NotFound (1016) result commits atomically with:
+  - the move to Resending;
+  - a resend authorization in OutgoingResends.
+
+  When `MaxResends` is used up, the payment goes to ManualReview instead.
+- **One-use authorization.** The authorization's unique investigation reference makes it one-use in SQL.
+- **Resend.** OutgoingResend journals the exact original pacs.008 bytes as its own outbound and response rows in OutgoingMessages, using ResendId.
+  - It commits the marker before I/O and interprets the response with the original correlation.
+  - It never repeats a marked resend: an abandoned resend makes the payment Uncertain, and it is investigated again.
+  - The investigation deadline frozen on the first cycle bounds every resend.
+- **Initial-record queries.** Queries for the initial exchange select records with neither an investigation nor a resend reference.
+- **Recovery.** Recovery keeps an expired Resending claim resumable, so the next owner records an abandoned submission itself.
+- **Runtime.** OutgoingRuntime routes each recovered payment by status: Pacs008Processing, OutgoingInvestigation or OutgoingResend. A separate sweep starts due investigations and resends. See [003a.3](specs/003a3-authorized-resend.md).

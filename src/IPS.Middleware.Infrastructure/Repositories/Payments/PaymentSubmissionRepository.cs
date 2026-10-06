@@ -14,9 +14,6 @@ namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 // The submission marker commits before any remote call; the response and its interpretation are separate checkpoints.
 public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaymentSubmissionRepository
 {
-    private const string Pacs002Definition = "pacs.002.001.14";
-    private const string InconclusiveResponse = "The response did not establish a valid correlated final outcome.";
-
     public async Task<IReadOnlyList<OutgoingMessage>> ReadJournalAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         var rows = await db.OutgoingMessages
@@ -34,9 +31,13 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
             return null;
         }
 
-        var journal = await ReadJournalAsync(paymentId, cancellationToken);
-        var submitted = journal.SingleOrDefault(x => x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Outbound);
-        var received = journal.SingleOrDefault(x => x.InvestigationId == null && x.Direction == OutgoingMessageDirection.Response);
+        var initial = await db.OutgoingMessages
+            .AsNoTracking()
+            .Where(x => x.PaymentId == paymentId)
+            .Where(OutgoingJournal.IsInitial)
+            .ToListAsync(cancellationToken);
+        var submitted = initial.SingleOrDefault(x => x.Direction == OutgoingMessageDirection.Outbound)?.Snapshot();
+        var received = initial.SingleOrDefault(x => x.Direction == OutgoingMessageDirection.Response)?.Snapshot();
         return new PaymentSubmission(submitted?.Submission, received?.Response);
     }
 
@@ -102,17 +103,8 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
     {
         db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
         var received = CommittedMessage(payment.Id, OutgoingMessageDirection.Response);
-        if (received.Status != MessageJournalStatus.Received)
-        {
-            throw new InvalidOperationException("Only unconsumed response evidence can be interpreted.");
-        }
-
-        // Only a validated, correlated response establishes its protocol definition.
         var conclusive = reply.Status is IpsReplyStatus.Accepted or IpsReplyStatus.Rejected;
-        received.Status = conclusive ? MessageJournalStatus.Processed : MessageJournalStatus.Failed;
-        received.MessageDefinition = conclusive ? Pacs002Definition : null;
-        received.ProcessedAtUtc = now.ToUniversalTime();
-        received.Failure = conclusive ? null : reply.Details.Description ?? InconclusiveResponse;
+        OutgoingJournal.Consume(received, conclusive, reply.Details.Description, now);
         db.RequireCurrentVersion(payment);
     }
 

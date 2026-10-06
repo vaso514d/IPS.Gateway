@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
@@ -14,10 +15,12 @@ using Microsoft.Extensions.Logging;
 
 namespace IPS.Middleware.Infrastructure.Payments.Execution;
 
-// Runs outgoing payments and callbacks in fresh scopes with service-owned admission; SQL claims stay the authority.
+// Runs outgoing payments, investigations, resends and callbacks in fresh scopes with service-owned admission;
+// SQL claims stay the authority.
 public sealed class OutgoingRuntime(
     IServiceScopeFactory scopes,
     OutgoingExecutionOptions options,
+    InvestigationOptions investigation,
     StatusDeliveryOptions delivery,
     TimeProvider time,
     ILogger<OutgoingRuntime> logger)
@@ -59,6 +62,7 @@ public sealed class OutgoingRuntime(
 
     protected override Task RunAsync(CancellationToken stop, CancellationToken work) => Task.WhenAll(
         RunSweepsAsync("Outgoing recovery discovery", StartDuePaymentsAsync, options.DiscoveryInterval, stop),
+        RunSweepsAsync("Outgoing investigation and resend discovery", StartDueInvestigationsAndResendsAsync, investigation.DiscoveryInterval, stop),
         RunSweepsAsync("Outgoing callback discovery", StartDueCallbacksAsync, delivery.DiscoveryInterval, stop));
 
     protected override Task StopAdmissionAsync() => Task.WhenAll(_payments.StopAdmission(), _callbacks.StopAdmission());
@@ -90,6 +94,21 @@ public sealed class OutgoingRuntime(
         }
     }
 
+    private async Task StartDueInvestigationsAndResendsAsync(CancellationToken stop)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var now = Time.GetUtcNow();
+        var resends = await scope.ServiceProvider.GetRequiredService<ITransactionWorkRepository>()
+            .FindDueAsync(TransactionStatus.Resending, now, investigation.DiscoveryBatch, stop);
+        var investigations = await scope.ServiceProvider.GetRequiredService<IInvestigationRepository>()
+            .FindDueAsync(now, investigation, stop);
+        foreach (var paymentId in resends.Concat(investigations))
+        {
+            stop.ThrowIfCancellationRequested();
+            TryStart(paymentId);
+        }
+    }
+
     private async Task StartDueCallbacksAsync(CancellationToken stop)
     {
         await using var scope = scopes.CreateAsyncScope();
@@ -106,21 +125,38 @@ public sealed class OutgoingRuntime(
     {
         using var budget = new CancellationTokenSource(options.AttemptBudget, Time);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(budget.Token, ExecutionToken);
+        var status = await RecoverAsync(paymentId, stop.Token);
 
-        // Recovery may fail its unit of work; never retain that scope for actual processing.
-        await using (var recovery = scopes.CreateAsyncScope())
+        // A stale status is harmless: each workflow loads the payment again and acts only on the states it owns.
+        // Investigations and resends apply their own attempt budget.
+        await using var processing = scopes.CreateAsyncScope();
+        var services = processing.ServiceProvider;
+        switch (status)
         {
-            var payment = await recovery.ServiceProvider.GetRequiredService<IOutgoingPaymentRepository>().FindAsync(paymentId, stop.Token);
-            if (payment?.MessageType != PaymentMessageTypes.Pacs008)
-            {
-                return;
-            }
+            case TransactionStatus.Received or TransactionStatus.Sending:
+                await services.GetRequiredService<Pacs008Processing>().ProcessAsync(paymentId, stop.Token);
+                break;
+            case TransactionStatus.Uncertain or TransactionStatus.Investigating:
+                await services.GetRequiredService<OutgoingInvestigation>().ProcessAsync(paymentId, ExecutionToken);
+                break;
+            case TransactionStatus.Resending:
+                await services.GetRequiredService<OutgoingResend>().ProcessAsync(paymentId, ExecutionToken);
+                break;
+        }
+    }
 
-            await recovery.ServiceProvider.GetRequiredService<OutgoingTransactionWork>().TryRecoverAsync(paymentId, stop.Token);
+    // Recovery may fail its unit of work; never retain that scope for actual processing.
+    private async Task<TransactionStatus?> RecoverAsync(Guid paymentId, CancellationToken token)
+    {
+        await using var recovery = scopes.CreateAsyncScope();
+        var payment = await recovery.ServiceProvider.GetRequiredService<IOutgoingPaymentRepository>().FindAsync(paymentId, token);
+        if (payment?.MessageType != PaymentMessageTypes.Pacs008)
+        {
+            return null;
         }
 
-        await using var processing = scopes.CreateAsyncScope();
-        await processing.ServiceProvider.GetRequiredService<Pacs008Processing>().ProcessAsync(paymentId, stop.Token);
+        await recovery.ServiceProvider.GetRequiredService<OutgoingTransactionWork>().TryRecoverAsync(paymentId, token);
+        return payment.CurrentStatus;
     }
 
     private async Task DeliverCallbackAsync(StatusDeliveryKey key)

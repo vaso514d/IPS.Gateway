@@ -2,11 +2,13 @@ using System.Data.Common;
 using System.Text.Json;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments.Execution;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Execution;
+using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Payments.Transport;
 using IPS.Middleware.Infrastructure.Persistence;
@@ -44,6 +46,9 @@ internal static class OutgoingProcessProbe
         builder.Services.AddSingleton(new Pacs008Options(ownership: TimeSpan.FromSeconds(6), persistenceBudget: TimeSpan.FromMilliseconds(500)));
         builder.Services.AddSingleton(new StatusDeliveryOptions(discoveryInterval: TimeSpan.FromMilliseconds(50)));
         builder.Services.AddSingleton(new OutgoingExecutionOptions(enabled: true, httpWait: TimeSpan.FromSeconds(3.5), attemptBudget: TimeSpan.FromSeconds(4), discoveryInterval: TimeSpan.FromMilliseconds(50)));
+        builder.Services.AddSingleton(new InvestigationOptions(callTimeout: TimeSpan.FromSeconds(3.5), attemptBudget: TimeSpan.FromSeconds(4),
+            ownership: TimeSpan.FromSeconds(6), persistenceBudget: TimeSpan.FromMilliseconds(500), discoveryInterval: TimeSpan.FromMilliseconds(50)));
+        builder.Services.AddOutgoingInvestigation();
         builder.Services.AddScoped<OutgoingTransactionIntake>();
         builder.Services.AddScoped<OutgoingTransactionWork>();
         builder.Services.AddScoped<Pacs008Processing>();
@@ -86,6 +91,9 @@ internal static class OutgoingProcessProbe
                 "response" => messages.Any(m => m.Direction == OutgoingMessageDirection.Response && m.Status == MessageJournalStatus.Received),
                 "outcome" => payment?.Entity.CurrentStatus == TransactionStatus.Accepted,
                 "lost-reply" => payment?.Entity.CurrentStatus == TransactionStatus.Uncertain,
+                "resend-ready" => messages.Any(m => m.ResendId is not null && m.Status == MessageJournalStatus.ReadyToSend),
+                "resend-marker" => messages.Any(m => m.ResendId is not null && m.Status == MessageJournalStatus.SendStarted),
+                "resend-response" => messages.Any(m => m.ResendId is not null && m.Status == MessageJournalStatus.Received),
                 _ => false
             };
             if (!reached || Interlocked.Exchange(ref paused, 1) != 0)

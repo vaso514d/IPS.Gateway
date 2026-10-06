@@ -10,6 +10,7 @@ public sealed class InvestigationOptions
         TimeSpan? repeatInterval = null,
         TimeSpan? window = null,
         int maxCycles = 0,
+        int maxResends = 3,
         TimeSpan? callTimeout = null,
         TimeSpan? attemptBudget = null,
         TimeSpan? ownership = null,
@@ -33,7 +34,7 @@ public sealed class InvestigationOptions
         PersistenceBudget = Positive(persistenceBudget ?? TimeSpan.FromSeconds(2));
         PreparationRetryDelay = Positive(preparationRetryDelay ?? TimeSpan.FromSeconds(1));
         DiscoveryInterval = Positive(discoveryInterval ?? TimeSpan.FromSeconds(5));
-        var validLimits = maxCycles >= 0 && discoveryBatch is >= 1 and <= 1000 && Window <= TimeSpan.FromHours(24);
+        var validLimits = maxCycles >= 0 && maxResends >= 0 && discoveryBatch is >= 1 and <= 1000 && Window <= TimeSpan.FromHours(24);
         var validTimeouts = CallTimeout < AttemptBudget && AttemptBudget + PersistenceBudget < Ownership;
         if (!validLimits || !validTimeouts)
         {
@@ -41,6 +42,7 @@ public sealed class InvestigationOptions
         }
 
         MaxCycles = maxCycles;
+        MaxResends = maxResends;
         DiscoveryBatch = discoveryBatch;
     }
 
@@ -49,6 +51,7 @@ public sealed class InvestigationOptions
     public TimeSpan RepeatInterval { get; }
     public TimeSpan Window { get; }
     public int MaxCycles { get; }
+    public int MaxResends { get; }
     public TimeSpan CallTimeout { get; }
     public TimeSpan AttemptBudget { get; }
     public TimeSpan Ownership { get; }
@@ -56,6 +59,9 @@ public sealed class InvestigationOptions
     public TimeSpan PreparationRetryDelay { get; }
     public int DiscoveryBatch { get; }
     public TimeSpan DiscoveryInterval { get; }
+
+    // A remote call never outlives the investigation window.
+    public TimeSpan CallBudget(TimeSpan remaining) => remaining < CallTimeout ? remaining : CallTimeout;
 
     // Configured delays apply to the first cycles; later cycles repeat at the steady interval.
     public TimeSpan RetryDelay(int cycle) =>

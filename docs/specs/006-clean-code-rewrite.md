@@ -69,4 +69,4 @@ One intermittent observation: `OutgoingCrashTests.Killed_process_resumes_only_fr
 These were not changed and are left for the owner to decide:
 
 - `OutgoingTransactionWork.TryStartAsync`, `InboundWorkDiscovery` and `IncomingPaymentRegistration` have no production callers; only tests use them.
-- `InvestigationExecution` remains a seam for the pending investigation runtime capability.
+- `InvestigationExecution` remained a seam for the pending investigation runtime; 003a.3 removed it when OutgoingRuntime took over investigations.

@@ -73,8 +73,8 @@ public sealed class OutgoingPayment : AggregateRoot
     public void BeginInvestigation(DateTimeOffset at) =>
         Transition(PaymentOperation.BeginInvestigation, StatusSource.Recovery, at);
 
-    public void BeginResending(StatusSource source, DateTimeOffset at) =>
-        Transition(PaymentOperation.BeginResending, source, at);
+    public void BeginResending(StatusSource source, DateTimeOffset at, PaymentDetails? details = null) =>
+        Transition(PaymentOperation.BeginResending, source, at, details);
 
     public void RequireManualReview(DateTimeOffset at, PaymentDetails? details = null) =>
         Transition(PaymentOperation.RequireManualReview, StatusSource.Recovery, at, details);

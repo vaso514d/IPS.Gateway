@@ -1,5 +1,7 @@
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.StatusDelivery;
+using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Transport;
@@ -20,6 +22,11 @@ public static class OutgoingHttpRegistration
         services.AddTransient<IPacs008MessagePreparation>(sp => new Pacs008Preparation(
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
         services.AddTransient<IIpsReplyInterpreter>(sp => new IpsReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust));
+        services.AddTransient<IInvestigationProtocol>(sp => new InvestigationProtocol(
+            sp.GetRequiredService<Pacs008MessageSigner>(),
+            sp.GetRequiredService<OutgoingTransportCertificates>(),
+            sp.GetRequiredService<Pacs008SigningPolicy>(),
+            new Pacs028ReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust)));
         Add(services, Ips, true);
         Add(services, Cbs, false);
         return services;

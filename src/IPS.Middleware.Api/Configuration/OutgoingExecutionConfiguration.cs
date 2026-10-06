@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Execution;
+using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Transport;
 
 namespace IPS.Middleware.Api.Configuration;
@@ -20,13 +21,14 @@ internal static class OutgoingExecutionConfiguration
         services.AddScoped<OutgoingTransactionWork>();
         services.AddScoped<Pacs008Processing>();
         services.AddScoped<OutgoingStatusDelivery>();
+        services.AddOutgoingInvestigation();
         services.AddScoped(CreatePacs008Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddSingleton<OutgoingSubmission>();
         services.AddOptions<HostOptions>()
-            .PostConfigure<OutgoingExecutionOptions, Pacs008Options, StatusDeliveryOptions>(ExtendShutdownTimeout);
+            .PostConfigure<OutgoingExecutionOptions, Pacs008Options, StatusDeliveryOptions, InvestigationOptions>(ExtendShutdownTimeout);
         return services;
     }
 
@@ -90,7 +92,8 @@ internal static class OutgoingExecutionConfiguration
         HostOptions host,
         OutgoingExecutionOptions execution,
         Pacs008Options payment,
-        StatusDeliveryOptions delivery)
+        StatusDeliveryOptions delivery,
+        InvestigationOptions investigation)
     {
         if (!execution.Enabled)
         {
@@ -98,8 +101,8 @@ internal static class OutgoingExecutionConfiguration
         }
 
         host.ServicesStopConcurrently = true;
-        var persistence = payment.PersistenceBudget > delivery.PersistenceBudget ? payment.PersistenceBudget : delivery.PersistenceBudget;
-        var required = execution.ShutdownBudget + persistence;
+        TimeSpan[] persistenceBudgets = [payment.PersistenceBudget, delivery.PersistenceBudget, investigation.PersistenceBudget];
+        var required = execution.ShutdownBudget + persistenceBudgets.Max();
         if (host.ShutdownTimeout < required)
         {
             host.ShutdownTimeout = required;

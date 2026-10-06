@@ -15,6 +15,8 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 
 internal sealed class OutgoingHostFixture : IAsyncDisposable
 {
+    private int _unresolvedReplies;
+
     public SqlTestDatabase Database { get; private set; } = null!;
     public TransportCertificates Certificates { get; } = new();
     public HttpSimulator Server { get; private set; } = null!;
@@ -26,6 +28,15 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
     public bool Reject { get; set; }
     public bool LoseReply { get; set; }
     public bool Unresolved { get; set; }
+    public string? InvestigationAnswer { get; set; }
+    public DateTimeOffset? FirstSendAtUtc { get; private set; }
+    public DateTimeOffset? FirstInvestigationAtUtc { get; private set; }
+
+    // pacs.008 submissions only; the runtime may also send pacs.028 investigations.
+    public string[] PaymentSubmissions => Submissions.Where(xml => !IpsReplies.IsInvestigation(xml)).ToArray();
+
+    // The next payment submissions receive an unresolved reply.
+    public void AnswerUnresolved(int submissions) => _unresolvedReplies = submissions;
     public Dictionary<string, string?> Configuration { get; private set; } = null!;
 
     public static async Task<OutgoingHostFixture> CreateAsync()
@@ -84,6 +95,13 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         AssertPath(context);
         var xml = await new StreamReader(context.Request.Body).ReadToEndAsync();
         Submissions.Enqueue(xml);
+        if (IpsReplies.IsInvestigation(xml))
+        {
+            await AnswerInvestigationAsync(context, xml);
+            return;
+        }
+
+        FirstSendAtUtc ??= DateTimeOffset.UtcNow;
         FirstSend.TrySetResult();
         if (Block)
         {
@@ -96,7 +114,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             return;
         }
 
-        if (Unresolved)
+        if (Unresolved || Interlocked.Decrement(ref _unresolvedReplies) >= 0)
         {
             context.Response.StatusCode = 503;
             await context.Response.WriteAsync("raw upstream failure");
@@ -117,6 +135,26 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         };
         context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = Reject ? "RJCT/1009" : "ACCP";
         await context.Response.WriteAsync((await IpsReplies.SignAsync(Certificates.Client, IpsReplies.Unsigned(reply)))[0]);
+    }
+
+    // Without a configured answer the investigation stays unresolved.
+    private async Task AnswerInvestigationAsync(HttpContext context, string xml)
+    {
+        FirstInvestigationAtUtc ??= DateTimeOffset.UtcNow;
+        if (InvestigationAnswer is not { } answer)
+        {
+            context.Response.StatusCode = 503;
+            await context.Response.WriteAsync("no investigation answer");
+            return;
+        }
+
+        var reply = await IpsReplies.AnswerInvestigationAsync(Certificates.Client, xml, answer);
+        foreach (var header in reply.Headers)
+        {
+            context.Response.Headers[header.Name] = header.Value;
+        }
+
+        await context.Response.WriteAsync(reply.Body);
     }
 
     private static void AssertPath(HttpContext context)

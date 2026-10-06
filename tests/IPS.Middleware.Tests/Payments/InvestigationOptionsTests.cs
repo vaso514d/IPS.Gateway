@@ -19,6 +19,8 @@ public sealed class InvestigationOptionsTests
         Assert.Equal(TimeSpan.FromMinutes(1), defaults.RetryDelay(2));
         Assert.Equal(TimeSpan.FromMinutes(5), defaults.RetryDelay(3));
         Assert.Equal(TimeSpan.FromMinutes(15), defaults.RetryDelay(4));
+        Assert.Equal(3, defaults.MaxResends);
+        Assert.Equal(0, new InvestigationOptions(maxResends: 0).MaxResends);
     }
     [Fact]
     public void Rejects_invalid_counts_durations_and_timeout_ordering()
@@ -26,6 +28,7 @@ public sealed class InvestigationOptionsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new InvestigationOptions(firstDelay: TimeSpan.FromSeconds(8)));
         Assert.Throws<ArgumentOutOfRangeException>(() => new InvestigationOptions(retryDelays: [TimeSpan.Zero]));
         Assert.Throws<ArgumentException>(() => new InvestigationOptions(maxCycles: -1));
+        Assert.Throws<ArgumentException>(() => new InvestigationOptions(maxResends: -1));
         Assert.Throws<ArgumentException>(() => new InvestigationOptions(discoveryBatch: 0));
         Assert.Throws<ArgumentException>(() => new InvestigationOptions(callTimeout: TimeSpan.FromSeconds(35)));
         Assert.Throws<ArgumentException>(() => new InvestigationOptions(ownership: TimeSpan.FromSeconds(37)));

@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Xml.Linq;
+using IPS.Middleware.Application.Payments.Pacs008;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Payments;
@@ -9,6 +11,8 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 /// <summary>Independent pacs.002 reply fixtures. Text templates follow Annex D 8.1.8; Java JSR105 signs them.</summary>
 internal static class IpsReplies
 {
+    private const string Pacs028Namespace = "urn:iso:std:iso:20022:tech:xsd:pacs.028.001.06";
+
     internal sealed record Reply
     {
         public required string MessageId { get; init; }
@@ -43,6 +47,30 @@ internal static class IpsReplies
             Status("GrpSts", reply.GroupStatus) + (reply.IncludeTransaction ? "" : reason) + "</pacs:OrgnlGrpInfAndSts>" +
             transaction + "</pacs:FIToFIPmtStsRpt></pacs:Document></Message>";
     }
+
+    // ACCP/RJCT report the original payment; 1016/1017 reject the inquiry itself (not found / still processing).
+    internal static async Task<IpsSubmissionResponse> AnswerInvestigationAsync(X509Certificate2 ips, string pacs028, string answer)
+    {
+        XNamespace ns = Pacs028Namespace;
+        var document = XDocument.Parse(pacs028);
+        string Value(string name) => document.Descendants(ns + name).Single().Value;
+        var inquiry = answer is "1016" or "1017";
+        var reply = new Reply
+        {
+            MessageId = inquiry ? Value("MsgId") : Value("OrgnlMsgId"),
+            TransactionId = Value("OrgnlTxId"),
+            EndToEndId = Value("OrgnlEndToEndId"),
+            OriginalMessageName = inquiry ? "pacs.028.001.06" : "pacs.008.001.12",
+            IncludeTransaction = !inquiry,
+            GroupStatus = inquiry ? "RJCT" : answer,
+            TransactionStatus = inquiry ? "RJCT" : answer,
+            ReasonCode = inquiry ? "AG09" : answer == "RJCT" ? "AC01" : null
+        };
+        var body = (await SignAsync(ips, Unsigned(reply)))[0];
+        return new(200, body, [new("X-MONTRAN-IPS-ReqSts", inquiry ? "RJCT/" + answer : answer)]);
+    }
+
+    internal static bool IsInvestigation(string xml) => xml.Contains(Pacs028Namespace, StringComparison.Ordinal);
 
     internal static X509Certificate2 Certificate(string subject = "CN=Simulated IPS", DateTimeOffset? validAt = null)
     {

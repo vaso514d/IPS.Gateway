@@ -6,12 +6,13 @@ using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Investigation;
 
-// Resumes one investigation cycle; payment resends are a separate workflow.
+// Resumes one investigation cycle. A NotFound result authorizes a resend, which OutgoingResend sends.
 public sealed class OutgoingInvestigation(
     IOutgoingPaymentRepository payments,
     ITransactionWorkRepository work,
     IPaymentPreparationRepository preparation,
     IInvestigationRepository investigations,
+    IResendRepository resends,
     IUnitOfWork unitOfWork,
     IInvestigationProtocol protocol,
     IIpsTransport transport,
@@ -38,7 +39,7 @@ public sealed class OutgoingInvestigation(
         }
 
         var attempt = await investigations.ReadAsync(paymentId, token);
-        if (attempt?.Result?.Outcome == InvestigationOutcome.NotFound || IsWaitingForFirstCycle(payment, attempt))
+        if (IsWaitingForFirstCycle(payment, attempt))
         {
             return payment.Current;
         }
@@ -109,7 +110,7 @@ public sealed class OutgoingInvestigation(
             return;
         }
 
-        if (prepared.Request!.Disposition == SubmissionMessageKind.DevelopmentUnsigned && !protocol.AllowsDevelopmentUnsigned)
+        if (!protocol.MaySend(prepared.Request!.Disposition))
         {
             await claimed.ReleaseAsync(Now, Now + options.PreparationRetryDelay, token);
             return;
@@ -181,7 +182,7 @@ public sealed class OutgoingInvestigation(
             return;
         }
 
-        using var callBudget = new CancellationTokenSource(remaining < options.CallTimeout ? remaining : options.CallTimeout, timeProvider);
+        using var callBudget = new CancellationTokenSource(options.CallBudget(remaining), timeProvider);
         using var call = CancellationTokenSource.CreateLinkedTokenSource(token, callBudget.Token);
         IpsSubmissionResponse received;
         try
@@ -224,6 +225,12 @@ public sealed class OutgoingInvestigation(
     {
         var payment = claimed.Payment;
         investigations.StageResult(payment, claimed.Claim, attempt.Identity.Id, reply, transportFailure, Now);
+        if (reply.Outcome == InvestigationOutcome.NotFound)
+        {
+            await AuthorizeResendAsync(claimed, attempt, reply, token);
+            return;
+        }
+
         switch (reply.Outcome)
         {
             case InvestigationOutcome.OriginalAccepted:
@@ -241,6 +248,22 @@ public sealed class OutgoingInvestigation(
         }
 
         await claimed.ReleaseAsync(Now, NextCycleAt(payment, reply, attempt, context.Deadline), token);
+    }
+
+    // IPS has no record of the payment: one resend per NotFound result, counted separately from investigation cycles.
+    private async Task AuthorizeResendAsync(ClaimedPayment claimed, InvestigationAttempt attempt, InvestigationReply reply, CancellationToken token)
+    {
+        var previous = await resends.ReadAsync(claimed.Payment.Id, token);
+        var resent = previous?.Number ?? 0;
+        if (resent >= options.MaxResends)
+        {
+            await RequireManualReviewAsync(claimed, $"IPS has no record of the transaction and it was already resent {resent} time(s).", token);
+            return;
+        }
+
+        claimed.Payment.BeginResending(StatusSource.Investigation, Now, reply.Details);
+        resends.StageAuthorization(claimed.Payment, claimed.Claim, attempt.Identity.Id, resent + 1, Now);
+        await claimed.ReleaseAsync(Now, null, token);
     }
 
     // Only an unresolved cycle that left the payment uncertain schedules another, never past the window.

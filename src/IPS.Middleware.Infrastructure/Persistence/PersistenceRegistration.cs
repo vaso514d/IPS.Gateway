@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
@@ -28,6 +29,8 @@ public static class PersistenceRegistration
         services.AddScoped<ITransactionWorkRepository, TransactionWorkRepository>();
         services.AddScoped<IPaymentPreparationRepository, PaymentPreparationRepository>();
         services.AddScoped<IPaymentSubmissionRepository, PaymentSubmissionRepository>();
+        services.AddScoped<IInvestigationRepository, InvestigationRepository>();
+        services.AddScoped<IResendRepository, ResendRepository>();
         services.AddScoped<IInboundReceiptRepository, InboundReceiptRepository>();
         services.AddScoped<IInboundWorkRepository, InboundWorkRepository>();
         services.AddScoped<IIncomingPaymentRepository, IncomingPaymentRepository>();
