@@ -241,6 +241,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Shared profile.** `IpsMessageProfile` (IPS BIC and service level) serves pacs.009, pacs.004 and camt.056.
 - See [007a](specs/007a-outgoing-camt056.md).
 
+## Outgoing camt.029 and the shared recall parts (007b)
+
+- **One more type on the shared core.** `PaymentMessageTypes.Camt029` joins the outgoing set. `Camt029Intake` validates the source rules (the creditor agent must be us, the quoted currency enabled, settlement date not in the future, reason code 1-4 uppercase characters) and snapshots `AcceptedCamt029`. The message id is the caller's `Id` and the transaction id its cancellation status id. The answer is always a refusal (RJCR).
+- **Shared with camt.056.** `Payments/Recalls` holds the recalled-transaction inputs, `RecalledTransaction.From` (normalization), `RecallOriginalValidator` (which takes the sending side: debtor agent for a recall, creditor agent for the answer) and `RecallXml` (assignment, reason and original-reference elements). One `RecallRequestMapping` maps both DTOs.
+- **Reply correlation and recovery** are as for camt.056: our message id with the recalled payment's transaction and end-to-end ids and `camt.029.001.13`; possible-duplicate resend; no pre-send deadline.
+- See [007b](specs/007b-outgoing-camt029.md).
+
 ## Incoming pacs.004 and the generalised transfer (005d)
 
 - **One transfer aggregate for two kinds.** `IncomingTransfer` is keyed by participant BIC, kind (`pacs.009`, `pacs.004`) and business key (EndToEndId, or the return id for a return). `IIncomingTransferContent` carries the kind, key, receiver and the identifiers a core reply may echo; `IIncomingTransferProtocol` implementations read one kind each, and `IncomingTransferRegistration` and `IncomingTransferProcessing` serve both.

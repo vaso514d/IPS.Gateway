@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Text.Json;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Camt029;
 using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
@@ -71,6 +72,8 @@ internal static class OutgoingProcessProbe
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddScoped(sp => new Camt056Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
+        builder.Services.AddScoped(sp => new Camt029Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
+            Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddSingleton<OutgoingRuntime>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         using var host = builder.Build();
@@ -81,6 +84,11 @@ internal static class OutgoingProcessProbe
             {
                 var payment = Pacs009Fixture.Request("crash");
                 await scope.ServiceProvider.GetRequiredService<Pacs009Intake>().AcceptAsync(payment, JsonSerializer.Serialize(payment), default);
+            }
+            else if (settings.MessageType == PaymentMessageTypes.Camt029)
+            {
+                var payment = Camt029Fixture.Request("crash");
+                await scope.ServiceProvider.GetRequiredService<Camt029Intake>().AcceptAsync(payment, JsonSerializer.Serialize(payment), default);
             }
             else if (settings.MessageType == PaymentMessageTypes.Camt056)
             {

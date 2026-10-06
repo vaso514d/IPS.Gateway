@@ -10,11 +10,13 @@ public static class PaymentMessageTypes
     public const string Pacs004Definition = "pacs.004.001.13";
     public const string Camt056 = "camt.056";
     public const string Camt056Definition = "camt.056.001.11";
+    public const string Camt029 = "camt.029";
+    public const string Camt029Definition = "camt.029.001.13";
     public const string Pacs002 = "pacs.002";
     public const string Pacs002Definition = "pacs.002.001.14";
 
     // The message types this participant sends and tracks as outgoing payments.
-    public static readonly IReadOnlyList<string> Outgoing = [Pacs008, Pacs009, Pacs004, Camt056];
+    public static readonly IReadOnlyList<string> Outgoing = [Pacs008, Pacs009, Pacs004, Camt056, Camt029];
 
     // Inbound receipts name a message either by its short type or by its full message definition.
     public static bool IsPacs008(string messageType) => messageType is Pacs008 or Pacs008Definition;
@@ -36,6 +38,7 @@ public static class PaymentMessageTypes
         Pacs009 => Pacs009Definition,
         Pacs004 => Pacs004Definition,
         Camt056 => Camt056Definition,
+        Camt029 => Camt029Definition,
         _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, "Not an outgoing message type.")
     };
 }

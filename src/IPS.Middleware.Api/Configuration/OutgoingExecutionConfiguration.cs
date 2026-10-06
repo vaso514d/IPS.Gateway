@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Camt029;
 using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
@@ -30,6 +31,7 @@ internal static class OutgoingExecutionConfiguration
         services.AddScoped(CreatePacs009Intake);
         services.AddScoped(CreatePacs004Intake);
         services.AddScoped(CreateCamt056Intake);
+        services.AddScoped(CreateCamt029Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
@@ -110,6 +112,17 @@ internal static class OutgoingExecutionConfiguration
     {
         var profile = services.GetRequiredService<PaymentProfile>();
         return new Camt056Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            new IpsMessageProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static Camt029Intake CreateCamt029Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Camt029Intake(
             services.GetRequiredService<IOutgoingPaymentRepository>(),
             services.GetRequiredService<OutgoingTransactionIntake>(),
             profile.Policy,

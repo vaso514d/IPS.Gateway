@@ -1,6 +1,7 @@
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Recalls;
 using Xunit;
 
 namespace IPS.Middleware.Tests.Payments;
