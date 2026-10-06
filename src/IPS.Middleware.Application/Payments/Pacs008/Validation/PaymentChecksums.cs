@@ -1,7 +1,22 @@
+using System.Globalization;
+
 namespace IPS.Middleware.Application.Payments.Pacs008.Validation;
 
 internal static class PaymentChecksums
 {
+    internal static bool HasAllowedPrecision(decimal amount)
+    {
+        const decimal integerLimit = 10000000000000m;
+        if (amount <= -integerLimit || amount >= integerLimit)
+        {
+            return false;
+        }
+
+        var formatted = amount.ToString("0.############################", CultureInfo.InvariantCulture);
+        var point = formatted.IndexOf('.');
+        return point < 0 || formatted.Length - point - 1 <= 5;
+    }
+
     internal static bool ValidTaxCode(string? code)
     {
         if (code is not { Length: 9 } || !code.All(char.IsAsciiDigit))

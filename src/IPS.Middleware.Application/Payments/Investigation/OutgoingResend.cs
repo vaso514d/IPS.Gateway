@@ -73,7 +73,7 @@ public sealed class OutgoingResend(
         var run = new ResendRun(
             claimed,
             resend,
-            new IpsReplyCorrelation(stored.MessageId, stored.TransactionId, stored.Accepted!.EndToEndId),
+            stored.Accepted!.ReplyCorrelation(stored.MessageId, stored.TransactionId),
             investigation.Identity.DeadlineUtc,
             investigation.Identity.Number,
             PossibleDuplicate: false,

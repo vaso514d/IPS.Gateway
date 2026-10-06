@@ -1,3 +1,5 @@
+using IPS.Middleware.Application.Payments.Pacs008;
+
 namespace IPS.Middleware.Application.Payments.Pacs009;
 
 // Normalized payment data and mapping settings fixed at intake; resuming uses these exact values.
@@ -14,4 +16,7 @@ public sealed record AcceptedPacs009(
 
     // The caller supplies the message and transaction ids of a pacs.009.
     ProtocolIds? IAcceptedPayment.SuppliedIds => new(Payment.MessageId, Payment.TransactionId);
+
+    IpsReplyCorrelation IAcceptedPayment.ReplyCorrelation(string messageId, string transactionId) =>
+        new(messageId, transactionId, Payment.EndToEndId, PaymentMessageTypes.Pacs009Definition);
 }

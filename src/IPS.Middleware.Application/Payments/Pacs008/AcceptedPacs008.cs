@@ -13,4 +13,7 @@ public sealed record AcceptedPacs008(
     DateTimeOffset? IAcceptedPayment.SubmissionDeadlineUtc => SubmissionDeadlineUtc;
 
     ProtocolIds? IAcceptedPayment.SuppliedIds => null;
+
+    IpsReplyCorrelation IAcceptedPayment.ReplyCorrelation(string messageId, string transactionId) =>
+        new(messageId, transactionId, Payment.EndToEndId, PaymentMessageTypes.Pacs008Definition);
 }

@@ -218,11 +218,7 @@ public sealed class OutgoingPaymentProcessing(
             return claimed.ReleaseAsync(Now, null, cancellationToken);
         }
 
-        var correlation = new IpsReplyCorrelation(
-            message.MessageId,
-            message.TransactionId,
-            message.Accepted.EndToEndId,
-            PaymentMessageTypes.DefinitionOf(payment.MessageType));
+        var correlation = message.Accepted.ReplyCorrelation(message.MessageId, message.TransactionId);
         var reply = replies.Interpret(response, correlation);
         submissions.StageInterpretation(payment, claimed.Claim, reply, Now);
         RecordReply(payment, reply, Now);

@@ -47,11 +47,7 @@ public sealed class IncomingStatusReportProcessing(
             return await HoldAsync(claim, PaymentDataUnavailable, now, token);
         }
 
-        var correlation = new IpsReplyCorrelation(
-            message.MessageId,
-            message.TransactionId,
-            accepted.EndToEndId,
-            PaymentMessageTypes.DefinitionOf(payment.MessageType));
+        var correlation = accepted.ReplyCorrelation(message.MessageId, message.TransactionId);
         var reply = protocol.Interpret(receipt.RawXml, correlation);
         if (reply.Status == IpsReplyStatus.Unresolved)
         {

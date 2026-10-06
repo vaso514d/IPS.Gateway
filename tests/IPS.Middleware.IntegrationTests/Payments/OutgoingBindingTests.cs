@@ -127,7 +127,8 @@ public sealed class OutgoingBindingTests
             Assert.True(pacs009.GetProperty("responses").TryGetProperty(code, out _));
         }
 
-        Assert.Equal(4, paths.EnumerateObject().Count());
+        Assert.Equal("SendPacs004", paths.GetProperty("/api/ips/pacs004/send").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal(5, paths.EnumerateObject().Count());
     }
 
     [Fact]

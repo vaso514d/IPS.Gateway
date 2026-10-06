@@ -27,6 +27,8 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
         RuleFor(x => x.Currency).Must(code => policy.FindCurrency(code) is { Enabled: true })
             .WithMessage("Currency is not enabled.");
         RuleFor(x => x.Amount).Must(amount => amount is > 0).WithMessage("Amount must be greater than zero.");
+        RuleFor(x => x.Amount).Must(amount => amount is null || PaymentChecksums.HasAllowedPrecision(amount.Value))
+            .WithMessage("Amount permits 13 integer and 5 fractional digits.");
         RuleFor(x => x.DebtorAgent).NotNull().WithMessage("DebtorAgent is required.");
         RuleFor(x => x.DebtorAgent).SetValidator(new AgentValidator(policy)!);
         RuleFor(x => x.CreditorAgent).NotNull().WithMessage("CreditorAgent is required.");

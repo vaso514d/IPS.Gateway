@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 
@@ -22,12 +23,14 @@ internal static class PaymentJson
     {
         PaymentMessageTypes.Pacs008 => Write(new AcceptedSnapshot<AcceptedPacs008>(AcceptedVersion, (AcceptedPacs008)accepted)),
         PaymentMessageTypes.Pacs009 => Write(new AcceptedSnapshot<AcceptedPacs009>(AcceptedVersion, (AcceptedPacs009)accepted)),
+        PaymentMessageTypes.Pacs004 => Write(new AcceptedSnapshot<AcceptedPacs004>(AcceptedVersion, (AcceptedPacs004)accepted)),
         _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, "No accepted snapshot for this message type.")
     };
     internal static IAcceptedPayment? ReadAccepted(string messageType, string? json) => messageType switch
     {
         PaymentMessageTypes.Pacs008 => ReadSnapshot<AcceptedPacs008>(json),
         PaymentMessageTypes.Pacs009 => ReadSnapshot<AcceptedPacs009>(json),
+        PaymentMessageTypes.Pacs004 => ReadSnapshot<AcceptedPacs004>(json),
         _ => null
     };
     private static T? ReadSnapshot<T>(string? json)

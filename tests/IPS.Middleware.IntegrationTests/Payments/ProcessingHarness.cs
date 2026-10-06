@@ -4,10 +4,12 @@ using System.Text.Json;
 using System.Xml.Linq;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Payments.Pacs004;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Payments.Pacs009;
@@ -28,6 +30,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
         var signer = new Pacs008MessageSigner(new(allowUnsignedInDevelopment, isDevelopment: allowUnsignedInDevelopment), Clock);
         Protocol = new(new Pacs008Preparation(signer, Certificates));
         Pacs009Protocol = new Pacs009Preparation(signer, Certificates);
+        Pacs004Protocol = new Pacs004Preparation(signer, Certificates);
         Ips = new(IpsCertificate);
         Certificates.Current = SigningCertificate;
     }
@@ -39,6 +42,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     public CertificateSlot Certificates { get; } = new();
     public RecordingPreparation Protocol { get; }
     public Pacs009Preparation Pacs009Protocol { get; }
+    public Pacs004Preparation Pacs004Protocol { get; }
     public IpsSimulator Ips { get; }
     public Pacs008Options Options { get; } = new(ownership: Ownership);
 
@@ -59,6 +63,17 @@ internal sealed class ProcessingHarness : IAsyncDisposable
             .AcceptAsync(request, JsonSerializer.Serialize(request), default);
     }
 
+    public async Task<PaymentIntakeResult> AcceptAsync(Pacs004Request request)
+    {
+        await using var session = Database.Session();
+        return await new Pacs004Intake(session.Payments, new OutgoingTransactionIntake(session.Payments, session.Unit, Clock),
+                Pacs008Fixture.Policy, new("NBGEGE22"), Clock)
+            .AcceptAsync(request, JsonSerializer.Serialize(request), default);
+    }
+
+    public async Task<Guid> AcceptPacs004Async(string reference = "processing") =>
+        (await AcceptAsync(Pacs004Fixture.Request(reference))).Intake!.Payment.Id;
+
     public async Task<Guid> AcceptPacs009Async(string reference = "processing") =>
         (await AcceptAsync(Pacs009Fixture.Request(reference))).Intake!.Payment.Id;
 
@@ -67,7 +82,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     {
         await using var session = Database.Session(interceptors);
         return await new OutgoingPaymentProcessing(session.Payments, session.Work, new PaymentPreparationRepository(session.Context),
-                session.Submissions, session.Unit, [Protocol, Pacs009Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
+                session.Submissions, session.Unit, [Protocol, Pacs009Protocol, Pacs004Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
             .ProcessAsync(id, cancellationToken);
     }
 
@@ -199,12 +214,13 @@ internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransp
         }
 
         var document = XDocument.Parse(xml);
-        string Value(string name) => document.Descendants().First(element => element.Name.LocalName == name).Value;
+        // A return is answered with the original payment's ids; every other message with its own.
+        string Value(params string[] names) => document.Descendants().First(element => names.Contains(element.Name.LocalName)).Value;
         var reply = new IpsReplies.Reply
         {
             MessageId = Value("BizMsgIdr"),
-            TransactionId = Value("TxId"),
-            EndToEndId = Value("EndToEndId"),
+            TransactionId = Value("OrgnlTxId", "TxId"),
+            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId"),
             OriginalMessageName = Value("MsgDefIdr")
         };
         if (Gate is { } gate)

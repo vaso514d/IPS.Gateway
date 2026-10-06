@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.IntegrationTests.Transport;
+using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
 using Microsoft.AspNetCore.Hosting;
@@ -82,6 +83,24 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
     }
 
+    public static Pacs004PaymentReturnRequestDto Pacs004Request(string reference = "outgoing4") => new()
+    {
+        ClientReference = reference,
+        Id = "HOST-RTR-" + reference,
+        Amount = 10m,
+        Currency = "GEL",
+        ValueDate = new DateOnly(2026, 10, 4),
+        InstructedAgent = "TBCBGE22",
+        Debtor = new() { Name = "Original Payer", Account = "GE95TB0000000123456789" },
+        Creditor = new() { Name = "Original Payee", Account = "GE29NB0000000101904917" },
+        Original = new()
+        {
+            TransactionId = "ORIG-TX-HOST",
+            EndToEndId = "ORIG-E2E-HOST",
+            ValueDate = new DateOnly(2026, 10, 3)
+        }
+    };
+
     public static Pacs009PaymentRequestDto Pacs009Request(string reference = "outgoing9") => new()
     {
         ClientReference = reference,
@@ -145,13 +164,13 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         }
 
         var document = XDocument.Parse(xml);
-        string Value(string name) => document.Descendants().First(e => e.Name.LocalName == name).Value;
+        string Value(params string[] names) => document.Descendants().First(e => names.Contains(e.Name.LocalName)).Value;
         var status = Reject ? "RJCT" : "ACCP";
         var reply = new IpsReplies.Reply
         {
             MessageId = Value("BizMsgIdr"),
-            TransactionId = Value("TxId"),
-            EndToEndId = Value("EndToEndId"),
+            TransactionId = Value("OrgnlTxId", "TxId"),
+            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId"),
             OriginalMessageName = Value("MsgDefIdr"),
             GroupStatus = status,
             TransactionStatus = status,

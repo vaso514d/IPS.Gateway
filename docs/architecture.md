@@ -218,6 +218,14 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Persistence.** `OutgoingResends.InvestigationId` is optional; a possible-duplicate attempt stores its own deadline instead, and SQL requires exactly one of the two. Initial-exchange queries select journal rows with neither an investigation nor a resend reference.
 - See [005a](specs/005a-outgoing-pacs009.md).
 
+## Outgoing pacs.004 (005b)
+
+- **One more type on the shared core.** `PaymentMessageTypes.Pacs004` joins the outgoing set. Intake (`Pacs004Intake`) validates the source rules, with the reason code narrowed to FOCR, and snapshots `AcceptedPacs004`. The return id is both the message id and the transaction id and must be unused.
+- **Reply correlation per type.** `IAcceptedPayment.ReplyCorrelation` says which ids the pacs.002 about a payment must carry. For pacs.008 and pacs.009 that is what was sent; for pacs.004 it is our message id with the original payment's transaction and end-to-end ids. Processing, both resends and unsolicited status reports ask the snapshot instead of building the correlation themselves.
+- **XML.** `pacs.004.001.13` (`PmtRtr`) in the IPS v1 profile, validated against the embedded schema and signed like the other types. No lookup of the original payment is made.
+- **Recovery** is the possible-duplicate resend shared with pacs.009; there is no pre-send deadline.
+- See [005b](specs/005b-outgoing-pacs004.md).
+
 ## Unsolicited incoming pacs.002 (003a.4)
 
 - **Intake.** A status report IPS sends on its own arrives through the same pull as every inbound message and is stored in the inbound journal. After that commit, `IncomingReceiveWorker` acknowledges it with `POST MessageAck` and the sequence header; a failed ack is only logged, and a redelivery is acknowledged again.

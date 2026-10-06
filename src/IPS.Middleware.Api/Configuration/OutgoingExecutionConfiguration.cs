@@ -2,6 +2,7 @@ using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
+using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Payments.StatusDelivery;
@@ -26,6 +27,7 @@ internal static class OutgoingExecutionConfiguration
         services.AddOutgoingInvestigation();
         services.AddScoped(CreatePacs008Intake);
         services.AddScoped(CreatePacs009Intake);
+        services.AddScoped(CreatePacs004Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
@@ -88,6 +90,17 @@ internal static class OutgoingExecutionConfiguration
             services.GetRequiredService<OutgoingTransactionIntake>(),
             profile.Policy,
             new Pacs009ProtocolProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static Pacs004Intake CreatePacs004Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Pacs004Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            new Pacs004ProtocolProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
             services.GetRequiredService<TimeProvider>());
     }
 

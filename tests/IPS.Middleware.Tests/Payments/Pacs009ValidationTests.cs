@@ -94,6 +94,7 @@ public sealed class Pacs009ValidationTests
         { "currency", r => r with { Currency = "CHF" } },
         { "amount", r => r with { Amount = 0 } },
         { "amount", r => r with { Amount = null } },
+        { "amount", r => r with { Amount = 1.234567m } },
         { "debtorAgent", r => r with { DebtorAgent = null } },
         { "debtorAgent.bic", r => r with { DebtorAgent = new() { Bic = "TBCBGE22" } } },
         { "debtorAgent.bic", r => r with { DebtorAgent = new() { Bic = "bad" } } },

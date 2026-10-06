@@ -101,18 +101,22 @@ public sealed class OutgoingCrashTests
     }
 
     [Theory]
-    [InlineData("ready", false)]
-    [InlineData("marker", true)]
-    [InlineData("response", false)]
-    [InlineData("outcome", false)]
-    [InlineData("resend-ready", true)]
-    [InlineData("resend-response", true)]
-    public async Task Killed_process_recovers_a_pacs009_and_repeats_no_marker(string checkpoint, bool resentAsDuplicate)
+    [InlineData(PaymentMessageTypes.Pacs009, "ready", false)]
+    [InlineData(PaymentMessageTypes.Pacs009, "marker", true)]
+    [InlineData(PaymentMessageTypes.Pacs009, "response", false)]
+    [InlineData(PaymentMessageTypes.Pacs009, "outcome", false)]
+    [InlineData(PaymentMessageTypes.Pacs009, "resend-ready", true)]
+    [InlineData(PaymentMessageTypes.Pacs009, "resend-response", true)]
+    [InlineData(PaymentMessageTypes.Pacs004, "ready", false)]
+    [InlineData(PaymentMessageTypes.Pacs004, "marker", true)]
+    [InlineData(PaymentMessageTypes.Pacs004, "response", false)]
+    [InlineData(PaymentMessageTypes.Pacs004, "resend-response", true)]
+    public async Task Killed_process_recovers_a_possible_duplicate_message_and_repeats_no_marker(string messageType, string checkpoint, bool resentAsDuplicate)
     {
         await using var fixture = await OutgoingHostFixture.CreateAsync();
         await using var db = fixture.Database.Context();
         using var files = new ProbeFiles();
-        var settings = new OutgoingProcessProbe.Settings(db.Database.GetConnectionString()!, Transport(fixture), checkpoint, files.Signal, true, PaymentMessageTypes.Pacs009);
+        var settings = new OutgoingProcessProbe.Settings(db.Database.GetConnectionString()!, Transport(fixture), checkpoint, files.Signal, true, messageType);
 
         if (checkpoint.StartsWith("resend-", StringComparison.Ordinal))
         {

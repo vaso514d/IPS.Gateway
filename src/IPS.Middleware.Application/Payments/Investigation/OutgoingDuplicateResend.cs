@@ -77,11 +77,7 @@ public sealed class OutgoingDuplicateResend(
     private async Task ContinueAsync(ClaimedPayment claimed, ResendAttempt? latest, CancellationToken token)
     {
         var stored = (await preparation.ReadAsync(claimed.Payment.Id, token))!;
-        var correlation = new IpsReplyCorrelation(
-            stored.MessageId,
-            stored.TransactionId,
-            stored.Accepted!.EndToEndId,
-            PaymentMessageTypes.DefinitionOf(claimed.Payment.MessageType));
+        var correlation = stored.Accepted!.ReplyCorrelation(stored.MessageId, stored.TransactionId);
 
         // Saved evidence decides first: a stored reply is interpreted and a marked attempt is never sent again.
         if (latest is { Result: null, Response.Response: { } savedResponse })

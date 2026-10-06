@@ -27,7 +27,7 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
         RuleFor(x => x.Currency).Must(code => policy.FindCurrency(code) is { Enabled: true })
             .WithMessage("Currency is not enabled.");
         RuleFor(x => x.Amount).Must(amount => amount is > 0).WithMessage("A positive amount is required.");
-        RuleFor(x => x.Amount).Must(amount => amount is null || HasAllowedPrecision(amount.Value))
+        RuleFor(x => x.Amount).Must(amount => amount is null || PaymentChecksums.HasAllowedPrecision(amount.Value))
             .WithMessage("Amount permits 13 integer and 5 fractional digits.");
         RuleFor(x => x.Amount).Must((request, amount) => WithinCurrencyLimits(amount, policy.FindCurrency(request.Currency)))
             .WithMessage("Amount is outside the configured currency limits.");
@@ -66,19 +66,6 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
 
         var withinOneSecond = acceptedAt >= createdAt && acceptedAt - createdAt <= TimeSpan.FromSeconds(1);
         return withinOneSecond ? null : "Acceptance must be within one second after creation.";
-    }
-
-    private static bool HasAllowedPrecision(decimal amount)
-    {
-        const decimal integerLimit = 10000000000000m;
-        if (amount <= -integerLimit || amount >= integerLimit)
-        {
-            return false;
-        }
-
-        var formatted = amount.ToString("0.############################", CultureInfo.InvariantCulture);
-        var point = formatted.IndexOf('.');
-        return point < 0 || formatted.Length - point - 1 <= 5;
     }
 
     private static bool WithinCurrencyLimits(decimal? amount, PaymentCurrency? currency) =>
