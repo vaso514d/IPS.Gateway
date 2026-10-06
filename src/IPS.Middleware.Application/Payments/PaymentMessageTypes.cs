@@ -17,6 +17,8 @@ public static class PaymentMessageTypes
     // Inbound receipts name a message either by its short type or by its full message definition.
     public static bool IsPacs008(string messageType) => messageType is Pacs008 or Pacs008Definition;
 
+    public static bool IsPacs004(string messageType) => messageType is Pacs004 or Pacs004Definition;
+
     public static bool IsPacs009(string messageType) => messageType is Pacs009 or Pacs009Definition;
 
     public static bool IsPacs002(string messageType) => messageType is Pacs002 or Pacs002Definition;

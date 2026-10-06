@@ -17,12 +17,21 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
     };
 
     public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original) =>
-        Interpret(completion, original.EndToEndId, original.GroupMessageId, original.TransactionId);
+        Interpret(completion, reply =>
+            Matches(reply.EndToEndId, original.EndToEndId)
+            && Matches(reply.Id, original.GroupMessageId)
+            && Matches(reply.TxId, original.TransactionId));
 
-    CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IncomingPacs009 transfer) =>
-        Interpret(completion, transfer.EndToEndId, transfer.MessageId, transfer.TransactionId);
+    CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IIncomingTransferContent transfer)
+    {
+        var echo = transfer.Echo;
+        return Interpret(completion, reply =>
+            Echoes(reply.EndToEndId, echo.EndToEndId)
+            && Echoes(reply.Id, echo.Id)
+            && Echoes(reply.TxId, echo.TransactionId));
+    }
 
-    private static CorePaymentResult Interpret(CoreCallCompletion completion, string endToEndId, string? messageId, string? transactionId)
+    private static CorePaymentResult Interpret(CoreCallCompletion completion, Func<CoreReply, bool> answersOriginal)
     {
         var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, Description: completion.Failure);
         if (completion.Response is not { StatusCode: >= 200 and < 300 } response || Read(response.Body) is not { } reply)
@@ -31,7 +40,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         }
 
         var outcome = ReadOutcome(reply.Status);
-        if (outcome == CoreOutcome.Unknown || !AnswersOriginal(reply, endToEndId, messageId, transactionId))
+        if (outcome == CoreOutcome.Unknown || !answersOriginal(reply))
         {
             return unknown;
         }
@@ -52,11 +61,6 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         _ => CoreOutcome.Unknown
     };
 
-    private static bool AnswersOriginal(CoreReply reply, string endToEndId, string? messageId, string? transactionId) =>
-        Matches(reply.EndToEndId, endToEndId)
-        && Matches(reply.Id, messageId)
-        && Matches(reply.TxId, transactionId);
-
     private static CoreReply? Read(string body)
     {
         try
@@ -71,6 +75,9 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
 
     // A supplied identifier must match exactly; a missing one trusts the request or query it answers.
     private static bool Matches(string? actual, string? expected) => actual is null || actual == expected;
+
+    // A transfer checks only the identifiers it carries.
+    private static bool Echoes(string? actual, string? expected) => actual is null || expected is null || actual == expected;
 
     private sealed record CoreReply
     {

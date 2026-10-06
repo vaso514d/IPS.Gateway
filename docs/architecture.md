@@ -233,6 +233,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **IPS.** Only a `MessageAck` after the receipt commit; no pacs.002 and no decision or reversal.
 - See [005c](specs/005c-incoming-pacs009.md).
 
+## Incoming pacs.004 and the generalised transfer (005d)
+
+- **One transfer aggregate for two kinds.** `IncomingTransfer` is keyed by participant BIC, kind (`pacs.009`, `pacs.004`) and business key (EndToEndId, or the return id for a return). `IIncomingTransferContent` carries the kind, key, receiver and the identifiers a core reply may echo; `IIncomingTransferProtocol` implementations read one kind each, and `IncomingTransferRegistration` and `IncomingTransferProcessing` serve both.
+- **Reading a return.** `IncomingPacs004Protocol` verifies the signature before trusting anything, requires one returned transaction, a return id equal to the group message id, the original transaction id and both agents by BICFI, and holds anything else. The receiver is `OrgnlTxRef/DbtrAgt`.
+- **Core and IPS.** The return id is the CBS idempotency key and status reference (`messageKind=Pacs004`), delivery and recovery are those of 005c, and IPS gets only a `MessageAck`. A return is not matched to the outgoing payment it names.
+- See [005d](specs/005d-incoming-pacs004.md).
+
 ## Unsolicited incoming pacs.002 (003a.4)
 
 - **Intake.** A status report IPS sends on its own arrives through the same pull as every inbound message and is stored in the inbound journal. After that commit, `IncomingReceiveWorker` acknowledges it with `POST MessageAck` and the sequence header; a failed ack is only logged, and a redelivery is acknowledged again.

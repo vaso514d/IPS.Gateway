@@ -65,7 +65,7 @@ public sealed class IncomingTransferTests
 
         await ApplyAsync(core, await SignedAsync(core, Unsigned(alternate: true)));
 
-        var content = (await ReadOnlyAsync(core)).Content;
+        var content = (await ReadOnlyAsync(core)).Pacs009;
         Assert.Equal("ACC-1", content.DebtorAccount);
         Assert.Equal(0, content.InstructionPriority);
         Assert.Equal(new IncomingCode(0, "CASH"), content.CategoryPurpose);
@@ -86,7 +86,7 @@ public sealed class IncomingTransferTests
         core.Clock.Now += TimeSpan.FromDays(1);
         var (again, _) = await ApplyAsync(core, xml, sequence: 2);
 
-        Assert.Null((await ReadOnlyAsync(core)).Content.ValueDate);
+        Assert.Null((await ReadOnlyAsync(core)).Pacs009.ValueDate);
         Assert.Equal(IncomingCompositionStatus.Terminal, again.Status);
     }
 
@@ -134,7 +134,7 @@ public sealed class IncomingTransferTests
 
         Assert.Equal(IncomingCompositionStatus.Terminal, same.Status);
         Assert.Equal(IncomingCompositionStatus.Held, changed.Status);
-        Assert.Equal(IncomingPacs009Processing.ConflictReason, (await ReadReceiptAsync(core, journalId)).HoldReason);
+        Assert.Equal(IncomingTransferRegistration.ConflictReason, (await ReadReceiptAsync(core, journalId)).HoldReason);
         var after = await ReadOnlyAsync(core);
         Assert.Equal(before.Content, after.Content);
         Assert.Equal(before.Events, after.Events);
@@ -159,6 +159,23 @@ public sealed class IncomingTransferTests
         Assert.Null(stored.ClaimToken);
         Assert.Equal(["incoming-transfer.registered", "incoming-transfer.submission-started", "incoming-transfer.core-outcome-recorded"], stored.Events);
         Assert.Equal(status == "RJCT" ? "AC01" : null, stored.Transfer.CoreReasonCode);
+    }
+
+    [Fact]
+    public async Task A_pacs009_without_a_transaction_id_accepts_an_answer_that_names_one()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        await ApplyAsync(core, await SignedAsync(core, Unsigned().Replace("<pacs:TxId>TX-IN-1</pacs:TxId>", string.Empty)));
+        var id = (await ReadOnlyAsync(core)).Transfer.Id;
+        var cbs = new TransferCore
+        {
+            Submit = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCP\",\"endToEndId\":\"E2E-IN-1\",\"txId\":\"CORE-TX\"}"))
+        };
+
+        await ProcessAsync(core, id, cbs);
+
+        Assert.Null(((IncomingPacs009)(await ReadOnlyAsync(core)).Content).TransactionId);
+        Assert.Equal(CoreOutcome.Accepted, (await ReadOnlyAsync(core)).Transfer.CoreStatus);
     }
 
     [Fact]
@@ -399,6 +416,249 @@ public sealed class IncomingTransferTests
         Assert.Contains("\"Id\":\"MSG-IN-1\"", submission.Body);
     }
 
+    [Fact]
+    public async Task A_verified_return_is_stored_with_the_content_the_core_will_receive()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        var (result, journalId) = await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(full: true)), messageType: "pacs.004");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Equal(InboundProcessingStatus.Processed, (await ReadReceiptAsync(core, journalId)).Status);
+        var stored = await ReadOnlyAsync(core);
+        Assert.Equal(("pacs.004", "RTR-IN-1"), (stored.Transfer.Kind, stored.Transfer.Key));
+        Assert.Equal(CoreOutcome.NotSubmitted, stored.Transfer.CoreStatus);
+        Assert.Equal(["incoming-transfer.registered"], stored.Events);
+        Assert.Equal(new IncomingPacs004(
+            "RTR-IN-1", 100.5m, "GEL", new DateOnly(2026, 10, 4), "FOCR", "Returned in full", Participant, "TBCBGE22", "MEMBER-9",
+            new("Original Payer", 0, "123456789", "GE95TB0000000123456789"),
+            new("Original Payee", 1, "01001", "GE29NB0000000101904917"),
+            new("ORIG-TX-1", "ORIG-INSTR-1", "ORIG-E2E-1", Guid.Parse("0f3c9c1e-9d1a-4a43-8f8e-2b1d0a1d5a11"), new DateOnly(2026, 10, 3),
+                "M-ORIG", "pacs.008.001.12", new DateTimeOffset(2026, 10, 3, 10, 0, 0, TimeSpan.Zero), 100.5m, "GEL")), stored.Content);
+    }
+
+    [Fact]
+    public async Task A_return_with_only_the_required_content_maps_the_optional_parts_as_absent()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        await ApplyAsync(core, await SignedAsync(core, UnsignedReturn()), messageType: "pacs.004");
+
+        var content = (await ReadOnlyAsync(core)).Pacs004;
+        Assert.Null(content.SenderMemberId);
+        Assert.Null(content.AdditionalInformation);
+        Assert.Equal(new IncomingReturnParty("Original Payer", null, null, "GE95TB0000000123456789"), content.Debtor);
+        Assert.Equal(new IncomingOriginalPayment("ORIG-TX-1", null, "ORIG-E2E-1", null, new DateOnly(2026, 10, 3), null, null, null, 100.5m, "GEL"), content.Original);
+    }
+
+    [Fact]
+    public async Task Alternative_return_wire_forms_map_like_the_source_does()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var unsigned = UnsignedReturn(full: true)
+            .Replace("<pacs:Id><pacs:IBAN>GE95TB0000000123456789</pacs:IBAN></pacs:Id>", "<pacs:Id><pacs:Othr><pacs:Id>ACC-1</pacs:Id></pacs:Othr></pacs:Id>")
+            .Replace("<pacs:Rsn><pacs:Cd>FOCR</pacs:Cd></pacs:Rsn>", "<pacs:Rsn><pacs:Prtry>CUSTOM</pacs:Prtry></pacs:Rsn>")
+            .Replace("<pacs:AddtlInf>Returned in full</pacs:AddtlInf>", "<pacs:AddtlInf>First line</pacs:AddtlInf><pacs:AddtlInf>Second line</pacs:AddtlInf>")
+            .Replace("<pacs:IntrBkSttlmDt>2026-10-04</pacs:IntrBkSttlmDt>", string.Empty);
+
+        await ApplyAsync(core, await SignedAsync(core, unsigned), messageType: "pacs.004");
+
+        var content = (await ReadOnlyAsync(core)).Pacs004;
+        Assert.Equal("ACC-1", content.Debtor!.Account);
+        Assert.Equal("CUSTOM", content.ReturnReasonCode);
+        Assert.Equal("First line", content.AdditionalInformation);
+        Assert.Null(content.ValueDate);
+    }
+
+    public static TheoryData<string> UnverifiableReturns() => new()
+    {
+        "definition", "signature", "schema", "two-returns", "not-ours", "return-id-differs", "no-return-id", "no-original-transaction", "no-instructed-bic", "malformed"
+    };
+
+    [Theory]
+    [MemberData(nameof(UnverifiableReturns))]
+    public async Task An_unverifiable_return_is_held_and_nothing_is_stored(string problem)
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var xml = problem switch
+        {
+            "definition" => await SignedAsync(core, UnsignedReturn().Replace("<head:MsgDefIdr>pacs.004.001.13", "<head:MsgDefIdr>pacs.004.001.12")),
+            "signature" => await SignedAsync(core, UnsignedReturn(), core.SigningCertificate),
+            "schema" => await SignedAsync(core, UnsignedReturn().Replace("<pacs:ChrgBr>SLEV</pacs:ChrgBr>", "<pacs:ChrgBr>NOPE</pacs:ChrgBr>")),
+            "two-returns" => await SignedAsync(core, UnsignedReturn(transactions: 2)),
+            "not-ours" => await SignedAsync(core, UnsignedReturn(receiverBic: "TBCBGE22")),
+            "return-id-differs" => await SignedAsync(core, UnsignedReturn(messageId: "OTHER-MSG")),
+            "no-return-id" => await SignedAsync(core, UnsignedReturn().Replace("<pacs:RtrId>RTR-IN-1</pacs:RtrId>", string.Empty)),
+            "no-original-transaction" => await SignedAsync(core, UnsignedReturn().Replace("<pacs:OrgnlTxId>ORIG-TX-1</pacs:OrgnlTxId>", string.Empty)),
+            "no-instructed-bic" => await SignedAsync(core, UnsignedReturn().Replace("<pacs:DbtrAgt><pacs:FinInstnId><pacs:BICFI>BAGAGE22</pacs:BICFI>", "<pacs:DbtrAgt><pacs:FinInstnId><pacs:Nm>Bank</pacs:Nm>")),
+            _ => "<Message>"
+        };
+
+        var (result, journalId) = await ApplyAsync(core, xml, messageType: "pacs.004");
+
+        Assert.Equal(IncomingCompositionStatus.Held, result.Status);
+        var receipt = await ReadReceiptAsync(core, journalId);
+        Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
+        Assert.NotNull(receipt.HoldReason);
+        await using var session = core.Database.Session();
+        Assert.False(await session.Context.Set<IncomingTransferMetadata>().AnyAsync());
+    }
+
+    [Fact]
+    public async Task Returns_are_identified_by_their_own_id_not_by_the_payment_they_return()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(returnId: "RTR-IN-1")), sequence: 1, messageType: "pacs.004");
+        var (second, _) = await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(returnId: "RTR-IN-2")), sequence: 2, messageType: "pacs.004");
+        var (again, _) = await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(returnId: "RTR-IN-1")), sequence: 3, messageType: "pacs.004");
+        var (changed, journalId) = await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(returnId: "RTR-IN-1", amount: "50")), sequence: 4, messageType: "pacs.004");
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, second.Status);
+        Assert.Equal(IncomingCompositionStatus.Terminal, again.Status);
+        Assert.Equal(IncomingCompositionStatus.Held, changed.Status);
+        Assert.Equal(IncomingTransferRegistration.ConflictReason, (await ReadReceiptAsync(core, journalId)).HoldReason);
+        await using var session = core.Database.Session();
+        Assert.Equal(["RTR-IN-1", "RTR-IN-2"], await session.Context.Set<IncomingTransfer>().Select(transfer => transfer.Key).OrderBy(key => key).ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_return_and_a_pacs009_with_the_same_key_are_two_transfers()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+
+        await ApplyAsync(core, await SignedAsync(core, Unsigned()), sequence: 1);
+        await ApplyAsync(core, await SignedAsync(core, UnsignedReturn(returnId: "E2E-IN-1")), sequence: 2, messageType: "pacs.004");
+
+        await using var session = core.Database.Session();
+        Assert.Equal(["pacs.004", "pacs.009"], await session.Context.Set<IncomingTransfer>().Select(transfer => transfer.Kind).OrderBy(kind => kind).ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_return_is_submitted_under_its_return_id_and_only_that_id_is_checked_in_the_answer()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var cbs = new TransferCore { Submit = _ => Json("ACCP", "ANY-ORIGINAL-E2E", id: "OTHER-RETURN") };
+        var id = await RegisterReturnAsync(core);
+
+        await ProcessAsync(core, id, cbs);
+
+        var refused = await ReadOnlyAsync(core);
+        Assert.Equal(CoreOutcome.Unknown, refused.Transfer.CoreStatus);
+        Assert.Equal([("submit", "RTR-IN-1")], cbs.Calls);
+
+        cbs.Query = _ => Json("RJCT", "ANY-ORIGINAL-E2E", id: "RTR-IN-1", reason: "AC01");
+        core.Clock.Now += new IncomingReconciliationOptions().RetryDelay(1);
+        await ProcessAsync(core, id, cbs);
+
+        var settled = await ReadOnlyAsync(core);
+        Assert.Equal(CoreOutcome.Rejected, settled.Transfer.CoreStatus);
+        Assert.Equal("AC01", settled.Transfer.CoreReasonCode);
+        Assert.Equal([("submit", "RTR-IN-1"), ("query", "RTR-IN-1")], cbs.Calls);
+    }
+
+    [Fact]
+    public async Task The_window_end_sends_an_unsettled_return_to_manual_review()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(503, "down")) };
+        var id = await RegisterReturnAsync(core);
+        await ProcessAsync(core, id, cbs);
+        core.Clock.Now = ProcessingHarness.Start + new IncomingReconciliationOptions().Window;
+
+        await ProcessAsync(core, id, cbs);
+
+        var stored = await ReadOnlyAsync(core);
+        Assert.NotNull(stored.Transfer.ManualReviewReason);
+        Assert.Null(stored.NextActionAtUtc);
+        Assert.Single(cbs.Calls);
+    }
+
+    [Fact]
+    public async Task A_core_that_never_saw_the_return_gets_the_same_request_again()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var cbs = new TransferCore
+        {
+            Submit = _ => Task.FromResult(new CoreResponse(503, "down")),
+            Query = _ => Task.FromResult(new CoreResponse(404, "unknown reference"))
+        };
+        var id = await RegisterReturnAsync(core);
+        await ProcessAsync(core, id, cbs);
+        core.Clock.Now += new IncomingReconciliationOptions().RetryDelay(1);
+        await ProcessAsync(core, id, cbs);
+        cbs.Submit = _ => Json("ACCP", "x", id: "RTR-IN-1");
+
+        await ProcessAsync(core, id, cbs);
+
+        Assert.Equal(CoreOutcome.Accepted, (await ReadOnlyAsync(core)).Transfer.CoreStatus);
+        Assert.Equal(cbs.Transfers[0], cbs.Transfers[1]);
+    }
+
+    [Fact]
+    public async Task Worker_acknowledges_hands_a_return_to_the_core_and_asks_for_its_status_by_return_kind()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var xml = await SignedAsync(core, UnsignedReturn());
+        var deliveries = new ConcurrentQueue<(string Sequence, string Body)>([("9", xml)]);
+        var acknowledgements = new ConcurrentQueue<string?>();
+        var submissions = new ConcurrentQueue<(string? Key, string Body)>();
+        var queries = new ConcurrentQueue<string>();
+        await using var server = await HttpSimulator.StartAsync(async context =>
+        {
+            if (context.Request.Method == "GET" && context.Request.Path == "/Message")
+            {
+                if (deliveries.TryDequeue(out var delivery))
+                {
+                    context.Response.Headers["X-MONTRAN-IPS-MessageSeq"] = delivery.Sequence;
+                    context.Response.Headers["X-MONTRAN-IPS-MessageType"] = "pacs.004";
+                    await context.Response.WriteAsync(delivery.Body);
+                }
+                else
+                {
+                    context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
+                }
+            }
+            else if (context.Request.Method == "POST" && context.Request.Path == "/MessageAck")
+            {
+                acknowledgements.Enqueue(context.Request.Headers["X-MONTRAN-IPS-MessageSeq"]);
+            }
+            else if (context.Request.Method == "POST" && context.Request.Path == "/api/ips/pacs004/receive")
+            {
+                submissions.Enqueue((context.Request.Headers["Idempotency-Key"], await new StreamReader(context.Request.Body).ReadToEndAsync()));
+                context.Response.StatusCode = 503;
+            }
+            else if (context.Request.Method == "GET" && context.Request.Path == "/api/ips/payments/status")
+            {
+                queries.Enqueue(context.Request.QueryString.Value ?? string.Empty);
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"id\":\"RTR-IN-1\"}");
+            }
+            else
+            {
+                context.Response.StatusCode = 404;
+            }
+        });
+        using var certificates = new TransportCertificates();
+        using var host = Host(core, server.Url, certificates, new IncomingReconciliationOptions(retryDelays: [TimeSpan.FromMilliseconds(50)]));
+        await host.StartAsync();
+        try
+        {
+            await EventuallyAsync(async () => await HasAcceptedTransferAsync(core));
+        }
+        finally
+        {
+            await host.StopAsync();
+        }
+
+        Assert.Equal(["9"], acknowledgements);
+        var submission = Assert.Single(submissions);
+        Assert.Equal("RTR-IN-1", submission.Key);
+        Assert.Contains("\"Id\":\"RTR-IN-1\"", submission.Body);
+        Assert.Contains("\"TransactionId\":\"ORIG-TX-1\"", submission.Body);
+        Assert.Equal("?messageKind=Pacs004&reference=RTR-IN-1", queries.First());
+    }
+
     private static string Unsigned(bool full = false, string creditorBic = Participant, int transactions = 1, string amount = "100.5", bool alternate = false)
     {
         const string head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
@@ -438,16 +698,59 @@ public sealed class IncomingTransferTests
             "</pacs:FICdtTrf></pacs:Document></Message>";
     }
 
+    private static string UnsignedReturn(
+        bool full = false,
+        string receiverBic = Participant,
+        int transactions = 1,
+        string amount = "100.5",
+        string returnId = "RTR-IN-1",
+        string? messageId = null)
+    {
+        const string head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
+        const string pacs = "urn:iso:std:iso:20022:tech:xsd:pacs.004.001.13";
+        static string Agent(string bic, string? member = null) =>
+            $"<pacs:FinInstnId><pacs:BICFI>{bic}</pacs:BICFI>" +
+            (member is null ? string.Empty : $"<pacs:ClrSysMmbId><pacs:ClrSysId><pacs:Cd>GE</pacs:Cd></pacs:ClrSysId><pacs:MmbId>{member}</pacs:MmbId></pacs:ClrSysMmbId>") +
+            "</pacs:FinInstnId>";
+        static string Party(string name, string? identification) =>
+            $"<pacs:Pty><pacs:Nm>{name}</pacs:Nm>{identification}</pacs:Pty>";
+        static string Account(string iban) => $"<pacs:Id><pacs:IBAN>{iban}</pacs:IBAN></pacs:Id>";
+        var original = full ? "<pacs:OrgnlGrpInf><pacs:OrgnlMsgId>M-ORIG</pacs:OrgnlMsgId><pacs:OrgnlMsgNmId>pacs.008.001.12</pacs:OrgnlMsgNmId><pacs:OrgnlCreDtTm>2026-10-03T10:00:00Z</pacs:OrgnlCreDtTm></pacs:OrgnlGrpInf><pacs:OrgnlInstrId>ORIG-INSTR-1</pacs:OrgnlInstrId>" : string.Empty;
+        var uetr = full ? "<pacs:OrgnlUETR>0f3c9c1e-9d1a-4a43-8f8e-2b1d0a1d5a11</pacs:OrgnlUETR>" : string.Empty;
+        var additional = full ? "<pacs:AddtlInf>Returned in full</pacs:AddtlInf>" : string.Empty;
+        var debtorId = full ? "<pacs:Id><pacs:OrgId><pacs:Othr><pacs:Id>123456789</pacs:Id></pacs:Othr></pacs:OrgId></pacs:Id>" : null;
+        var creditorId = full ? "<pacs:Id><pacs:PrvtId><pacs:Othr><pacs:Id>01001</pacs:Id></pacs:Othr></pacs:PrvtId></pacs:Id>" : null;
+        var transaction =
+            $"<pacs:TxInf><pacs:RtrId>{returnId}</pacs:RtrId>{original}<pacs:OrgnlEndToEndId>ORIG-E2E-1</pacs:OrgnlEndToEndId><pacs:OrgnlTxId>ORIG-TX-1</pacs:OrgnlTxId>{uetr}" +
+            $"<pacs:OrgnlIntrBkSttlmAmt Ccy=\"GEL\">100.5</pacs:OrgnlIntrBkSttlmAmt><pacs:RtrdIntrBkSttlmAmt Ccy=\"GEL\">{amount}</pacs:RtrdIntrBkSttlmAmt><pacs:ChrgBr>SLEV</pacs:ChrgBr>" +
+            "<pacs:RtrRsnInf><pacs:Orgtr><pacs:Id><pacs:OrgId><pacs:AnyBIC>TBCBGE22</pacs:AnyBIC></pacs:OrgId></pacs:Id></pacs:Orgtr><pacs:Rsn><pacs:Cd>FOCR</pacs:Cd></pacs:Rsn>" +
+            $"{additional}</pacs:RtrRsnInf>" +
+            "<pacs:OrgnlTxRef><pacs:IntrBkSttlmDt>2026-10-03</pacs:IntrBkSttlmDt><pacs:PmtTpInf><pacs:SvcLvl><pacs:Cd>INST</pacs:Cd></pacs:SvcLvl><pacs:LclInstrm><pacs:Cd>INST</pacs:Cd></pacs:LclInstrm></pacs:PmtTpInf>" +
+            $"<pacs:Dbtr>{Party("Original Payer", debtorId)}</pacs:Dbtr><pacs:DbtrAcct>{Account("GE95TB0000000123456789")}</pacs:DbtrAcct><pacs:DbtrAgt>{Agent(receiverBic)}</pacs:DbtrAgt>" +
+            $"<pacs:CdtrAgt>{Agent("TBCBGE22", full ? "MEMBER-9" : null)}</pacs:CdtrAgt><pacs:Cdtr>{Party("Original Payee", creditorId)}</pacs:Cdtr><pacs:CdtrAcct>{Account("GE29NB0000000101904917")}</pacs:CdtrAcct></pacs:OrgnlTxRef></pacs:TxInf>";
+        return
+            $"<Message xmlns:head=\"{head}\" xmlns:pacs=\"{pacs}\"><head:AppHdr>" +
+            "<head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
+            $"<head:To><head:FIId><head:FinInstnId><head:BICFI>{Participant}</head:BICFI></head:FinInstnId></head:FIId></head:To>" +
+            $"<head:BizMsgIdr>{returnId}</head:BizMsgIdr><head:MsgDefIdr>pacs.004.001.13</head:MsgDefIdr><head:CreDt>2026-10-04T10:00:00.0000000Z</head:CreDt><head:Sgntr/></head:AppHdr>" +
+            $"<pacs:Document><pacs:PmtRtr><pacs:GrpHdr><pacs:MsgId>{messageId ?? returnId}</pacs:MsgId><pacs:CreDtTm>2026-10-04T10:00:00.0000000Z</pacs:CreDtTm>" +
+            $"<pacs:NbOfTxs>{transactions}</pacs:NbOfTxs><pacs:TtlRtrdIntrBkSttlmAmt Ccy=\"GEL\">{amount}</pacs:TtlRtrdIntrBkSttlmAmt><pacs:IntrBkSttlmDt>2026-10-04</pacs:IntrBkSttlmDt>" +
+            "<pacs:SttlmInf><pacs:SttlmMtd>CLRG</pacs:SttlmMtd><pacs:ClrSys><pacs:Cd>IPS</pacs:Cd></pacs:ClrSys></pacs:SttlmInf>" +
+            "<pacs:InstgAgt><pacs:FinInstnId><pacs:BICFI>TBCBGE22</pacs:BICFI></pacs:FinInstnId></pacs:InstgAgt></pacs:GrpHdr>" +
+            string.Concat(Enumerable.Repeat(transaction, transactions)) +
+            "</pacs:PmtRtr></pacs:Document></Message>";
+    }
+
     private static async Task<string> SignedAsync(ProcessingHarness core, string unsigned, X509Certificate2? signer = null) =>
         (await IpsReplies.SignAsync(signer ?? core.IpsCertificate, unsigned))[0];
 
-    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(ProcessingHarness core, string xml, long sequence = 1)
+    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(ProcessingHarness core, string xml, long sequence = 1, string messageType = "pacs.009")
     {
         Guid journalId;
         await using (var registering = core.Database.Session())
         {
             var registration = await new InboundReceiptRepository(registering.Context)
-                .StageRegistrationAsync(new(Participant, sequence, "pacs.009", xml, false, core.Clock.Now), default);
+                .StageRegistrationAsync(new(Participant, sequence, messageType, xml, false, core.Clock.Now), default);
             await registering.Unit.SaveAsync();
             journalId = registration.JournalId;
         }
@@ -461,8 +764,8 @@ public sealed class IncomingTransferTests
 
         await using var session = core.Database.Session();
         var receipt = (await new InboundReceiptRepository(session.Context).ReadAsync(journalId, default))!.Receipt;
-        var handler = new IncomingPacs009Processing(
-            new IncomingPacs009Protocol([core.IpsCertificate]),
+        var handler = new IncomingTransferRegistration(
+            [new IncomingPacs009Protocol([core.IpsCertificate]), new IncomingPacs004Protocol([core.IpsCertificate])],
             new IncomingTransferRepository(session.Context),
             new InboundWorkRepository(session.Context),
             session.Unit,
@@ -477,6 +780,12 @@ public sealed class IncomingTransferTests
         return (await ReadOnlyAsync(core)).Transfer.Id;
     }
 
+    private static async Task<Guid> RegisterReturnAsync(ProcessingHarness core)
+    {
+        await ApplyAsync(core, await SignedAsync(core, UnsignedReturn()), messageType: "pacs.004");
+        return (await ReadOnlyAsync(core, "pacs.004")).Transfer.Id;
+    }
+
     private static async Task ProcessAsync(
         ProcessingHarness core,
         Guid transferId,
@@ -489,10 +798,11 @@ public sealed class IncomingTransferTests
             .ProcessAsync(transferId, default);
     }
 
-    private static async Task<StoredTransfer> ReadOnlyAsync(ProcessingHarness core)
+    private static async Task<StoredTransfer> ReadOnlyAsync(ProcessingHarness core, string? kind = null)
     {
         await using var session = core.Database.Session();
-        var metadata = await session.Context.Set<IncomingTransferMetadata>().Include(x => x.Transfer).SingleAsync();
+        var metadata = await session.Context.Set<IncomingTransferMetadata>().Include(x => x.Transfer)
+            .Where(x => kind == null || x.Transfer.Kind == kind).SingleAsync();
         var events = await session.Context.Set<TransactionEventRow>()
             .Where(row => row.TransactionId == metadata.Id)
             .OrderBy(row => row.Sequence)
@@ -505,7 +815,7 @@ public sealed class IncomingTransferTests
     private static async Task<bool> HasAcceptedTransferAsync(ProcessingHarness core)
     {
         await using var session = core.Database.Session();
-        return await session.Context.Set<IncomingFiTransfer>().AnyAsync(transfer => transfer.CoreStatus == CoreOutcome.Accepted);
+        return await session.Context.Set<IncomingTransfer>().AnyAsync(transfer => transfer.CoreStatus == CoreOutcome.Accepted);
     }
 
     private static async Task<StoredInboundReceipt> ReadReceiptAsync(ProcessingHarness core, Guid journalId)
@@ -516,8 +826,9 @@ public sealed class IncomingTransferTests
 
     private static Task<CoreResponse> Accept() => Json("ACCP", "E2E-IN-1");
 
-    private static Task<CoreResponse> Json(string status, string endToEndId, string? reason = null) =>
-        Task.FromResult(new CoreResponse(200, $"{{\"status\":\"{status}\",\"endToEndId\":\"{endToEndId}\"" + (reason is null ? string.Empty : $",\"reasonCode\":\"{reason}\"") + "}"));
+    private static Task<CoreResponse> Json(string status, string endToEndId, string? reason = null, string? id = null) =>
+        Task.FromResult(new CoreResponse(200, $"{{\"status\":\"{status}\",\"endToEndId\":\"{endToEndId}\"" +
+            (id is null ? string.Empty : $",\"id\":\"{id}\"") + (reason is null ? string.Empty : $",\"reasonCode\":\"{reason}\"") + "}"));
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
@@ -539,7 +850,7 @@ public sealed class IncomingTransferTests
         }
     }
 
-    private static IHost Host(ProcessingHarness core, string url, TransportCertificates certificates)
+    private static IHost Host(ProcessingHarness core, string url, TransportCertificates certificates, IncomingReconciliationOptions? reconciliation = null)
     {
         using var db = core.Database.Context();
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
@@ -560,6 +871,7 @@ public sealed class IncomingTransferTests
         builder.Services.AddSingleton(new Pacs008ProtocolProfile("NBGEGE22"));
         builder.Services.AddSingleton(new Pacs008SigningPolicy(false, false));
         builder.Services.AddSingleton<Pacs008MessageSigner>();
+        builder.Services.AddSingleton(reconciliation ?? new IncomingReconciliationOptions());
         builder.Services.AddIncomingHttpClients();
         builder.Services.AddIncomingWorkers();
         builder.Services.Configure<HostOptions>(options => options.ServicesStopConcurrently = true);
@@ -567,21 +879,26 @@ public sealed class IncomingTransferTests
     }
 
     private sealed record StoredTransfer(
-        IncomingFiTransfer Transfer,
-        IncomingPacs009 Content,
+        IncomingTransfer Transfer,
+        IIncomingTransferContent Content,
         DateTimeOffset DeadlineUtc,
         DateTimeOffset? NextActionAtUtc,
         Guid? ClaimToken,
-        IReadOnlyList<string> Events);
+        IReadOnlyList<string> Events)
+    {
+        public IncomingPacs009 Pacs009 => (IncomingPacs009)Content;
+
+        public IncomingPacs004 Pacs004 => (IncomingPacs004)Content;
+    }
 
     // The core system: records each call and answers as scripted; by default every submission is accepted.
     private sealed class TransferCore : IIncomingTransferCoreClient
     {
         private readonly object _gate = new();
         private readonly List<(string Kind, string EndToEndId)> _calls = [];
-        private readonly List<IncomingPacs009> _transfers = [];
+        private readonly List<IIncomingTransferContent> _transfers = [];
 
-        public Func<IncomingPacs009, Task<CoreResponse>> Submit { get; set; } = _ => Accept();
+        public Func<IIncomingTransferContent, Task<CoreResponse>> Submit { get; set; } = _ => Accept();
         public Func<string, Task<CoreResponse>> Query { get; set; } = _ => Accept();
 
         public IReadOnlyList<(string Kind, string EndToEndId)> Calls
@@ -595,7 +912,7 @@ public sealed class IncomingTransferTests
             }
         }
 
-        public IReadOnlyList<IncomingPacs009> Transfers
+        public IReadOnlyList<IIncomingTransferContent> Transfers
         {
             get
             {
@@ -606,25 +923,25 @@ public sealed class IncomingTransferTests
             }
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(string participantBic, IncomingPacs009 transfer, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                _calls.Add(("submit", transfer.EndToEndId));
+                _calls.Add(("submit", transfer.Key));
                 _transfers.Add(transfer);
             }
 
             return Submit(transfer);
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string endToEndId, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                _calls.Add(("query", endToEndId));
+                _calls.Add(("query", key));
             }
 
-            return Query(endToEndId);
+            return Query(key);
         }
     }
 
@@ -635,7 +952,7 @@ public sealed class IncomingTransferTests
             DbContextEventData eventData,
             InterceptionResult<int> result,
             CancellationToken cancellationToken = default) =>
-            eventData.Context!.ChangeTracker.Entries<IncomingFiTransfer>().Any(entry => entry.Entity.CoreStatus == CoreOutcome.Accepted)
+            eventData.Context!.ChangeTracker.Entries<IncomingTransfer>().Any(entry => entry.Entity.CoreStatus == CoreOutcome.Accepted)
                 ? throw new SimulatedCrash()
                 : ValueTask.FromResult(result);
     }

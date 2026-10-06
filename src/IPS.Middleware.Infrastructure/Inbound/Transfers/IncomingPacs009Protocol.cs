@@ -13,12 +13,14 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transfers;
 
 // Reads a pacs.009 from IPS. Nothing in the message is trusted before its signature verifies; a transfer is delivered only
 // when it is schema-valid, single, and names both agents by BICFI. Field rules follow the source mapper.
-public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingPacs009Protocol
+public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingTransferProtocol
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs009Xml.DocumentNamespace;
 
-    public IncomingPacs009ReadResult Read(string xml)
+    public bool Reads(string messageType) => PaymentMessageTypes.IsPacs009(messageType);
+
+    public IncomingTransferReadResult Read(string xml)
     {
         try
         {
@@ -49,7 +51,7 @@ public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2
             }
 
             Pacs008Schema.ValidatePacs009(xml);
-            return new IncomingPacs009ReadResult.Ready(Map(group, transactions[0]));
+            return new IncomingTransferReadResult.Ready(Map(group, transactions[0]));
         }
         catch (UnsupportedContent unsupported)
         {
@@ -108,7 +110,7 @@ public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2
         : choice?.Element(Pacs + "Prtry")?.Value is { } proprietary ? new(1, proprietary)
         : null;
 
-    private static IncomingPacs009ReadResult Hold(string reason) => new IncomingPacs009ReadResult.Hold(reason);
+    private static IncomingTransferReadResult Hold(string reason) => new IncomingTransferReadResult.Hold(reason);
 
     private sealed class UnsupportedContent(string reason) : Exception(reason);
 }

@@ -1,4 +1,5 @@
 using IPS.Middleware.Infrastructure.Transport;
+using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
 using IPS.MiidleWear.Contracts.Transactions;
@@ -15,6 +16,7 @@ public sealed class IncomingTransportSettings
     public string MessagePath { get; init; } = "Message";
     public string AckPath { get; init; } = "MessageAck";
     public string SubmissionPath { get; init; } = Pacs008RestApiRoutes.Receive;
+    public string Pacs004SubmissionPath { get; init; } = Pacs004RestApiRoutes.Receive;
     public string Pacs009SubmissionPath { get; init; } = Pacs009RestApiRoutes.Receive;
     public string StatusPath { get; init; } = TransactionRestApiRoutes.PaymentStatus;
     public string ReversalPath { get; init; } = TransactionRestApiRoutes.ReceiveStatus;
@@ -41,7 +43,7 @@ public sealed class IncomingTransportSettings
 
         Ips.Validate(development);
         Cbs.Validate(development);
-        foreach (var path in new[] { MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, StatusPath, ReversalPath })
+        foreach (var path in new[] { MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, Pacs004SubmissionPath, StatusPath, ReversalPath })
         {
             TransportPath.Validate(path);
         }

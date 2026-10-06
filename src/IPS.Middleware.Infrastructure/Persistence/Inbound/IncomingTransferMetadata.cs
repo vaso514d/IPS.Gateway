@@ -6,7 +6,7 @@ namespace IPS.Middleware.Infrastructure.Persistence.Inbound;
 internal sealed class IncomingTransferMetadata
 {
     public Guid Id { get; set; }
-    public IncomingFiTransfer Transfer { get; set; } = null!;
+    public IncomingTransfer Transfer { get; set; } = null!;
     public string RequestJson { get; set; } = null!;
     public DateTimeOffset DeadlineUtc { get; set; }
     public Guid? ClaimToken { get; set; }

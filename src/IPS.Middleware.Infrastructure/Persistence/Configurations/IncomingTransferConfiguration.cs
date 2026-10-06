@@ -7,11 +7,11 @@ using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Configurations;
 
-internal sealed class IncomingTransferConfiguration : IEntityTypeConfiguration<IncomingFiTransfer>
+internal sealed class IncomingTransferConfiguration : IEntityTypeConfiguration<IncomingTransfer>
 {
-    internal const string EndToEndIdBytes = nameof(EndToEndIdBytes);
+    internal const string KeyBytes = nameof(KeyBytes);
 
-    public void Configure(EntityTypeBuilder<IncomingFiTransfer> builder)
+    public void Configure(EntityTypeBuilder<IncomingTransfer> builder)
     {
         builder.ToTable("IncomingTransfers", table =>
         {
@@ -23,10 +23,11 @@ internal sealed class IncomingTransferConfiguration : IEntityTypeConfiguration<I
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.HasAggregateIdentity(IncomingTransferKind);
         builder.Property(x => x.ParticipantBic).HasMaxLength(11).UseCollation(BinaryCollation);
-        builder.Property(x => x.EndToEndId).HasMaxLength(35).UseCollation(BinaryCollation);
+        builder.Property(x => x.Kind).HasMaxLength(16).IsUnicode(false).UseCollation(BinaryCollation);
+        builder.Property(x => x.Key).HasMaxLength(35).UseCollation(BinaryCollation);
         // SQL equality ignores trailing spaces, even with a binary collation; the byte length keeps uniqueness ordinal.
-        builder.Property<int>(EndToEndIdBytes).HasComputedColumnSql("DATALENGTH([EndToEndId])", stored: true);
-        builder.HasIndex(nameof(IncomingFiTransfer.ParticipantBic), nameof(IncomingFiTransfer.EndToEndId), EndToEndIdBytes).IsUnique();
+        builder.Property<int>(KeyBytes).HasComputedColumnSql("DATALENGTH([Key])", stored: true);
+        builder.HasIndex(nameof(IncomingTransfer.ParticipantBic), nameof(IncomingTransfer.Kind), nameof(IncomingTransfer.Key), KeyBytes).IsUnique();
         builder.Property(x => x.CoreReference).HasMaxLength(100);
         builder.Property(x => x.CoreReasonCode).HasMaxLength(35);
         builder.Property(x => x.CoreDescription).HasMaxLength(1000);
@@ -52,7 +53,7 @@ internal sealed class IncomingTransferMetadataConfiguration : IEntityTypeConfigu
 
         builder.HasOne(x => x.Transfer)
             .WithOne()
-            .HasForeignKey<IncomingFiTransfer>(x => x.Id)
+            .HasForeignKey<IncomingTransfer>(x => x.Id)
             .IsRequired();
         builder.Navigation(x => x.Transfer).IsRequired();
     }

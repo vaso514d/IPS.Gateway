@@ -6,11 +6,11 @@ using IPS.Middleware.Domain.Inbound;
 
 namespace IPS.Middleware.Application.Inbound.Transfers;
 
-// Registers the verified pacs.009 of an owned receipt as a transfer for the core system. IPS is told nothing beyond the
-// receipt, so the receipt is complete once the transfer is stored; delivery and recovery are the transfer's own work.
-// Anything unverifiable, misaddressed or conflicting holds the receipt and delivers nothing.
-public sealed class IncomingPacs009Processing(
-    IIncomingPacs009Protocol protocol,
+// Registers the verified transfer (a pacs.009 or a pacs.004 return) of an owned receipt for the core system. IPS is told
+// nothing beyond the receipt, so the receipt is complete once the transfer is stored; delivery and recovery are the
+// transfer's own work. Anything unverifiable, misaddressed or conflicting holds the receipt and delivers nothing.
+public sealed class IncomingTransferRegistration(
+    IEnumerable<IIncomingTransferProtocol> protocols,
     IIncomingTransferRepository transfers,
     IInboundWorkRepository receiptWork,
     IUnitOfWork unitOfWork,
@@ -18,7 +18,7 @@ public sealed class IncomingPacs009Processing(
     TimeProvider timeProvider)
 {
     public const string ConflictReason = "Transfer identity conflict: contents differ from the registered transfer.";
-    private const string NotOurs = "The creditor agent of the transfer is not our participant.";
+    private const string NotOurs = "The transfer is not addressed to our participant.";
 
     private static readonly IncomingCompositionResult OwnershipLost = new(IncomingCompositionStatus.OwnershipLost);
 
@@ -27,24 +27,24 @@ public sealed class IncomingPacs009Processing(
     public async Task<IncomingCompositionResult> ProcessAsync(InboundClaim claim, InboundReceipt receipt, CancellationToken token)
     {
         var now = timeProvider.GetUtcNow();
-        var read = protocol.Read(receipt.RawXml);
-        if (read is not IncomingPacs009ReadResult.Ready { Transfer: var content })
+        var read = protocols.Single(protocol => protocol.Reads(receipt.MessageType)).Read(receipt.RawXml);
+        if (read is not IncomingTransferReadResult.Ready { Transfer: var content })
         {
-            return await HoldAsync(claim, ((IncomingPacs009ReadResult.Hold)read).Reason, now, token);
+            return await HoldAsync(claim, ((IncomingTransferReadResult.Hold)read).Reason, now, token);
         }
 
-        if (!string.Equals(content.CreditorAgent.Bic, receipt.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(content.ReceiverBic, receipt.ParticipantBic, StringComparison.OrdinalIgnoreCase))
         {
             return await HoldAsync(claim, NotOurs, now, token);
         }
 
-        var existing = await transfers.FindAsync(receipt.ParticipantBic, content.EndToEndId, token);
-        if (existing is not null && existing.Content != content)
+        var existing = await transfers.FindAsync(receipt.ParticipantBic, content.Kind, content.Key, token);
+        if (existing is not null && !existing.Content.Equals(content))
         {
             return await HoldAsync(claim, ConflictReason, now, token);
         }
 
-        var transfer = existing?.Transfer ?? IncomingFiTransfer.Register(Guid.NewGuid(), receipt.ParticipantBic, content.EndToEndId, now);
+        var transfer = existing?.Transfer ?? IncomingTransfer.Register(Guid.NewGuid(), receipt.ParticipantBic, content.Kind, content.Key, now);
         if (existing is null)
         {
             transfers.Add(transfer, content, now + options.Window);

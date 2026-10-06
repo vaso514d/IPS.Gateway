@@ -45,7 +45,7 @@ internal static class EventRegistry
     {
         OutgoingPayment => OutgoingPaymentKind,
         IncomingPayment => IncomingPaymentKind,
-        IncomingFiTransfer => IncomingTransferKind,
+        IncomingTransfer => IncomingTransferKind,
         _ => throw new InvalidOperationException("Unregistered aggregate.")
     };
 

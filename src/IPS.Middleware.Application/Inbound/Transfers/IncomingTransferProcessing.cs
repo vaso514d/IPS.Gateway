@@ -7,7 +7,7 @@ namespace IPS.Middleware.Application.Inbound.Transfers;
 
 // Hands a registered transfer to the core system and settles it with the core's answer. The first call submits; after an
 // unanswered one the core is asked, and a core that never saw the transfer receives the same request again. Every call
-// is safe to repeat because the EndToEndId is the idempotency key, so a crashed owner is simply replaced.
+// is safe to repeat because the transfer's key is the idempotency key, so a crashed owner is simply replaced.
 public sealed class IncomingTransferProcessing(
     IIncomingTransferRepository transfers,
     IUnitOfWork unitOfWork,
@@ -84,7 +84,7 @@ public sealed class IncomingTransferProcessing(
         var completion = await CoreCallExecution.ExecuteAsync(
             callToken => submitting
                 ? core.SubmitAsync(participant, snapshot.Content, callToken)
-                : core.QueryAsync(participant, transfer.EndToEndId, callToken),
+                : core.QueryAsync(participant, transfer.Kind, transfer.Key, callToken),
             budget,
             timeProvider,
             token);
@@ -102,7 +102,7 @@ public sealed class IncomingTransferProcessing(
     }
 
     // Configured delays apply to the first attempts, then the steady interval; never later than the window end.
-    private DateTimeOffset NextAttempt(IncomingFiTransfer transfer, DateTimeOffset deadline)
+    private DateTimeOffset NextAttempt(IncomingTransfer transfer, DateTimeOffset deadline)
     {
         var next = Now + options.RetryDelay(transfer.Attempts);
         return next < deadline ? next : deadline;

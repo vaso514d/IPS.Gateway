@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Transfers;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
@@ -22,18 +23,31 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
     public Task<CoreResponse> QueryAsync(string participantBic, string endToEndId, CancellationToken cancellationToken) =>
         QueryAsync(participantBic, nameof(IpsMessageKind.Pacs008), endToEndId, cancellationToken);
 
-    public Task<CoreResponse> SubmitAsync(string participantBic, IncomingPacs009 transfer, CancellationToken cancellationToken)
+    public Task<CoreResponse> SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
     {
-        var content = JsonContent.Create(IncomingPacs009CoreMapping.ToContract(transfer));
-        return SendAsync(participantBic, HttpMethod.Post, settings.Pacs009SubmissionPath, content, transfer.EndToEndId, cancellationToken);
+        var (path, content) = transfer switch
+        {
+            IncomingPacs009 pacs009 => (settings.Pacs009SubmissionPath, JsonContent.Create(IncomingPacs009CoreMapping.ToContract(pacs009))),
+            IncomingPacs004 pacs004 => (settings.Pacs004SubmissionPath, JsonContent.Create(IncomingPacs004CoreMapping.ToContract(pacs004))),
+            _ => throw new ArgumentOutOfRangeException(nameof(transfer), transfer.GetType().Name, "Unsupported incoming transfer.")
+        };
+        return SendAsync(participantBic, HttpMethod.Post, path, content, transfer.Key, cancellationToken);
     }
 
-    Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string endToEndId, CancellationToken cancellationToken) =>
-        QueryAsync(participantBic, nameof(IpsMessageKind.Pacs009), endToEndId, cancellationToken);
-
-    private Task<CoreResponse> QueryAsync(string participantBic, string messageKind, string endToEndId, CancellationToken cancellationToken)
+    Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
     {
-        var path = settings.StatusPath + "?messageKind=" + messageKind + "&reference=" + Uri.EscapeDataString(endToEndId);
+        var messageKind = kind switch
+        {
+            PaymentMessageTypes.Pacs009 => nameof(IpsMessageKind.Pacs009),
+            PaymentMessageTypes.Pacs004 => nameof(IpsMessageKind.Pacs004),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported incoming transfer kind.")
+        };
+        return QueryAsync(participantBic, messageKind, key, cancellationToken);
+    }
+
+    private Task<CoreResponse> QueryAsync(string participantBic, string messageKind, string reference, CancellationToken cancellationToken)
+    {
+        var path = settings.StatusPath + "?messageKind=" + messageKind + "&reference=" + Uri.EscapeDataString(reference);
         return SendAsync(participantBic, HttpMethod.Get, path, null, null, cancellationToken);
     }
 

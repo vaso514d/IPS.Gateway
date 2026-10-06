@@ -33,7 +33,7 @@ public static class IncomingCompositionRegistration
         services.AddScoped<IncomingReceiptPreparation>();
         services.AddScoped<IncomingStatusReportProcessing>();
         services.AddScoped<IIncomingTransferRepository, IncomingTransferRepository>();
-        services.AddScoped<IncomingPacs009Processing>();
+        services.AddScoped<IncomingTransferRegistration>();
         services.AddScoped<IncomingTransferProcessing>();
         services.AddScoped<IncomingPacs008Processing>();
         services.AddScoped<IncomingReplyProcessing>();

@@ -9,15 +9,15 @@ namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 
 public sealed class IncomingTransferRepository(TransactionDbContext db) : IIncomingTransferRepository
 {
-    public async Task<IncomingTransferSnapshot?> FindAsync(string participantBic, string endToEndId, CancellationToken cancellationToken)
+    public async Task<IncomingTransferSnapshot?> FindAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
     {
         var bic = participantBic.Trim().ToUpperInvariant();
         // SQL equality ignores trailing spaces, so the ordinal match is chosen among the padded candidates.
         var candidates = await db.IncomingTransferMetadata
             .Include(x => x.Transfer)
-            .Where(x => x.Transfer.ParticipantBic == bic && x.Transfer.EndToEndId == endToEndId)
+            .Where(x => x.Transfer.ParticipantBic == bic && x.Transfer.Kind == kind && x.Transfer.Key == key)
             .ToListAsync(cancellationToken);
-        return candidates.SingleOrDefault(x => x.Transfer.EndToEndId == endToEndId) is { } match ? Snapshot(match) : null;
+        return candidates.SingleOrDefault(x => x.Transfer.Key == key) is { } match ? Snapshot(match) : null;
     }
 
     public async Task<IncomingTransferSnapshot?> ReadAsync(Guid transferId, CancellationToken cancellationToken) =>
@@ -27,12 +27,12 @@ public sealed class IncomingTransferRepository(TransactionDbContext db) : IIncom
             ? Snapshot(metadata)
             : null;
 
-    public void Add(IncomingFiTransfer transfer, IncomingPacs009 content, DateTimeOffset deadlineUtc) =>
+    public void Add(IncomingTransfer transfer, IIncomingTransferContent content, DateTimeOffset deadlineUtc) =>
         db.IncomingTransferMetadata.Add(new IncomingTransferMetadata
         {
             Id = transfer.Id,
             Transfer = transfer,
-            RequestJson = IncomingPaymentJson.Write(content),
+            RequestJson = IncomingTransferJson.Write(content),
             DeadlineUtc = deadlineUtc.ToUniversalTime(),
             NextActionAtUtc = transfer.RegisteredAtUtc
         });
@@ -76,7 +76,7 @@ public sealed class IncomingTransferRepository(TransactionDbContext db) : IIncom
     }
 
     private static IncomingTransferSnapshot Snapshot(IncomingTransferMetadata metadata) =>
-        new(metadata.Transfer, IncomingPaymentJson.Read<IncomingPacs009>(metadata.RequestJson), metadata.DeadlineUtc);
+        new(metadata.Transfer, IncomingTransferJson.Read(metadata.Transfer.Kind, metadata.RequestJson), metadata.DeadlineUtc);
 
     // Discovery and acquisition share one definition: due and without a live owner.
     private static Expression<Func<IncomingTransferMetadata, bool>> DueAt(DateTimeOffset now) =>

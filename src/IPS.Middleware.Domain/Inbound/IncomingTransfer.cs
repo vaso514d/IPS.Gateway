@@ -8,7 +8,7 @@ public enum IncomingTransferOperation
     ManualReviewRequired
 }
 
-public sealed record IncomingTransferRegistered(string ParticipantBic, string EndToEndId) : DomainEvent;
+public sealed record IncomingTransferRegistered(string ParticipantBic, string Kind, string Key) : DomainEvent;
 
 public sealed record IncomingTransferRecorded(
     IncomingTransferOperation Operation,
@@ -17,29 +17,33 @@ public sealed record IncomingTransferRecorded(
     string? ReasonCode,
     string? Description) : DomainEvent;
 
-// A financial-institution transfer (pacs.009) received from IPS, identified by receiving participant and exact
-// EndToEndId. IPS is told nothing but receipt, so the only outcome is what the core system says.
-public sealed class IncomingFiTransfer : AggregateRoot
+// A transfer received from IPS that only the core system settles (a pacs.009 or a pacs.004 return), identified by
+// receiving participant, message kind and the exact business key (EndToEndId or return id). IPS is told nothing but
+// receipt, so the only outcome is what the core system says.
+public sealed class IncomingTransfer : AggregateRoot
 {
-    private IncomingFiTransfer()
+    private IncomingTransfer()
     {
     }
 
-    private IncomingFiTransfer(Guid id, string participantBic, string endToEndId, DateTimeOffset at) : base(id)
+    private IncomingTransfer(Guid id, string participantBic, string kind, string key, DateTimeOffset at) : base(id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(participantBic);
-        ArgumentException.ThrowIfNullOrEmpty(endToEndId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        ArgumentException.ThrowIfNullOrEmpty(key);
 
         ParticipantBic = participantBic.Trim().ToUpperInvariant();
+        Kind = kind;
         // Kept exactly as received: it is the external CBS idempotency and status reference.
-        EndToEndId = endToEndId;
+        Key = key;
         RegisteredAtUtc = at.ToUniversalTime();
 
-        Raise(new IncomingTransferRegistered(ParticipantBic, EndToEndId), RegisteredAtUtc);
+        Raise(new IncomingTransferRegistered(ParticipantBic, Kind, Key), RegisteredAtUtc);
     }
 
     public string ParticipantBic { get; private set; } = string.Empty;
-    public string EndToEndId { get; private set; } = string.Empty;
+    public string Kind { get; private set; } = string.Empty;
+    public string Key { get; private set; } = string.Empty;
     public DateTimeOffset RegisteredAtUtc { get; private set; }
     public CoreOutcome CoreStatus { get; private set; }
     public int Attempts { get; private set; }
@@ -51,8 +55,8 @@ public sealed class IncomingFiTransfer : AggregateRoot
 
     public bool IsFinal => CoreStatus is CoreOutcome.Accepted or CoreOutcome.Rejected || ManualReviewReason is not null;
 
-    public static IncomingFiTransfer Register(Guid id, string participantBic, string endToEndId, DateTimeOffset at) =>
-        new(id, participantBic, endToEndId, at);
+    public static IncomingTransfer Register(Guid id, string participantBic, string kind, string key, DateTimeOffset at) =>
+        new(id, participantBic, kind, key, at);
 
     // The marker is committed before the core call, so a crash afterwards is recovered by asking the core.
     public void BeginSubmission(DateTimeOffset at)

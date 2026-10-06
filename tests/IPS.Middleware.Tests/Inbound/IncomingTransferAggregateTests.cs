@@ -3,11 +3,11 @@ using Xunit;
 
 namespace IPS.Middleware.Tests.Inbound;
 
-public sealed class IncomingFiTransferTests
+public sealed class IncomingTransferAggregateTests
 {
     private static readonly DateTimeOffset At = new(2026, 10, 6, 12, 0, 0, TimeSpan.Zero);
 
-    private static IncomingFiTransfer Registered() => IncomingFiTransfer.Register(Guid.NewGuid(), " bagage22 ", "E2E-1", At);
+    private static IncomingTransfer Registered() => IncomingTransfer.Register(Guid.NewGuid(), " bagage22 ", "pacs.004", "RTR-1", At);
 
     private static CorePaymentResult Result(CoreOutcome status) => new(status, At, "CORE-1", status == CoreOutcome.Rejected ? "AC01" : null);
 
@@ -17,7 +17,8 @@ public sealed class IncomingFiTransferTests
         var transfer = Registered();
 
         Assert.Equal("BAGAGE22", transfer.ParticipantBic);
-        Assert.Equal("E2E-1", transfer.EndToEndId);
+        Assert.Equal("pacs.004", transfer.Kind);
+        Assert.Equal("RTR-1", transfer.Key);
         Assert.Equal(CoreOutcome.NotSubmitted, transfer.CoreStatus);
         Assert.False(transfer.IsFinal);
         Assert.IsType<IncomingTransferRegistered>(Assert.Single(transfer.PendingEvents));

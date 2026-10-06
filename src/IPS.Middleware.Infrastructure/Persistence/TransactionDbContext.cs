@@ -19,7 +19,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal DbSet<ResendRow> Resends => Set<ResendRow>();
     internal DbSet<IncomingPayment> IncomingPayments => Set<IncomingPayment>();
     internal DbSet<IncomingPaymentMetadata> IncomingMetadata => Set<IncomingPaymentMetadata>();
-    internal DbSet<IncomingFiTransfer> IncomingTransfers => Set<IncomingFiTransfer>();
+    internal DbSet<IncomingTransfer> IncomingTransfers => Set<IncomingTransfer>();
     internal DbSet<IncomingTransferMetadata> IncomingTransferMetadata => Set<IncomingTransferMetadata>();
     internal DbSet<IncomingCoreCallRow> IncomingCoreCalls => Set<IncomingCoreCallRow>();
     internal DbSet<IncomingReplyRow> IncomingReplies => Set<IncomingReplyRow>();

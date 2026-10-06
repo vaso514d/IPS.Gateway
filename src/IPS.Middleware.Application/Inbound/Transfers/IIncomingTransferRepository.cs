@@ -5,16 +5,16 @@ namespace IPS.Middleware.Application.Inbound.Transfers;
 public sealed record IncomingTransferClaim(Guid TransferId, Guid Token, DateTimeOffset ExpiresAtUtc);
 
 // A tracked transfer with its frozen content and the end of its recovery window.
-public sealed record IncomingTransferSnapshot(IncomingFiTransfer Transfer, IncomingPacs009 Content, DateTimeOffset DeadlineUtc);
+public sealed record IncomingTransferSnapshot(IncomingTransfer Transfer, IIncomingTransferContent Content, DateTimeOffset DeadlineUtc);
 
 public interface IIncomingTransferRepository
 {
-    // Exact identity lookup: normalized participant BIC and ordinal EndToEndId. The transfer is tracked in this scope.
-    Task<IncomingTransferSnapshot?> FindAsync(string participantBic, string endToEndId, CancellationToken cancellationToken);
+    // Exact identity lookup: normalized participant BIC, kind and ordinal key. The transfer is tracked in this scope.
+    Task<IncomingTransferSnapshot?> FindAsync(string participantBic, string kind, string key, CancellationToken cancellationToken);
 
     Task<IncomingTransferSnapshot?> ReadAsync(Guid transferId, CancellationToken cancellationToken);
 
-    void Add(IncomingFiTransfer transfer, IncomingPacs009 content, DateTimeOffset deadlineUtc);
+    void Add(IncomingTransfer transfer, IIncomingTransferContent content, DateTimeOffset deadlineUtc);
 
     Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken);
 

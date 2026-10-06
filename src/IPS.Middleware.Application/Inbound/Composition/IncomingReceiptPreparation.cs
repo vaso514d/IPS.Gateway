@@ -17,7 +17,7 @@ public sealed class IncomingReceiptPreparation(
     IIncomingCompositionRepository composition,
     IncomingPaymentIntake intake,
     IncomingStatusReportProcessing statusReports,
-    IncomingPacs009Processing transfers,
+    IncomingTransferRegistration transfers,
     IIncomingReplyRepository replies,
     IIncomingReplyProtocol protocol,
     IUnitOfWork unitOfWork,
@@ -53,7 +53,7 @@ public sealed class IncomingReceiptPreparation(
             return await statusReports.ProcessAsync(claim, receipt, token);
         }
 
-        if (PaymentMessageTypes.IsPacs009(receipt.MessageType))
+        if (PaymentMessageTypes.IsPacs009(receipt.MessageType) || PaymentMessageTypes.IsPacs004(receipt.MessageType))
         {
             return await transfers.ProcessAsync(claim, receipt, token);
         }

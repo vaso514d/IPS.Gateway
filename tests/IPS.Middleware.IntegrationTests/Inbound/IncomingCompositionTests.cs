@@ -422,7 +422,8 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddSingleton<IIncomingReplyProtocol>(new IncomingReplyProtocol(new(new(false, false), h.Time),
                 new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]));
             services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol([fixture.Input.Certificate]));
-            services.AddSingleton<IIncomingPacs009Protocol>(new IncomingPacs009Protocol([fixture.Input.Certificate]));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs009Protocol([fixture.Input.Certificate]));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs004Protocol([fixture.Input.Certificate]));
             services.AddIncomingComposition();
             configure?.Invoke(services);
             h.Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
