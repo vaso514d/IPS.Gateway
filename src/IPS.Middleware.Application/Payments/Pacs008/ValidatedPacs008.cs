@@ -88,10 +88,7 @@ public sealed class ValidatedPacs008
         var result = new Pacs008Validator(policy).Validate(request);
         if (!result.IsValid)
         {
-            var errors = result.Errors
-                .Select(error => new IntakeValidationError(ErrorPath(error.PropertyName), error.ErrorMessage))
-                .ToArray();
-            return new Pacs008ValidationResult(null, Array.AsReadOnly(errors));
+            return new Pacs008ValidationResult(null, IntakeErrors.From(result));
         }
 
         return new Pacs008ValidationResult(Normalize(request, policy), []);
@@ -127,14 +124,6 @@ public sealed class ValidatedPacs008
             remittance: NormalizeRemittance(request.Remittance));
     }
 
-    // Retain the existing camel-case, unindexed error paths at this boundary.
-    private static string ErrorPath(string property)
-    {
-        var parts = Regex.Replace(property, @"\[\d+\]", "")
-            .Split('.')
-            .Select(part => char.ToLowerInvariant(part[0]) + part[1..]);
-        return string.Join('.', parts);
-    }
 
     private static PaymentParty NormalizeParty(Pacs008PartyInput party, string? bill = null, Pacs008PostalAddressInput? address = null) =>
         new(

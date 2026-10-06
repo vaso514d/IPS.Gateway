@@ -111,7 +111,7 @@ public sealed class AggregateOwnershipTests
     {
         await using var database = await SqlTestDatabase.CreateAsync();
         // pacs.008 without a submission marker is retried instead; see Pacs008ProcessingTests.
-        var id = await Intake(database, "expired", "pacs.009");
+        var id = await Intake(database, "expired", "camt.056");
         TransactionClaim claim;
         await using (var start = database.Session())
         {
@@ -144,7 +144,7 @@ public sealed class AggregateOwnershipTests
     public async Task Discovery_prioritizes_pacs008_and_respects_due_time_and_live_ownership()
     {
         await using var database = await SqlTestDatabase.CreateAsync();
-        var transfer = await Intake(database, "transfer", "pacs.009");
+        var transfer = await Intake(database, "transfer", "camt.056");
         var priority = await Intake(database, "priority");
         var deferred = await Intake(database, "deferred");
         var active = await Intake(database, "active");
@@ -178,7 +178,7 @@ public sealed class AggregateOwnershipTests
     public async Task Every_abandoned_inflight_state_recovers_to_uncertain(TransactionStatus state)
     {
         await using var database = await SqlTestDatabase.CreateAsync();
-        var id = await Intake(database, "recover-" + state, "pacs.009");
+        var id = await Intake(database, "recover-" + state, "camt.056");
         await using (var start = database.Session())
         {
             var claim = Assert.IsType<TransactionClaim>(await start.Processing(Now).TryStartAsync(id, Lease, default));

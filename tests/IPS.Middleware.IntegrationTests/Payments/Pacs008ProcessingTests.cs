@@ -340,7 +340,7 @@ public sealed class Pacs008ProcessingTests
         Assert.True(intake.Intake is not null, string.Join("; ", intake.Errors.Select(error => $"{error.Field}: {error.Message}")));
         var id = intake.Intake.Payment.Id;
         var message = (await harness.ReadAsync(id)).Message;
-        var accepted = message.Accepted!;
+        var accepted = (AcceptedPacs008)message.Accepted!;
         // XML from the in-memory validated payment must equal XML from the restored snapshot.
         var expected = new Pacs008Xml(profile).Build(ValidatedPacs008.Validate(request, Pacs008Fixture.Policy).Payment!,
             new(message.MessageId, message.TransactionId, Start));

@@ -254,7 +254,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
             || db.Investigations.Any(i => i.PaymentId == x.Id);
 
     private void RequireOwner(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now) =>
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Investigating);
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Investigating);
 
     private InvestigationRow CommittedAttempt(Guid paymentId, Guid attemptId)
     {

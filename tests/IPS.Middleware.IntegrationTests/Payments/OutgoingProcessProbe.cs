@@ -1,9 +1,11 @@
 using System.Data.Common;
 using System.Text.Json;
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -24,7 +26,13 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 
 internal static class OutgoingProcessProbe
 {
-    internal sealed record Settings(string Connection, OutgoingTransportSettings Transport, string Checkpoint, string Signal, bool Initialize);
+    internal sealed record Settings(
+        string Connection,
+        OutgoingTransportSettings Transport,
+        string Checkpoint,
+        string Signal,
+        bool Initialize,
+        string MessageType = PaymentMessageTypes.Pacs008);
     internal static async Task RunAsync(string file)
     {
         var settings = JsonSerializer.Deserialize<Settings>(await File.ReadAllTextAsync(file))!;
@@ -51,24 +59,34 @@ internal static class OutgoingProcessProbe
         builder.Services.AddOutgoingInvestigation();
         builder.Services.AddScoped<OutgoingTransactionIntake>();
         builder.Services.AddScoped<OutgoingTransactionWork>();
-        builder.Services.AddScoped<Pacs008Processing>();
+        builder.Services.AddScoped<OutgoingPaymentProcessing>();
         builder.Services.AddScoped<OutgoingStatusDelivery>();
         builder.Services.AddScoped(sp => new Pacs008Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
             Pacs008Fixture.Policy, new("NBGEGE22"), sp.GetRequiredService<Pacs008Options>(), TimeProvider.System));
+        builder.Services.AddScoped(sp => new Pacs009Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
+            Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddSingleton<OutgoingRuntime>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         using var host = builder.Build();
         if (settings.Initialize)
         {
             await using var scope = host.Services.CreateAsyncScope();
-            var now = DateTimeOffset.UtcNow;
-            var request = Pacs008Fixture.Request() with
+            if (settings.MessageType == PaymentMessageTypes.Pacs009)
             {
-                ClientReference = "crash",
-                CreationDateTime = now.AddMilliseconds(-500),
-                AcceptanceDateTime = now
-            };
-            await scope.ServiceProvider.GetRequiredService<Pacs008Intake>().AcceptAsync(request, JsonSerializer.Serialize(request), default);
+                var payment = Pacs009Fixture.Request("crash");
+                await scope.ServiceProvider.GetRequiredService<Pacs009Intake>().AcceptAsync(payment, JsonSerializer.Serialize(payment), default);
+            }
+            else
+            {
+                var now = DateTimeOffset.UtcNow;
+                var request = Pacs008Fixture.Request() with
+                {
+                    ClientReference = "crash",
+                    CreationDateTime = now.AddMilliseconds(-500),
+                    AcceptanceDateTime = now
+                };
+                await scope.ServiceProvider.GetRequiredService<Pacs008Intake>().AcceptAsync(request, JsonSerializer.Serialize(request), default);
+            }
         }
 
         await host.RunAsync();

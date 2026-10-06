@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Registration;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
@@ -7,14 +8,13 @@ using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Persistence;
 
 // Checkpoint writes are allowed only for the owner whose claim is already committed and still live.
 internal static class PaymentOwnership
 {
-    internal static EntityEntry<OutgoingPaymentMetadata> OwnedPacs008(
+    internal static EntityEntry<OutgoingPaymentMetadata> OwnedOutgoing(
         this TransactionDbContext db,
         OutgoingPayment payment,
         TransactionClaim claim,
@@ -23,12 +23,12 @@ internal static class PaymentOwnership
     {
         var entry = db.Entry(db.Metadata(payment));
         var writable = entry.State != EntityState.Added
-            && payment.MessageType == Pacs008
+            && PaymentMessageTypes.IsOutgoing(payment.MessageType)
             && payment.CurrentStatus == requiredStatus
             && entry.Entity.MessageId is not null;
         if (!writable)
         {
-            throw new InvalidOperationException($"Checkpoint writes require a persisted pacs.008 in {requiredStatus} with stored identifiers.");
+            throw new InvalidOperationException($"Checkpoint writes require a persisted outgoing payment in {requiredStatus} with stored identifiers.");
         }
 
         var committedOwner = entry.Property(x => x.ClaimToken).OriginalValue == claim.Token;

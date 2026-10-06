@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Transport;
@@ -95,6 +96,51 @@ public sealed class OutgoingCrashTests
             // A marked resend is never repeated: its payment is investigated again and resent under a new authorization.
             Assert.Equal(checkpoint == "resend-marker" ? 2 : 1, await db.Set<ResendRow>().CountAsync());
             await WaitAsync(() => Task.FromResult(fixture.Callbacks.Count > 0), resumed);
+        }
+        finally { await KillAsync(resumed); }
+    }
+
+    [Theory]
+    [InlineData("ready", false)]
+    [InlineData("marker", true)]
+    [InlineData("response", false)]
+    [InlineData("outcome", false)]
+    [InlineData("resend-ready", true)]
+    [InlineData("resend-response", true)]
+    public async Task Killed_process_recovers_a_pacs009_and_repeats_no_marker(string checkpoint, bool resentAsDuplicate)
+    {
+        await using var fixture = await OutgoingHostFixture.CreateAsync();
+        await using var db = fixture.Database.Context();
+        using var files = new ProbeFiles();
+        var settings = new OutgoingProcessProbe.Settings(db.Database.GetConnectionString()!, Transport(fixture), checkpoint, files.Signal, true, PaymentMessageTypes.Pacs009);
+
+        if (checkpoint.StartsWith("resend-", StringComparison.Ordinal))
+        {
+            // The first process stops after its marker, so IPS has no record; the second authorizes the resend and stops at the checkpoint.
+            await RunUntilCheckpointAsync(files.Settings, settings with { Checkpoint = "marker" });
+            File.Delete(files.Signal);
+            await RunUntilCheckpointAsync(files.Settings, settings with { Initialize = false });
+        }
+        else
+        {
+            await RunUntilCheckpointAsync(files.Settings, settings);
+        }
+
+        await File.WriteAllTextAsync(files.Settings, JsonSerializer.Serialize(settings with { Checkpoint = "", Initialize = false }));
+        using var resumed = Start(files.Settings);
+        try
+        {
+            await WaitAsync(() => db.Payments.AsNoTracking().AnyAsync(p => p.CurrentStatus == TransactionStatus.Accepted), resumed);
+            await WaitAsync(() => Task.FromResult(fixture.Callbacks.Count > 0), resumed);
+
+            // IPS sees one message in total: the original, or a single flagged resend when the original never left.
+            Assert.Equal([resentAsDuplicate], fixture.PossibleDuplicateFlags);
+            Assert.Single(fixture.PaymentSubmissions);
+            var original = await db.Set<OutgoingMessageRow>()
+                .Where(m => m.InvestigationId == null && m.ResendId == null && m.Direction == OutgoingMessageDirection.Outbound)
+                .Select(m => m.Content)
+                .SingleAsync();
+            Assert.Equal(original, fixture.PaymentSubmissions[0]);
         }
         finally { await KillAsync(resumed); }
     }

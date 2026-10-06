@@ -13,14 +13,14 @@ public sealed record OutgoingSubmissionResult(OutgoingStatus? Status, bool Timed
 // Fresh execution scopes and service-owned admission; caller tokens only govern intake and reads.
 public interface IOutgoingExecution
 {
-    Task<OutgoingAcceptance> AcceptAsync(Pacs008Request request, string json, CancellationToken token);
+    Task<OutgoingAcceptance> AcceptAsync(IOutgoingPaymentRequest request, string json, CancellationToken token);
     bool TryStart(Guid paymentId);
     Task<OutgoingStatus?> ReadAsync(string reference, CancellationToken token);
 }
 
 public sealed class OutgoingSubmission(IOutgoingExecution execution, OutgoingExecutionOptions options, TimeProvider time)
 {
-    public async Task<OutgoingSubmissionResult> SubmitAsync(Pacs008Request request, string json, CancellationToken token)
+    public async Task<OutgoingSubmissionResult> SubmitAsync(IOutgoingPaymentRequest request, string json, CancellationToken token)
     {
         var accepted = await execution.AcceptAsync(request, json, token);
         if (accepted.Intake is not { } intake)

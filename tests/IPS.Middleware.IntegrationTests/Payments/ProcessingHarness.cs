@@ -3,11 +3,14 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Xml.Linq;
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Payments.Pacs009;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -22,8 +25,9 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     private ProcessingHarness(SqlTestDatabase database, bool allowUnsignedInDevelopment)
     {
         Database = database;
-        Protocol = new(new Pacs008Preparation(
-            new Pacs008MessageSigner(new(allowUnsignedInDevelopment, isDevelopment: allowUnsignedInDevelopment), Clock), Certificates));
+        var signer = new Pacs008MessageSigner(new(allowUnsignedInDevelopment, isDevelopment: allowUnsignedInDevelopment), Clock);
+        Protocol = new(new Pacs008Preparation(signer, Certificates));
+        Pacs009Protocol = new Pacs009Preparation(signer, Certificates);
         Ips = new(IpsCertificate);
         Certificates.Current = SigningCertificate;
     }
@@ -34,11 +38,12 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     public X509Certificate2 IpsCertificate { get; } = IpsReplies.Certificate();
     public CertificateSlot Certificates { get; } = new();
     public RecordingPreparation Protocol { get; }
+    public Pacs009Preparation Pacs009Protocol { get; }
     public IpsSimulator Ips { get; }
     public Pacs008Options Options { get; } = new(ownership: Ownership);
 
     public static async Task<ProcessingHarness> CreateAsync(bool allowUnsignedInDevelopment = false) => new(await SqlTestDatabase.CreateAsync(), allowUnsignedInDevelopment);
-    public async Task<Pacs008IntakeResult> AcceptAsync(Pacs008Request request, Pacs008ProtocolProfile? profile = null)
+    public async Task<PaymentIntakeResult> AcceptAsync(Pacs008Request request, Pacs008ProtocolProfile? profile = null)
     {
         await using var session = Database.Session();
         return await new Pacs008Intake(session.Payments, new OutgoingTransactionIntake(session.Payments, session.Unit, Clock),
@@ -46,12 +51,23 @@ internal sealed class ProcessingHarness : IAsyncDisposable
             .AcceptAsync(request, JsonSerializer.Serialize(request), default);
     }
 
+    public async Task<PaymentIntakeResult> AcceptAsync(Pacs009Request request)
+    {
+        await using var session = Database.Session();
+        return await new Pacs009Intake(session.Payments, new OutgoingTransactionIntake(session.Payments, session.Unit, Clock),
+                Pacs008Fixture.Policy, new("NBGEGE22"), Clock)
+            .AcceptAsync(request, JsonSerializer.Serialize(request), default);
+    }
+
+    public async Task<Guid> AcceptPacs009Async(string reference = "processing") =>
+        (await AcceptAsync(Pacs009Fixture.Request(reference))).Intake!.Payment.Id;
+
     public async Task<Guid> AcceptAsync(string reference = "processing") => (await AcceptAsync(Pacs008Fixture.Request() with { ClientReference = reference })).Intake!.Payment.Id;
     public async Task<PaymentOutcome?> ProcessAsync(Guid id, CancellationToken cancellationToken = default, params IInterceptor[] interceptors)
     {
         await using var session = Database.Session(interceptors);
-        return await new Pacs008Processing(session.Payments, session.Work, new PaymentPreparationRepository(session.Context),
-                session.Submissions, session.Unit, Protocol, Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
+        return await new OutgoingPaymentProcessing(session.Payments, session.Work, new PaymentPreparationRepository(session.Context),
+                session.Submissions, session.Unit, [Protocol, Pacs009Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
             .ProcessAsync(id, cancellationToken);
     }
 
@@ -112,13 +128,14 @@ internal sealed class CertificateSlot : ISigningCertificateSource
 }
 
 /// <summary>Counts protocol work so tests can prove committed artifacts are reused.</summary>
-internal sealed class RecordingPreparation(IPacs008MessagePreparation inner) : IPacs008MessagePreparation
+internal sealed class RecordingPreparation(IOutgoingMessageProtocol inner) : IOutgoingMessageProtocol
 {
+    public string MessageType => inner.MessageType;
     public int Builds { get; private set; }
     public int Signs { get; private set; }
     public Action? BeforeSign { get; set; }
 
-    public string BuildUnsignedXml(AcceptedPacs008 accepted, string messageId, string transactionId)
+    public string BuildUnsignedXml(IAcceptedPayment accepted, string messageId, string transactionId)
     {
         Builds++;
         return inner.BuildUnsignedXml(accepted, messageId, transactionId);
@@ -137,6 +154,7 @@ internal sealed class RecordingPreparation(IPacs008MessagePreparation inner) : I
 internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransport
 {
     private readonly List<string> _received = [];
+    private readonly List<string> _resent = [];
     public IReadOnlyList<string> Received
     {
         get
@@ -151,6 +169,28 @@ internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransp
     public Func<IpsReplies.Reply, CancellationToken, Task<IpsSubmissionResponse>>? Behavior { get; set; }
     public TaskCompletionSource? Gate { get; set; }
 
+    // Flagged resends, in the order IPS received them.
+    public IReadOnlyList<string> Resent
+    {
+        get
+        {
+            lock (_received)
+            {
+                return _resent.ToArray();
+            }
+        }
+    }
+
+    public Task<IpsSubmissionResponse> ResendAsync(string xml, CancellationToken cancellationToken)
+    {
+        lock (_received)
+        {
+            _resent.Add(xml);
+        }
+
+        return SendAsync(xml, cancellationToken);
+    }
+
     public async Task<IpsSubmissionResponse> SendAsync(string xml, CancellationToken cancellationToken)
     {
         lock (_received)
@@ -164,7 +204,8 @@ internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransp
         {
             MessageId = Value("BizMsgIdr"),
             TransactionId = Value("TxId"),
-            EndToEndId = Value("EndToEndId")
+            EndToEndId = Value("EndToEndId"),
+            OriginalMessageName = Value("MsgDefIdr")
         };
         if (Gate is { } gate)
         {

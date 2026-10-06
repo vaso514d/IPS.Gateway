@@ -54,6 +54,32 @@ public sealed class OutgoingHttpClientTests
         Assert.Equal(1, calls);
     }
 
+    [Fact]
+    public async Task Resend_carries_the_possible_duplicate_header_and_the_same_wire_once()
+    {
+        var calls = 0;
+        const string xml = "<payment>same bytes</payment>";
+        await using var server = await HttpSimulator.StartAsync(async context =>
+        {
+            Interlocked.Increment(ref calls);
+            Assert.Equal("POST", context.Request.Method);
+            Assert.Equal("/Message", context.Request.Path);
+            Assert.Equal("TESTGE22", context.Request.Headers["X-MONTRAN-IPS-Channel"]);
+            Assert.Equal("true", context.Request.Headers["X-MONTRAN-RTP-PossibleDuplicate"]);
+            Assert.Equal(xml, await new StreamReader(context.Request.Body).ReadToEndAsync());
+            context.Response.StatusCode = 200;
+            await context.Response.WriteAsync("reply");
+        });
+        using var certificates = new TransportCertificates();
+        using var services = Services(Settings(server.Url, certificates));
+
+        var response = await services.GetRequiredService<IIpsTransport>().ResendAsync(xml, default);
+
+        Assert.Equal(200, response.HttpStatusCode);
+        Assert.Equal("reply", response.Body);
+        Assert.Equal(1, calls);
+    }
+
     [Theory]
     [InlineData(204)]
     [InlineData(503)]

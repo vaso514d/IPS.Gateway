@@ -120,7 +120,14 @@ public sealed class OutgoingBindingTests
         }
         Assert.True(responses.GetProperty("400").GetProperty("content").TryGetProperty("application/problem+json", out _));
         Assert.Equal("GetTransactionStatus", paths.GetProperty("/api/ips/transactions/status").GetProperty("get").GetProperty("operationId").GetString());
-        Assert.Equal(3, paths.EnumerateObject().Count());
+        var pacs009 = paths.GetProperty("/api/ips/pacs009/send").GetProperty("post");
+        Assert.Equal("SendPacs009", pacs009.GetProperty("operationId").GetString());
+        foreach (var code in new[] { "200", "504", "400" })
+        {
+            Assert.True(pacs009.GetProperty("responses").TryGetProperty(code, out _));
+        }
+
+        Assert.Equal(4, paths.EnumerateObject().Count());
     }
 
     [Fact]

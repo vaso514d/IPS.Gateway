@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
@@ -13,7 +14,7 @@ public sealed class OutgoingSubmissionTests
     {
         var execution = new Execution();
         var workflow = new OutgoingSubmission(execution, new(httpWait: TimeSpan.FromMilliseconds(100)), TimeProvider.System);
-        var result = await workflow.SubmitAsync(new(), "{}", default).WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await workflow.SubmitAsync(new Pacs008Request(), "{}", default).WaitAsync(TimeSpan.FromSeconds(3));
         Assert.True(result.TimedOut);
         Assert.Equal(execution.Initial, result.Status);
         Assert.Equal(1, execution.Started);
@@ -25,14 +26,14 @@ public sealed class OutgoingSubmissionTests
         var execution = new Execution();
         using var stop = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         var workflow = new OutgoingSubmission(execution, new(), TimeProvider.System);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.SubmitAsync(new(), "{}", stop.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.SubmitAsync(new Pacs008Request(), "{}", stop.Token));
         Assert.Equal(1, execution.Started);
     }
     [Fact]
     public async Task Duplicate_returns_snapshot_without_admission_or_another_read()
     {
         var execution = new Execution { Created = false };
-        var result = await new OutgoingSubmission(execution, new(), TimeProvider.System).SubmitAsync(new(), "{}", default);
+        var result = await new OutgoingSubmission(execution, new(), TimeProvider.System).SubmitAsync(new Pacs008Request(), "{}", default);
         Assert.False(result.TimedOut);
         Assert.Equal(execution.Initial, result.Status);
         Assert.Equal(0, execution.Started);
@@ -45,7 +46,7 @@ public sealed class OutgoingSubmissionTests
         public int Reads { get; private set; }
         public bool ReadCancelled { get; private set; }
         public OutgoingStatus Initial { get; } = new(Guid.NewGuid(), 1, "pacs.008", "ref", TransactionStatus.Received, DateTimeOffset.UtcNow, new(), "msg", "e2e");
-        public Task<OutgoingAcceptance> AcceptAsync(Pacs008Request request, string json, CancellationToken token) =>
+        public Task<OutgoingAcceptance> AcceptAsync(IOutgoingPaymentRequest request, string json, CancellationToken token) =>
             Task.FromResult(new OutgoingAcceptance(new(Initial, Created, DateTimeOffset.UtcNow), []));
         public bool TryStart(Guid id)
         {

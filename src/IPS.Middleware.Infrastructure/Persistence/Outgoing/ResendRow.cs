@@ -7,7 +7,8 @@ internal sealed class ResendRow
     public Guid Id { get; set; }
     public Guid PaymentId { get; set; }
     public int Number { get; set; }
-    public Guid InvestigationId { get; set; }
+    public Guid? InvestigationId { get; set; }
+    public DateTimeOffset? DeadlineUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public IpsReplyStatus? Outcome { get; set; }
     public string? DetailsJson { get; set; }

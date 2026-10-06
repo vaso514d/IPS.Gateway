@@ -1,10 +1,10 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Transactions;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Persistence.Outgoing;
 
-// Turns reportable pacs.008 state changes into callback deliveries committed with the change itself.
+// Turns reportable state changes of outgoing payments into callback deliveries committed with the change itself.
 internal static class OutgoingStatusOutbox
 {
     internal static IReadOnlyList<OutgoingStatusDeliveryRow> Create(TransactionDbContext db)
@@ -12,7 +12,7 @@ internal static class OutgoingStatusOutbox
         var deliveries = new List<OutgoingStatusDeliveryRow>();
         var payments = db.ChangeTracker.Entries<OutgoingPayment>()
             .Select(entry => entry.Entity)
-            .Where(payment => payment.MessageType == Pacs008);
+            .Where(payment => PaymentMessageTypes.IsOutgoing(payment.MessageType));
 
         foreach (var payment in payments)
         {

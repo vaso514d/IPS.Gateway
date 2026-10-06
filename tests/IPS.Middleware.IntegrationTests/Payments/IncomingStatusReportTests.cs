@@ -128,6 +128,28 @@ public sealed class IncomingStatusReportTests
     }
 
     [Fact]
+    public async Task A_report_about_a_pacs009_settles_it_by_its_own_definition()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        core.Ips.Behavior = (_, _) => Task.FromResult(new IpsSubmissionResponse(503, "lost", []));
+        var id = await core.AcceptPacs009Async();
+        await core.ProcessAsync(id);
+        Assert.Equal(TransactionStatus.Uncertain, (await core.ReadAsync(id)).Payment.CurrentStatus);
+        var report = await ReportAsync(core, id, "ACCP", edit: reply => reply with { OriginalMessageName = "pacs.009.001.11" });
+        var wrongDefinition = await ReportAsync(core, id, "ACCP");
+
+        var (held, _) = await ApplyAsync(core, wrongDefinition, sequence: 1);
+        Assert.Equal(IncomingCompositionStatus.Held, held.Status);
+        var (settled, _) = await ApplyAsync(core, report, sequence: 2);
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, settled.Status);
+        var stored = await core.ReadAsync(id);
+        Assert.Equal(TransactionStatus.Accepted, stored.Payment.CurrentStatus);
+        Assert.Equal(StatusSource.Ips, stored.Payment.CurrentSource);
+        Assert.Equal(1, await CallbacksAsync(core, id));
+    }
+
+    [Fact]
     public async Task Observation_keeps_a_waiting_payments_schedule()
     {
         await using var core = await ProcessingHarness.CreateAsync();
@@ -348,7 +370,7 @@ public sealed class IncomingStatusReportTests
         {
             MessageId = message.MessageId,
             TransactionId = message.TransactionId,
-            EndToEndId = message.Accepted!.Payment.EndToEndId,
+            EndToEndId = message.Accepted!.EndToEndId,
             GroupStatus = status,
             TransactionStatus = status,
             ReasonCode = status == "RJCT" ? "AC01" : null

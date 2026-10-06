@@ -42,7 +42,7 @@ public sealed class PaymentPreparationTests
         var other = (await repository.ReadAsync(another.Payment.Id, default))!;
         Assert.NotEqual(identifiers.MessageId, other.MessageId);
         Assert.NotEqual(identifiers.TransactionId, other.TransactionId);
-        var transfer = await read.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", "transfer", "{}").Request!, default);
+        var transfer = await read.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("camt.056", "transfer", "{}").Request!, default);
         Assert.Null(await repository.ReadAsync(transfer.Payment.Id, default));
         Assert.Null(await repository.ReadAsync(Guid.NewGuid(), default));
     }
@@ -150,7 +150,7 @@ public sealed class PaymentPreparationTests
         var repository = new PaymentPreparationRepository(session.Context);
         var received = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.008", "received", "{}").Request!, default)).Payment;
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(received, claim, Xml, Now));
-        var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.009", "other", "{}").Request!, default)).Payment;
+        var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("camt.056", "other", "{}").Request!, default)).Payment;
         var otherClaim = (await session.Processing(Now).TryStartAsync(other.Id, TimeSpan.FromSeconds(45), default))!;
         Assert.Throws<InvalidOperationException>(() => repository.StageUnsignedXml(other, otherClaim, Xml, Now));
         var unsaved = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "unsaved", Now);

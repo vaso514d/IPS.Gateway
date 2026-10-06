@@ -2,6 +2,7 @@ using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 
@@ -20,7 +21,7 @@ public sealed class IncomingStatusReportProcessing(
     TimeProvider timeProvider)
 {
     private const string NotAReport = "The message is not a readable pacs.002 status report.";
-    private const string UnknownPayment = "No outgoing pacs.008 has the original message id of this report.";
+    private const string UnknownPayment = "No outgoing payment has the original message id of this report.";
     private const string PaymentDataUnavailable = "Accepted payment data is unavailable, so the report cannot be verified.";
 
     private static readonly IncomingCompositionResult OwnershipLost = new(IncomingCompositionStatus.OwnershipLost);
@@ -46,7 +47,11 @@ public sealed class IncomingStatusReportProcessing(
             return await HoldAsync(claim, PaymentDataUnavailable, now, token);
         }
 
-        var correlation = new IpsReplyCorrelation(message.MessageId, message.TransactionId, accepted.Payment.EndToEndId);
+        var correlation = new IpsReplyCorrelation(
+            message.MessageId,
+            message.TransactionId,
+            accepted.EndToEndId,
+            PaymentMessageTypes.DefinitionOf(payment.MessageType));
         var reply = protocol.Interpret(receipt.RawXml, correlation);
         if (reply.Status == IpsReplyStatus.Unresolved)
         {

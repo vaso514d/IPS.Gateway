@@ -21,7 +21,7 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
     private const string Rejected = "RJCT";
 
     public IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent) =>
-        Interpret(response, sent, Pacs008Message.MessageDefinition, strictEvidence: false);
+        Interpret(response, sent, sent.MessageDefinition, strictEvidence: false);
 
     internal IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition) =>
         Interpret(response, sent, messageDefinition, strictEvidence: true);
@@ -119,7 +119,8 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
             return Unresolved("The IPS reply contains conflicting reason codes.");
         }
 
-        var messageName = messageDefinition == Pacs008Message.MessageDefinition ? "pacs.008" : "pacs.028";
+        // The short name of the definition, for example pacs.008 from pacs.008.001.12.
+        var messageName = string.Join('.', messageDefinition.Split('.')[..2]);
         var description = reasons
             .Elements(P + "AddtlInf")
             .Select(element => element.Value.Trim())

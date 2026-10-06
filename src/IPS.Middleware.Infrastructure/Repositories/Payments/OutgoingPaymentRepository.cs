@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -28,23 +29,26 @@ public sealed class OutgoingPaymentRepository(TransactionDbContext db) : IOutgoi
         return metadata?.Payment;
     }
 
+    public Task<bool> IsProtocolIdUsedAsync(string messageId, string transactionId, CancellationToken cancellationToken) =>
+        db.OutgoingMetadata.AnyAsync(x => x.MessageId == messageId || x.ProtocolTransactionId == transactionId, cancellationToken);
+
     public Task<OutgoingPayment?> FindByClientReferenceAsync(string reference, CancellationToken cancellationToken) =>
         db.Payments
             .AsNoTracking()
             .SingleOrDefaultAsync(x => x.ClientReference == reference, cancellationToken);
 
-    public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
+    public void Add(OutgoingPayment payment, string requestJson, IAcceptedPayment? accepted)
     {
-        var isPacs008 = payment.MessageType == Pacs008;
+        var ids = accepted?.SuppliedIds ?? (PaymentMessageTypes.IsOutgoing(payment.MessageType) ? new ProtocolIds(NewProtocolId(), NewProtocolId()) : null);
         db.OutgoingMetadata.Add(new OutgoingPaymentMetadata
         {
             Id = payment.Id,
             Payment = payment,
             RequestJson = requestJson,
-            AcceptedJson = accepted is null ? null : PaymentJson.WriteAccepted(accepted),
+            AcceptedJson = accepted is null ? null : PaymentJson.WriteAccepted(payment.MessageType, accepted),
             Direction = TransactionDirection.Outgoing,
-            MessageId = isPacs008 ? NewProtocolId() : null,
-            ProtocolTransactionId = isPacs008 ? NewProtocolId() : null
+            MessageId = ids?.MessageId,
+            ProtocolTransactionId = ids?.TransactionId
         });
     }
 

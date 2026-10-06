@@ -18,7 +18,7 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
         var stored = await db.OutgoingMetadata
             .AsNoTracking()
             .Where(x => x.Id == paymentId && x.MessageId != null)
-            .Select(x => new { x.MessageId, x.ProtocolTransactionId, x.UnsignedXml, x.AcceptedJson })
+            .Select(x => new { x.MessageId, x.ProtocolTransactionId, x.UnsignedXml, x.AcceptedJson, x.Payment.MessageType })
             .SingleOrDefaultAsync(cancellationToken);
         if (stored is null)
         {
@@ -37,13 +37,13 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
             stored.ProtocolTransactionId!,
             stored.UnsignedXml,
             signedXml,
-            PaymentJson.ReadAccepted(stored.AcceptedJson),
+            PaymentJson.ReadAccepted(stored.MessageType, stored.AcceptedJson),
             ready?.Disposition);
     }
 
     public void StageUnsignedXml(OutgoingPayment payment, TransactionClaim claim, string xml, DateTimeOffset now)
     {
-        var metadata = db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending).Entity;
+        var metadata = db.OwnedOutgoing(payment, claim, now, TransactionStatus.Sending).Entity;
         if (metadata.UnsignedXml is { } existing)
         {
             if (existing != xml)
@@ -94,7 +94,7 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
             Id = Guid.NewGuid(),
             PaymentId = payment.Id,
             Direction = OutgoingMessageDirection.Outbound,
-            MessageDefinition = PaymentMessageTypes.Pacs008Definition,
+            MessageDefinition = PaymentMessageTypes.DefinitionOf(payment.MessageType),
             Content = xml,
             CreatedAtUtc = now.ToUniversalTime(),
             Status = MessageJournalStatus.ReadyToSend,
@@ -104,5 +104,5 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
     }
 
     private string? CommittedUnsignedXml(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now) =>
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending).Property(x => x.UnsignedXml).OriginalValue;
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Sending).Property(x => x.UnsignedXml).OriginalValue;
 }

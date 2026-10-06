@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Pacs009;
 
 namespace IPS.Middleware.Infrastructure.Persistence;
 // Explicit camel-case JSON for stored payment artifacts; CLR type names are never written.
@@ -15,12 +17,25 @@ internal static class PaymentJson
     internal static string Write<T>(T value) => JsonSerializer.Serialize(value, Options);
     internal static T? Read<T>(string? json)
         where T : class => json is null ? null : JsonSerializer.Deserialize<T>(json, Options);
-    internal static string WriteAccepted(AcceptedPacs008 accepted) => Write(new AcceptedSnapshot(AcceptedVersion, accepted));
-    internal static AcceptedPacs008? ReadAccepted(string? json) => Read<AcceptedSnapshot>(json) switch
+    // The snapshot is stored under its message type, which selects the concrete type when it is read back.
+    internal static string WriteAccepted(string messageType, IAcceptedPayment accepted) => messageType switch
     {
-        null => null,
-        { Version: AcceptedVersion } snapshot => snapshot.Accepted,
-        { Version: var version } => throw new NotSupportedException($"Accepted payment snapshot version {version} is not supported.")
+        PaymentMessageTypes.Pacs008 => Write(new AcceptedSnapshot<AcceptedPacs008>(AcceptedVersion, (AcceptedPacs008)accepted)),
+        PaymentMessageTypes.Pacs009 => Write(new AcceptedSnapshot<AcceptedPacs009>(AcceptedVersion, (AcceptedPacs009)accepted)),
+        _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, "No accepted snapshot for this message type.")
     };
-    private sealed record AcceptedSnapshot(int Version, AcceptedPacs008 Accepted);
+    internal static IAcceptedPayment? ReadAccepted(string messageType, string? json) => messageType switch
+    {
+        PaymentMessageTypes.Pacs008 => ReadSnapshot<AcceptedPacs008>(json),
+        PaymentMessageTypes.Pacs009 => ReadSnapshot<AcceptedPacs009>(json),
+        _ => null
+    };
+    private static T? ReadSnapshot<T>(string? json)
+        where T : class, IAcceptedPayment => Read<AcceptedSnapshot<T>>(json) switch
+        {
+            null => null,
+            { Version: AcceptedVersion } snapshot => snapshot.Accepted,
+            { Version: var version } => throw new NotSupportedException($"Accepted payment snapshot version {version} is not supported.")
+        };
+    private sealed record AcceptedSnapshot<T>(int Version, T Accepted);
 }

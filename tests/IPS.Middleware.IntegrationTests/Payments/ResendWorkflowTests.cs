@@ -137,7 +137,7 @@ public sealed class ResendWorkflowTests
         var payment = (await s.Payments.FindAsync(h.Id, default))!;
         var claim = s.Work.StageClaim(payment, h.Core.Clock.Now, h.Options.Ownership)!;
         await s.Unit.SaveAsync();
-        new ResendRepository(s.Context).StageAuthorization(payment, claim, resend.InvestigationId, 2, h.Core.Clock.Now);
+        new ResendRepository(s.Context).StageAuthorization(payment, claim, resend.InvestigationId!.Value, 2, h.Core.Clock.Now);
         await Assert.ThrowsAsync<UniqueConstraintException>(() => s.Unit.SaveAsync());
     }
 
@@ -393,6 +393,8 @@ public sealed class ResendWorkflowTests
 
             return await Core.Ips.SendAsync(xml, cancellationToken);
         }
+
+        public Task<IpsSubmissionResponse> ResendAsync(string xml, CancellationToken cancellationToken) => SendAsync(xml, cancellationToken);
 
         public ValueTask DisposeAsync() => Core.DisposeAsync();
 

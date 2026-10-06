@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Payments.Pacs009;
 using IPS.Middleware.Infrastructure.Transport;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,7 +20,9 @@ public static class OutgoingHttpRegistration
         services.AddSingleton<OutgoingTransportCertificates>();
         services.AddTransient<IIpsTransport, OutgoingIpsClient>();
         services.AddTransient<IOutgoingStatusReceiver, OutgoingStatusClient>();
-        services.AddTransient<IPacs008MessagePreparation>(sp => new Pacs008Preparation(
+        services.AddTransient<IOutgoingMessageProtocol>(sp => new Pacs008Preparation(
+            sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
+        services.AddTransient<IOutgoingMessageProtocol>(sp => new Pacs009Preparation(
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
         services.AddTransient<IIpsReplyInterpreter>(sp => new IpsReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust));
         services.AddTransient<IInvestigationProtocol>(sp => new InvestigationProtocol(

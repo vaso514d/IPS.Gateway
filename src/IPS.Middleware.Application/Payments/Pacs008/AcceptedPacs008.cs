@@ -5,4 +5,12 @@ public sealed record AcceptedPacs008(
     ValidatedPacs008 Payment,
     Pacs008ProtocolProfile Profile,
     DateTimeOffset EnvelopeCreatedAtUtc,
-    DateTimeOffset SubmissionDeadlineUtc);
+    DateTimeOffset SubmissionDeadlineUtc) : IAcceptedPayment
+{
+    // Explicit implementations keep the shared view out of the stored JSON snapshot.
+    string IAcceptedPayment.EndToEndId => Payment.EndToEndId;
+
+    DateTimeOffset? IAcceptedPayment.SubmissionDeadlineUtc => SubmissionDeadlineUtc;
+
+    ProtocolIds? IAcceptedPayment.SuppliedIds => null;
+}

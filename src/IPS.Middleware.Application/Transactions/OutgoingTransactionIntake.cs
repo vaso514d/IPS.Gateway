@@ -1,6 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
-using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Transactions;
@@ -15,7 +15,7 @@ public sealed class OutgoingTransactionIntake(
     internal async Task<TransactionIntakeResult> AcceptAsync(
         ValidatedIntakeRequest request,
         DateTimeOffset now,
-        AcceptedPacs008? accepted,
+        IAcceptedPayment? accepted,
         CancellationToken cancellationToken)
     {
         var reference = request.ClientReference;

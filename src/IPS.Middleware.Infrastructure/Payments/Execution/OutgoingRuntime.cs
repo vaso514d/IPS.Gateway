@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -30,11 +31,11 @@ public sealed class OutgoingRuntime(
     private readonly SupervisedWork<StatusDeliveryKey> _callbacks = new(options.CallbackConcurrency, logger);
     private readonly Channel<Guid> _recovery = Channel.CreateBounded<Guid>(options.ChannelCapacity);
 
-    public async Task<OutgoingAcceptance> AcceptAsync(Pacs008Request request, string json, CancellationToken token)
+    public async Task<OutgoingAcceptance> AcceptAsync(IOutgoingPaymentRequest request, string json, CancellationToken token)
     {
         RequireEnabled();
         await using var scope = scopes.CreateAsyncScope();
-        var accepted = await scope.ServiceProvider.GetRequiredService<Pacs008Intake>().AcceptAsync(request, json, token);
+        var accepted = await AcceptRequestAsync(scope.ServiceProvider, request, json, token);
         var committedAt = Time.GetUtcNow();
         if (accepted.Intake is not { } intake)
         {
@@ -49,6 +50,14 @@ public sealed class OutgoingRuntime(
                 ?? throw new InvalidOperationException("Duplicate intake has no stored outcome.");
         return new OutgoingAcceptance(new OutgoingIntake(status, intake.Created, committedAt), []);
     }
+
+    private static Task<PaymentIntakeResult> AcceptRequestAsync(IServiceProvider services, IOutgoingPaymentRequest request, string json, CancellationToken token) =>
+        request switch
+        {
+            Pacs008Request pacs008 => services.GetRequiredService<Pacs008Intake>().AcceptAsync(pacs008, json, token),
+            Pacs009Request pacs009 => services.GetRequiredService<Pacs009Intake>().AcceptAsync(pacs009, json, token),
+            _ => throw new ArgumentOutOfRangeException(nameof(request), request.GetType().Name, "Unsupported outgoing payment request.")
+        };
 
     public bool TryStart(Guid paymentId) =>
         options.Enabled && IsAdmitting && _payments.TryStart(paymentId, () => ProcessAsync(paymentId));
@@ -102,7 +111,9 @@ public sealed class OutgoingRuntime(
             .FindDueAsync(TransactionStatus.Resending, now, investigation.DiscoveryBatch, stop);
         var investigations = await scope.ServiceProvider.GetRequiredService<IInvestigationRepository>()
             .FindDueAsync(now, investigation, stop);
-        foreach (var paymentId in resends.Concat(investigations))
+        var duplicates = await scope.ServiceProvider.GetRequiredService<IResendRepository>()
+            .FindDueAsync(now, investigation, stop);
+        foreach (var paymentId in resends.Concat(investigations).Concat(duplicates))
         {
             stop.ThrowIfCancellationRequested();
             TryStart(paymentId);
@@ -125,40 +136,46 @@ public sealed class OutgoingRuntime(
     {
         using var budget = new CancellationTokenSource(options.AttemptBudget, Time);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(budget.Token, ExecutionToken);
-        var status = await RecoverAsync(paymentId, stop.Token);
+        if (await RecoverAsync(paymentId, stop.Token) is not { } payment)
+        {
+            return;
+        }
 
         // A stale status is harmless: each workflow loads the payment again and acts only on the states it owns.
         // Investigations and resends apply their own attempt budget.
         await using var processing = scopes.CreateAsyncScope();
         var services = processing.ServiceProvider;
-        switch (status)
+        var hasInvestigation = PaymentMessageTypes.HasInvestigation(payment.MessageType);
+        switch (payment.Status)
         {
             case TransactionStatus.Received or TransactionStatus.Sending:
-                await services.GetRequiredService<Pacs008Processing>().ProcessAsync(paymentId, stop.Token);
+                await services.GetRequiredService<OutgoingPaymentProcessing>().ProcessAsync(paymentId, stop.Token);
                 break;
-            case TransactionStatus.Uncertain or TransactionStatus.Investigating:
+            case TransactionStatus.Uncertain or TransactionStatus.Investigating when hasInvestigation:
                 await services.GetRequiredService<OutgoingInvestigation>().ProcessAsync(paymentId, ExecutionToken);
                 break;
-            case TransactionStatus.Resending:
+            case TransactionStatus.Resending when hasInvestigation:
                 await services.GetRequiredService<OutgoingResend>().ProcessAsync(paymentId, ExecutionToken);
+                break;
+            case TransactionStatus.Uncertain or TransactionStatus.Resending:
+                await services.GetRequiredService<OutgoingDuplicateResend>().ProcessAsync(paymentId, ExecutionToken);
                 break;
         }
     }
 
     // Recovery may fail its unit of work; never retain that scope for actual processing.
-    private async Task<TransactionStatus?> RecoverAsync(Guid paymentId, CancellationToken token)
+    private async Task<(string MessageType, TransactionStatus Status)?> RecoverAsync(Guid paymentId, CancellationToken token)
     {
         await using var recovery = scopes.CreateAsyncScope();
         var payment = await recovery.ServiceProvider.GetRequiredService<IOutgoingPaymentRepository>().FindAsync(paymentId, token);
-        if (payment?.MessageType != PaymentMessageTypes.Pacs008)
+        if (payment is null || !PaymentMessageTypes.IsOutgoing(payment.MessageType))
         {
             return null;
         }
 
         await recovery.ServiceProvider.GetRequiredService<OutgoingTransactionWork>().TryRecoverAsync(paymentId, token);
-        return payment.CurrentStatus;
+        return (payment.MessageType, payment.CurrentStatus);
     }
-
     private async Task DeliverCallbackAsync(StatusDeliveryKey key)
     {
         await using var scope = scopes.CreateAsyncScope();

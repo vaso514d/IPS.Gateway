@@ -16,6 +16,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 public sealed class OutgoingHostTests
 {
     private const string Send = "/api/ips/pacs008/send";
+    private const string Pacs009Send = "/api/ips/pacs009/send";
 
     [Theory]
     [InlineData(false)]
@@ -197,6 +198,70 @@ public sealed class OutgoingHostTests
         using var host = fixture.Host();
         using var client = host.CreateClient();
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/health/live")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Pacs009_send_returns_the_final_status_and_reports_validation_errors()
+    {
+        await using var fixture = await CreateAsync();
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+
+        var invalid = await client.PostAsJsonAsync(Pacs009Send, Pacs009Request("bad") with { Amount = 0 });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        var response = await client.PostAsJsonAsync(Pacs009Send, Pacs009Request());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var status = (await response.Content.ReadFromJsonAsync<TransactionStatusDto>())!;
+        Assert.Equal(TransactionStatus.Accepted, status.Status);
+        Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Pacs009, status.MessageKind);
+        await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
+        Assert.Equal([false], fixture.PossibleDuplicateFlags);
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs009&clientReference=outgoing9");
+        Assert.Equal(status, query);
+    }
+
+    [Fact]
+    public async Task Pacs009_uncertain_result_returns_504_and_a_duplicate_returns_the_current_status_at_once()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.LoseReply = true;
+        fixture.Configuration["Payments:Outgoing:Transport:Ips:ConnectTimeout"] = "00:00:00.050";
+        fixture.Configuration["Payments:Outgoing:Transport:Ips:RequestTimeout"] = "00:00:00.200";
+        fixture.Configuration["Payments:Outgoing:Execution:HttpWait"] = "00:00:00.400";
+        fixture.Configuration["Payments:Outgoing:Execution:AttemptBudget"] = "00:00:01";
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+
+        var response = await client.PostAsJsonAsync(Pacs009Send, Pacs009Request());
+
+        Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
+        var status = (await response.Content.ReadFromJsonAsync<TransactionStatusDto>())!;
+        Assert.Equal(TransactionStatus.Processing, status.Status);
+        var duplicate = await client.PostAsJsonAsync(Pacs009Send, Pacs009Request() with { Amount = -1 });
+        Assert.Equal(HttpStatusCode.OK, duplicate.StatusCode);
+        Assert.Single(fixture.PaymentSubmissions);
+    }
+
+    [Fact]
+    public async Task Pacs009_lost_reply_is_recovered_by_a_possible_duplicate_resend_of_the_same_bytes()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.LoseNextReplies(1);
+        fixture.Configuration["Payments:Outgoing:Investigation:DiscoveryInterval"] = "00:00:00.050";
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+
+        var response = await client.PostAsJsonAsync(Pacs009Send, Pacs009Request());
+        Assert.True(response.StatusCode is HttpStatusCode.OK or HttpStatusCode.GatewayTimeout);
+
+        await using var db = fixture.Database.Context();
+        await EventuallyAsync(() => db.Payments.AsNoTracking().AnyAsync(p => p.CurrentStatus == Domain.Transactions.TransactionStatus.Accepted));
+        await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
+        Assert.Equal([false, true], fixture.PossibleDuplicateFlags);
+        var sent = fixture.PaymentSubmissions;
+        Assert.Equal(2, sent.Length);
+        Assert.Equal(sent[0], sent[1]);
     }
 
     [Fact]

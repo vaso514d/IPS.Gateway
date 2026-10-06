@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -103,9 +104,11 @@ public sealed class OutgoingTransactionIntakeTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(CommitCalls == 0 ? Existing : Winner);
         }
+        public Task<bool> IsProtocolIdUsedAsync(string messageId, string transactionId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Intake never checks protocol ids.");
         public Task<OutgoingPayment?> FindByMessageIdAsync(string messageId, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Intake never looks a payment up by protocol message id.");
-        public void Add(OutgoingPayment payment, string requestJson, AcceptedPacs008? accepted)
+        public void Add(OutgoingPayment payment, string requestJson, IAcceptedPayment? accepted)
         {
             Added = payment;
             Json = requestJson;

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
-// Each authorized resend journals the original pacs.008 bytes: ready, submitted once, the response, then the result.
+// Each resend journals the original message bytes: ready, submitted once, the response, then the result.
 public sealed class ResendRepository(TransactionDbContext db) : IResendRepository
 {
     private const string UnresolvedResponse = "Unresolved resend response.";
@@ -43,10 +43,45 @@ public sealed class ResendRepository(TransactionDbContext db) : IResendRepositor
             resend.Id,
             resend.Number,
             resend.InvestigationId,
+            resend.DeadlineUtc,
             request?.Snapshot(),
             response?.Snapshot(),
             result,
             resend.TransportFailure);
+    }
+
+    // Without an investigation, only an unowned Uncertain payment is due, once it has waited out the first delay.
+    public async Task<IReadOnlyList<Guid>> FindDueAsync(DateTimeOffset now, InvestigationOptions options, CancellationToken cancellationToken)
+    {
+        var firstDue = now - options.FirstDelay;
+        return await db.OutgoingMetadata
+            .AsNoTracking()
+            .Where(x => x.Payment.MessageType != PaymentMessageTypes.Pacs008 && PaymentMessageTypes.Outgoing.Contains(x.Payment.MessageType))
+            .Where(x => x.Payment.CurrentStatus == TransactionStatus.Uncertain)
+            .Where(x => x.ClaimToken == null || x.ClaimExpiresAtUtc <= now)
+            .Where(x => x.NextActionAtUtc == null || x.NextActionAtUtc <= now)
+            .Where(x => x.Payment.CurrentSource == StatusSource.Recovery
+                || x.Payment.CurrentStatusAtUtc <= firstDue
+                || db.Resends.Any(resend => resend.PaymentId == x.Id))
+            .OrderBy(x => x.NextActionAtUtc ?? x.Payment.CurrentStatusAtUtc)
+            .ThenBy(x => x.Id)
+            .Select(x => x.Id)
+            .Take(options.DiscoveryBatch)
+            .ToListAsync(cancellationToken);
+    }
+
+    public void StageAttempt(OutgoingPayment payment, TransactionClaim claim, int number, DateTimeOffset deadlineUtc, DateTimeOffset now)
+    {
+        RequireOwner(payment, claim, now);
+        db.Resends.Add(new ResendRow
+        {
+            Id = Guid.NewGuid(),
+            PaymentId = payment.Id,
+            Number = number,
+            DeadlineUtc = deadlineUtc.ToUniversalTime(),
+            CreatedAtUtc = now.ToUniversalTime()
+        });
+        db.RequireCurrentVersion(payment);
     }
 
     public void StageAuthorization(OutgoingPayment payment, TransactionClaim claim, Guid investigationId, int number, DateTimeOffset now)
@@ -74,7 +109,7 @@ public sealed class ResendRepository(TransactionDbContext db) : IResendRepositor
             PaymentId = payment.Id,
             ResendId = resendId,
             Direction = OutgoingMessageDirection.Outbound,
-            MessageDefinition = PaymentMessageTypes.Pacs008Definition,
+            MessageDefinition = original.MessageDefinition,
             Content = original.Content,
             CreatedAtUtc = now.ToUniversalTime(),
             OriginatingMessageId = original.Id,
@@ -161,7 +196,7 @@ public sealed class ResendRepository(TransactionDbContext db) : IResendRepositor
     }
 
     private void RequireOwner(OutgoingPayment payment, TransactionClaim claim, DateTimeOffset now) =>
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Resending);
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Resending);
 
     private ResendRow CommittedResend(Guid paymentId, Guid resendId)
     {

@@ -9,5 +9,7 @@ internal static class IpsHeaders
     internal const string MessageType = "X-MONTRAN-IPS-MessageType";
     internal const string MessageSequence = "X-MONTRAN-IPS-MessageSeq";
     internal const string PossibleDuplicate = "X-MONTRAN-IPS-PossibleDuplicate";
+    // Marks a message the participant repeats because the outcome of the previous attempt is unknown (Annex D p. 94).
+    internal const string ResendPossibleDuplicate = "X-MONTRAN-RTP-PossibleDuplicate";
     internal const string IdempotencyKey = "Idempotency-Key";
 }

@@ -669,7 +669,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.ToTable("OutgoingMessages", null, t =>
                         {
-                            t.HasCheckConstraint("CK_OutgoingMessages_Lifecycle", "([InvestigationId] IS NULL OR [ResendId] IS NULL) AND (([Direction] = 0 AND [MessageDefinition] IS NOT NULL AND (([InvestigationId] IS NULL AND [ResendId] IS NULL AND [MessageDefinition] = 'pacs.008.001.12' AND [OriginatingMessageId] IS NULL) OR ([InvestigationId] IS NOT NULL AND [MessageDefinition] = 'pacs.028.001.06' AND [OriginatingMessageId] IS NOT NULL) OR ([ResendId] IS NOT NULL AND [MessageDefinition] = 'pacs.008.001.12' AND [OriginatingMessageId] IS NOT NULL)) AND [Disposition] IS NOT NULL AND [Disposition] IN (0,1) AND [HttpStatusCode] IS NULL AND [HeadersJson] IS NULL AND [ProcessedAtUtc] IS NULL AND [Failure] IS NULL AND (([Status] = 0 AND [StartedAtUtc] IS NULL AND [SubmissionOwner] IS NULL) OR ([Status] = 1 AND [StartedAtUtc] IS NOT NULL AND [SubmissionOwner] IS NOT NULL))) OR ([Direction] = 1 AND [OriginatingMessageId] IS NOT NULL AND [Disposition] IS NULL AND [StartedAtUtc] IS NULL AND [SubmissionOwner] IS NULL AND [HttpStatusCode] IS NOT NULL AND [HttpStatusCode] BETWEEN 100 AND 599 AND [HeadersJson] IS NOT NULL AND ISJSON([HeadersJson]) = 1 AND (([Status] = 2 AND [ProcessedAtUtc] IS NULL AND [Failure] IS NULL) OR ([Status] = 3 AND [ProcessedAtUtc] IS NOT NULL AND [Failure] IS NULL) OR ([Status] = 4 AND [ProcessedAtUtc] IS NOT NULL AND [Failure] IS NOT NULL))))");
+                            t.HasCheckConstraint("CK_OutgoingMessages_Lifecycle", "([InvestigationId] IS NULL OR [ResendId] IS NULL) AND (([Direction] = 0 AND [MessageDefinition] IS NOT NULL AND (([InvestigationId] IS NULL AND [ResendId] IS NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11') AND [OriginatingMessageId] IS NULL) OR ([InvestigationId] IS NOT NULL AND [MessageDefinition] = 'pacs.028.001.06' AND [OriginatingMessageId] IS NOT NULL) OR ([ResendId] IS NOT NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11') AND [OriginatingMessageId] IS NOT NULL)) AND [Disposition] IS NOT NULL AND [Disposition] IN (0,1) AND [HttpStatusCode] IS NULL AND [HeadersJson] IS NULL AND [ProcessedAtUtc] IS NULL AND [Failure] IS NULL AND (([Status] = 0 AND [StartedAtUtc] IS NULL AND [SubmissionOwner] IS NULL) OR ([Status] = 1 AND [StartedAtUtc] IS NOT NULL AND [SubmissionOwner] IS NOT NULL))) OR ([Direction] = 1 AND [OriginatingMessageId] IS NOT NULL AND [Disposition] IS NULL AND [StartedAtUtc] IS NULL AND [SubmissionOwner] IS NULL AND [HttpStatusCode] IS NOT NULL AND [HttpStatusCode] BETWEEN 100 AND 599 AND [HeadersJson] IS NOT NULL AND ISJSON([HeadersJson]) = 1 AND (([Status] = 2 AND [ProcessedAtUtc] IS NULL AND [Failure] IS NULL) OR ([Status] = 3 AND [ProcessedAtUtc] IS NOT NULL AND [Failure] IS NULL) OR ([Status] = 4 AND [ProcessedAtUtc] IS NOT NULL AND [Failure] IS NOT NULL))))");
                         });
                 });
 
@@ -728,11 +728,11 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.ToTable("Transactions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Transactions_Accepted", "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)");
+                            t.HasCheckConstraint("CK_Transactions_Accepted", "[AcceptedJson] IS NULL OR ([MessageType] IN ('pacs.008', 'pacs.009') AND ISJSON([AcceptedJson]) = 1)");
 
                             t.HasCheckConstraint("CK_Transactions_Claim", "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
 
-                            t.HasCheckConstraint("CK_Transactions_Preparation", "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR ([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL )");
+                            t.HasCheckConstraint("CK_Transactions_Preparation", "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR ([MessageType] IN ('pacs.008', 'pacs.009') AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL)");
                         });
                 });
 
@@ -804,10 +804,13 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("DeadlineUtc")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("DetailsJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("InvestigationId")
+                    b.Property<Guid?>("InvestigationId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Number")
@@ -825,7 +828,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvestigationId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[InvestigationId] IS NOT NULL");
 
                     b.HasIndex("InvestigationId", "PaymentId");
 
@@ -834,7 +838,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.ToTable("OutgoingResends", null, t =>
                         {
-                            t.HasCheckConstraint("CK_OutgoingResends_State", "[Number] > 0 AND (([Outcome] IS NULL AND [CompletedAtUtc] IS NULL AND [DetailsJson] IS NULL AND [TransportFailure] IS NULL) OR ([Outcome] IS NOT NULL AND [Outcome] BETWEEN 0 AND 2 AND [CompletedAtUtc] IS NOT NULL AND [DetailsJson] IS NOT NULL AND ISJSON([DetailsJson]) = 1))");
+                            t.HasCheckConstraint("CK_OutgoingResends_State", "[Number] > 0 AND (([InvestigationId] IS NOT NULL AND [DeadlineUtc] IS NULL) OR ([InvestigationId] IS NULL AND [DeadlineUtc] IS NOT NULL)) AND (([Outcome] IS NULL AND [CompletedAtUtc] IS NULL AND [DetailsJson] IS NULL AND [TransportFailure] IS NULL) OR ([Outcome] IS NOT NULL AND [Outcome] BETWEEN 0 AND 2 AND [CompletedAtUtc] IS NOT NULL AND [DetailsJson] IS NOT NULL AND ISJSON([DetailsJson]) = 1))");
                         });
                 });
 
@@ -972,8 +976,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .WithMany()
                         .HasForeignKey("InvestigationId", "PaymentId")
                         .HasPrincipalKey("Id", "PaymentId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Inbound.IncomingPaymentMetadata", b =>

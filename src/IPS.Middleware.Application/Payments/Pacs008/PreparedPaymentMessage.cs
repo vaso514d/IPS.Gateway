@@ -6,5 +6,5 @@ public sealed record PreparedPaymentMessage(
     string TransactionId,
     string? UnsignedXml,
     string? SignedXml,
-    AcceptedPacs008? Accepted = null,
+    IAcceptedPayment? Accepted = null,
     SubmissionMessageKind? ReadyDisposition = null);

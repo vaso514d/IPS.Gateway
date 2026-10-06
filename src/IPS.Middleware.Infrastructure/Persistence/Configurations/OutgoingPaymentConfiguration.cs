@@ -37,10 +37,10 @@ internal sealed class OutgoingPaymentMetadataConfiguration : IEntityTypeConfigur
         builder.ToTable("Transactions", table =>
         {
             table.HasCheckConstraint("CK_Transactions_Accepted",
-                "[AcceptedJson] IS NULL OR ([MessageType] = 'pacs.008' AND ISJSON([AcceptedJson]) = 1)");
+                "[AcceptedJson] IS NULL OR ([MessageType] IN ('pacs.008', 'pacs.009') AND ISJSON([AcceptedJson]) = 1)");
             table.HasCheckConstraint("CK_Transactions_Preparation",
                 "([MessageId] IS NULL AND [ProtocolTransactionId] IS NULL AND [UnsignedXml] IS NULL) OR " +
-                "([MessageType] = 'pacs.008' AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL )");
+                "([MessageType] IN ('pacs.008', 'pacs.009') AND [MessageId] IS NOT NULL AND [ProtocolTransactionId] IS NOT NULL)");
             table.HasCheckConstraint("CK_Transactions_Claim",
                 "([ClaimToken] IS NULL AND [ClaimExpiresAtUtc] IS NULL) OR ([ClaimToken] IS NOT NULL AND [ClaimExpiresAtUtc] IS NOT NULL)");
         });

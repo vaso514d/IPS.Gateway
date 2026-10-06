@@ -5,6 +5,7 @@ using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.IntegrationTests.Transport;
 using IPS.MiidleWear.Contracts.Pacs008;
+using IPS.MiidleWear.Contracts.Pacs009;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -16,6 +17,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 internal sealed class OutgoingHostFixture : IAsyncDisposable
 {
     private int _unresolvedReplies;
+    private int _lostReplies;
 
     public SqlTestDatabase Database { get; private set; } = null!;
     public TransportCertificates Certificates { get; } = new();
@@ -34,6 +36,12 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
 
     // pacs.008 submissions only; the runtime may also send pacs.028 investigations.
     public string[] PaymentSubmissions => Submissions.Where(xml => !IpsReplies.IsInvestigation(xml)).ToArray();
+
+    // Whether each payment submission carried the possible-duplicate header, in arrival order.
+    public ConcurrentQueue<bool> PossibleDuplicateFlags { get; } = new();
+
+    // The next payment submissions never get a reply: IPS may have processed them, but the connection is dropped.
+    public void LoseNextReplies(int submissions) => _lostReplies = submissions;
 
     // The next payment submissions receive an unresolved reply.
     public void AnswerUnresolved(int submissions) => _unresolvedReplies = submissions;
@@ -74,6 +82,20 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
     }
 
+    public static Pacs009PaymentRequestDto Pacs009Request(string reference = "outgoing9") => new()
+    {
+        ClientReference = reference,
+        Id = "HOST-" + reference,
+        DebtorAgent = new() { Bicfi = "BAGAGE22" },
+        CreditorAgent = new() { Bicfi = "TBCBGE22" },
+        EndToEndId = "E2E-HOST-009",
+        ValueDate = new DateOnly(2026, 10, 4),
+        Currency = "GEL",
+        Amount = 10m,
+        Debtor = new() { Account = "GE29NB0000000101904917" },
+        Creditor = new() { Account = "GE95TB0000000123456789" }
+    };
+
     public static Pacs008InstantPaymentRequestDto Request(string reference = "outgoing")
     {
         var now = DateTimeOffset.UtcNow;
@@ -101,6 +123,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             return;
         }
 
+        PossibleDuplicateFlags.Enqueue(context.Request.Headers.ContainsKey("X-MONTRAN-RTP-PossibleDuplicate"));
         FirstSendAtUtc ??= DateTimeOffset.UtcNow;
         FirstSend.TrySetResult();
         if (Block)
@@ -108,7 +131,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             await Release.Task.WaitAsync(context.RequestAborted);
         }
 
-        if (LoseReply)
+        if (LoseReply || Interlocked.Decrement(ref _lostReplies) >= 0)
         {
             context.Abort();
             return;
@@ -129,6 +152,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             MessageId = Value("BizMsgIdr"),
             TransactionId = Value("TxId"),
             EndToEndId = Value("EndToEndId"),
+            OriginalMessageName = Value("MsgDefIdr"),
             GroupStatus = status,
             TransactionStatus = status,
             ReasonCode = Reject ? "AC01" : null

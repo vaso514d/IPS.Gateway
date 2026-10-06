@@ -12,6 +12,6 @@ internal static class OutgoingStatusProjection
         var payment = metadata.Payment;
         return new(payment.Id, payment.CurrentSequence, payment.MessageType, payment.ClientReference,
             payment.CurrentStatus, payment.CurrentStatusAtUtc, payment.Current.Details, metadata.MessageId,
-            PaymentJson.ReadAccepted(metadata.AcceptedJson)?.Payment.EndToEndId);
+            PaymentJson.ReadAccepted(metadata.Payment.MessageType, metadata.AcceptedJson)?.EndToEndId);
     }
 }

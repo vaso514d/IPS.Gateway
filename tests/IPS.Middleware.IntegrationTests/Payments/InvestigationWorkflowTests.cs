@@ -341,6 +341,7 @@ public sealed class InvestigationWorkflowTests
 
             return await IpsReplies.AnswerInvestigationAsync(Core.IpsCertificate, xml, Answer);
         }
+        public Task<IpsSubmissionResponse> ResendAsync(string xml, CancellationToken cancellationToken) => SendAsync(xml, cancellationToken);
         public ValueTask DisposeAsync() => Core.DisposeAsync();
     }
 }

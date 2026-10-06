@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -26,7 +27,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public async Task<PaymentSubmission?> ReadAsync(Guid paymentId, CancellationToken cancellationToken)
     {
-        if (!await db.Payments.AnyAsync(x => x.Id == paymentId && x.MessageType == Pacs008, cancellationToken))
+        if (!await db.Payments.AnyAsync(x => x.Id == paymentId && PaymentMessageTypes.Outgoing.Contains(x.MessageType), cancellationToken))
         {
             return null;
         }
@@ -43,7 +44,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public void StageSubmission(OutgoingPayment payment, TransactionClaim claim, SubmissionMessageKind messageKind, DateTimeOffset now)
     {
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Sending);
         var ready = CommittedMessage(payment.Id, OutgoingMessageDirection.Outbound);
         if (ready.Status != MessageJournalStatus.ReadyToSend || ready.Disposition != messageKind)
         {
@@ -58,7 +59,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public void StageResponse(OutgoingPayment payment, TransactionClaim claim, IpsSubmissionResponse response, DateTimeOffset now)
     {
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Sending);
         var sent = CommittedMessage(payment.Id, OutgoingMessageDirection.Outbound);
         if (db.Entry(sent).Property(x => x.Status).OriginalValue != MessageJournalStatus.SendStarted)
         {
@@ -101,7 +102,7 @@ public sealed class PaymentSubmissionRepository(TransactionDbContext db) : IPaym
 
     public void StageInterpretation(OutgoingPayment payment, TransactionClaim claim, IpsReply reply, DateTimeOffset now)
     {
-        db.OwnedPacs008(payment, claim, now, TransactionStatus.Sending);
+        db.OwnedOutgoing(payment, claim, now, TransactionStatus.Sending);
         var received = CommittedMessage(payment.Id, OutgoingMessageDirection.Response);
         var conclusive = reply.Status is IpsReplyStatus.Accepted or IpsReplyStatus.Rejected;
         OutgoingJournal.Consume(received, conclusive, reply.Details.Description, now);

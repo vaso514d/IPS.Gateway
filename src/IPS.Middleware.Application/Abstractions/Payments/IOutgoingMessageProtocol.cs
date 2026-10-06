@@ -1,10 +1,14 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Application.Abstractions.Payments;
 
-public interface IPacs008MessagePreparation
+// The only per-type seam of outgoing processing: how one message type is built and signed.
+public interface IOutgoingMessageProtocol
 {
-    string BuildUnsignedXml(AcceptedPacs008 accepted, string messageId, string transactionId);
+    string MessageType { get; }
+
+    string BuildUnsignedXml(IAcceptedPayment accepted, string messageId, string transactionId);
 
     // Signs with the currently available certificate, or returns the unsigned XML when the host's Development policy permits.
     // Defers when no usable certificate or key is available now; nothing has been sent, so the attempt can be repeated.

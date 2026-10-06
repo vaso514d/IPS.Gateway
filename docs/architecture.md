@@ -210,6 +210,14 @@ OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, iden
 
 See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above and the next one describe the current implementation.
 
+## Outgoing pacs.009 and the shared outgoing core (005a)
+
+- **One outgoing core.** `OutgoingPaymentProcessing` processes any supported outgoing message type. Each type contributes only an `IOutgoingMessageProtocol` (build and sign its XML) and an accepted-payment snapshot (`IAcceptedPayment`: end-to-end id, optional pre-send deadline, caller-supplied protocol ids). Claims, journal rows, markers, checkpoints, callbacks and the host runtime are shared; `PaymentMessageTypes.Outgoing` is the supported set, `HasInvestigation` the pacs.008-only rule.
+- **pacs.009.** Intake validates the source rules, checks that the caller-chosen message and transaction ids are unused (unique indexes fence a race), and snapshots the payment. The XML follows the IPS v1 profile: financial institutions by BICFI, IBAN-only accounts, no UETR or priority fields. There is no pre-send deadline.
+- **Recovery.** A pacs.009 has no investigation. After an unknown outcome `OutgoingDuplicateResend` sends the exact original again as a possible duplicate (`X-MONTRAN-RTP-PossibleDuplicate`), each attempt one-shot under its committed marker, on the 30 s, 1 min, 5 min, then 15 min backoff, inside a 24-hour window frozen on the first attempt, and ends in manual review. It shares the send, interpret, abandon and deadline steps with the pacs.008 resend through `ResendExchange`.
+- **Persistence.** `OutgoingResends.InvestigationId` is optional; a possible-duplicate attempt stores its own deadline instead, and SQL requires exactly one of the two. Initial-exchange queries select journal rows with neither an investigation nor a resend reference.
+- See [005a](specs/005a-outgoing-pacs009.md).
+
 ## Unsolicited incoming pacs.002 (003a.4)
 
 - **Intake.** A status report IPS sends on its own arrives through the same pull as every inbound message and is stored in the inbound journal. After that commit, `IncomingReceiveWorker` acknowledges it with `POST MessageAck` and the sequence header; a failed ack is only logged, and a redelivery is acknowledged again.

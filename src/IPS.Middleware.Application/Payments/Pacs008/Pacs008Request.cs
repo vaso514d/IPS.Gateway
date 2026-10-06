@@ -1,6 +1,6 @@
 namespace IPS.Middleware.Application.Payments.Pacs008;
 
-public sealed record Pacs008Request
+public sealed record Pacs008Request : IOutgoingPaymentRequest
 {
     public string? ClientReference { get; init; }
     public string? InstructionId { get; init; }

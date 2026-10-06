@@ -71,7 +71,7 @@ public sealed class OutgoingInvestigation(
     private async Task ContinueAsync(ClaimedPayment claimed, InvestigationAttempt? attempt, CancellationToken token)
     {
         var stored = await preparation.ReadAsync(claimed.Payment.Id, token);
-        if (stored?.Accepted is not { } accepted)
+        if (stored?.Accepted is not AcceptedPacs008 accepted)
         {
             await RequireManualReviewAsync(claimed, "Accepted payment data is unavailable.", token);
             return;
@@ -291,7 +291,7 @@ public sealed class OutgoingInvestigation(
     }
 
     private static bool IsInvestigable(OutgoingPayment payment) =>
-        payment.MessageType == PaymentMessageTypes.Pacs008
+        PaymentMessageTypes.HasInvestigation(payment.MessageType)
         && payment.CurrentStatus is TransactionStatus.Uncertain or TransactionStatus.Investigating;
 
     // A fresh uncertain outcome waits FirstDelay before the first cycle; recovery starts at once.

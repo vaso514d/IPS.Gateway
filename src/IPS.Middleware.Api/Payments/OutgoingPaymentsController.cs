@@ -6,6 +6,7 @@ using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.StatusDelivery;
 using IPS.MiidleWear.Contracts.Pacs008;
+using IPS.MiidleWear.Contracts.Pacs009;
 using IPS.MiidleWear.Contracts.Transactions;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,18 +24,15 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendAsync([FromBody] Pacs008InstantPaymentRequestDto request, CancellationToken token)
-    {
-        var requestJson = JsonSerializer.Serialize(request, JsonSerializerOptions.Web);
-        var result = await submission.SubmitAsync(Pacs008RequestMapping.Map(request), requestJson, token);
-        if (result.Status is not { } status)
-        {
-            return Invalid(result.Errors);
-        }
+    public async Task<IResult> SendAsync([FromBody] Pacs008InstantPaymentRequestDto request, CancellationToken token) =>
+        Respond(await submission.SubmitAsync(Pacs008RequestMapping.Map(request), Json(request), token));
 
-        var statusCode = result.TimedOut ? StatusCodes.Status504GatewayTimeout : StatusCodes.Status200OK;
-        return Results.Json(OutgoingStatusContract.Map(status), Wire, statusCode: statusCode);
-    }
+    [HttpPost(Pacs009RestApiRoutes.Send, Name = "SendPacs009")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IResult> SendPacs009Async([FromBody] Pacs009PaymentRequestDto request, CancellationToken token) =>
+        Respond(await submission.SubmitAsync(Pacs009RequestMapping.Map(request), Json(request), token));
 
     [HttpGet(TransactionRestApiRoutes.Status, Name = "GetTransactionStatus")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
@@ -54,6 +52,19 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
 
         var status = await reader.ReadAsync(type!, clientReference!, token);
         return status is null ? Results.NotFound() : Results.Ok(OutgoingStatusContract.Map(status));
+    }
+
+    private static string Json<T>(T request) => JsonSerializer.Serialize(request, JsonSerializerOptions.Web);
+
+    private static IResult Respond(OutgoingSubmissionResult result)
+    {
+        if (result.Status is not { } status)
+        {
+            return Invalid(result.Errors);
+        }
+
+        var statusCode = result.TimedOut ? StatusCodes.Status504GatewayTimeout : StatusCodes.Status200OK;
+        return Results.Json(OutgoingStatusContract.Map(status), Wire, statusCode: statusCode);
     }
 
     private static string? MessageType(string? messageKind)

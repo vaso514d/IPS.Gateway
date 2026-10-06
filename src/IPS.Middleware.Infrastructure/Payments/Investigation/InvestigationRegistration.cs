@@ -10,6 +10,7 @@ public static class InvestigationRegistration
     {
         services.AddScoped<OutgoingInvestigation>();
         services.AddScoped<OutgoingResend>();
+        services.AddScoped<OutgoingDuplicateResend>();
         return services;
     }
 }

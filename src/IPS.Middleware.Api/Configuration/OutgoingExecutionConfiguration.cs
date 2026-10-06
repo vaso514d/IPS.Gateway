@@ -1,7 +1,9 @@
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Execution;
@@ -19,10 +21,11 @@ internal static class OutgoingExecutionConfiguration
         services.AddSingleton(ReadPaymentProfile);
         services.AddScoped<OutgoingTransactionIntake>();
         services.AddScoped<OutgoingTransactionWork>();
-        services.AddScoped<Pacs008Processing>();
+        services.AddScoped<OutgoingPaymentProcessing>();
         services.AddScoped<OutgoingStatusDelivery>();
         services.AddOutgoingInvestigation();
         services.AddScoped(CreatePacs008Intake);
+        services.AddScoped(CreatePacs009Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
@@ -74,6 +77,17 @@ internal static class OutgoingExecutionConfiguration
             profile.Policy,
             profile.Protocol,
             services.GetRequiredService<Pacs008Options>(),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static Pacs009Intake CreatePacs009Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Pacs009Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            new Pacs009ProtocolProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
             services.GetRequiredService<TimeProvider>());
     }
 
