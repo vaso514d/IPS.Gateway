@@ -2,11 +2,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Domain.Inbound;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
-public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
+public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter, IIncomingTransferReplyInterpreter
 {
     // Top-level names match case-insensitively; duplicates there or exact duplicates in nested JSON make the reply unusable.
     private static readonly JsonSerializerOptions Strict = new()
@@ -15,7 +16,13 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         AllowDuplicateProperties = false
     };
 
-    public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original)
+    public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original) =>
+        Interpret(completion, original.EndToEndId, original.GroupMessageId, original.TransactionId);
+
+    CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IncomingPacs009 transfer) =>
+        Interpret(completion, transfer.EndToEndId, transfer.MessageId, transfer.TransactionId);
+
+    private static CorePaymentResult Interpret(CoreCallCompletion completion, string endToEndId, string? messageId, string? transactionId)
     {
         var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, Description: completion.Failure);
         if (completion.Response is not { StatusCode: >= 200 and < 300 } response || Read(response.Body) is not { } reply)
@@ -24,7 +31,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         }
 
         var outcome = ReadOutcome(reply.Status);
-        if (outcome == CoreOutcome.Unknown || !AnswersOriginal(reply, original))
+        if (outcome == CoreOutcome.Unknown || !AnswersOriginal(reply, endToEndId, messageId, transactionId))
         {
             return unknown;
         }
@@ -45,10 +52,10 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         _ => CoreOutcome.Unknown
     };
 
-    private static bool AnswersOriginal(CoreReply reply, IncomingPacs008Reference original) =>
-        Matches(reply.EndToEndId, original.EndToEndId)
-        && Matches(reply.Id, original.GroupMessageId)
-        && Matches(reply.TxId, original.TransactionId);
+    private static bool AnswersOriginal(CoreReply reply, string endToEndId, string? messageId, string? transactionId) =>
+        Matches(reply.EndToEndId, endToEndId)
+        && Matches(reply.Id, messageId)
+        && Matches(reply.TxId, transactionId);
 
     private static CoreReply? Read(string body)
     {

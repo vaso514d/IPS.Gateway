@@ -34,7 +34,7 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         var received = new ConcurrentQueue<(long Sequence, string Type, string Xml)>([
             (1, "pacs.008", fixture.Input.Signed["valid"]), (2, "pacs.008", fixture.Input.Signed["alternative"]),
             (1, "pacs.008", fixture.Input.Signed["valid"]), (1, "pacs.008", fixture.Input.Signed["valid"]),
-            (0, "pacs.008", "held raw XML"), (3, "pacs.009", "unsupported raw XML")]);
+            (0, "pacs.008", "held raw XML"), (3, "camt.056", "unsupported raw XML")]);
         var paths = new ConcurrentQueue<string>();
         var replies = new ConcurrentQueue<string>();
         var submissions = 0;

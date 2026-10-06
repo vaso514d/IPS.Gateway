@@ -226,6 +226,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Recovery** is the possible-duplicate resend shared with pacs.009; there is no pre-send deadline.
 - See [005b](specs/005b-outgoing-pacs004.md).
 
+## Incoming pacs.009 (005c)
+
+- **Receipt to transfer.** `IncomingReceiptPreparation` routes a pacs.009 receipt to `IncomingPacs009Processing`, which reads it through `IIncomingPacs009Protocol` (envelope, definition, trusted signature, one transfer, schema, BICFI agents), requires our participant as creditor agent and registers an `IncomingFiTransfer` keyed by participant BIC and EndToEndId. The receipt is complete once the transfer is stored; anything unverifiable, misaddressed or conflicting holds it.
+- **Delivery.** `IncomingTransferProcessing`, run by the follow-up worker, claims a due transfer, commits the attempt, then submits to the core (first call) or asks it (after an unanswered one). The EndToEndId is the idempotency key, so a replaced owner is safe. ACCP or RJCT with matching identifiers is final; otherwise it is retried on the reconciliation backoff until the 24-hour window ends in manual review; a 404 to a status question repeats the submission.
+- **IPS.** Only a `MessageAck` after the receipt commit; no pacs.002 and no decision or reversal.
+- See [005c](specs/005c-incoming-pacs009.md).
+
 ## Unsolicited incoming pacs.002 (003a.4)
 
 - **Intake.** A status report IPS sends on its own arrives through the same pull as every inbound message and is stored in the inbound journal. After that commit, `IncomingReceiveWorker` acknowledges it with `POST MessageAck` and the sequence header; a failed ack is only logged, and a redelivery is acknowledged again.

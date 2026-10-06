@@ -4,18 +4,20 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Inbound.StatusReports;
+using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.Application.Inbound.Composition;
 
-// Turns an owned receipt into a registered payment, a ready rejection reply, an applied status report or a held receipt.
+// Turns an owned receipt into a registered payment or transfer, a ready rejection reply, an applied status report or a held receipt.
 public sealed class IncomingReceiptPreparation(
     IInboundReceiptRepository receipts,
     IInboundWorkRepository work,
     IIncomingCompositionRepository composition,
     IncomingPaymentIntake intake,
     IncomingStatusReportProcessing statusReports,
+    IncomingPacs009Processing transfers,
     IIncomingReplyRepository replies,
     IIncomingReplyProtocol protocol,
     IUnitOfWork unitOfWork,
@@ -49,6 +51,11 @@ public sealed class IncomingReceiptPreparation(
         if (PaymentMessageTypes.IsPacs002(receipt.MessageType))
         {
             return await statusReports.ProcessAsync(claim, receipt, token);
+        }
+
+        if (PaymentMessageTypes.IsPacs009(receipt.MessageType))
+        {
+            return await transfers.ProcessAsync(claim, receipt, token);
         }
 
         if (!PaymentMessageTypes.IsPacs008(receipt.MessageType))

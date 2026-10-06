@@ -7,11 +7,13 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Inbound.StatusReports;
+using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.StatusReports;
+using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
@@ -78,7 +80,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     [Theory]
     [InlineData("untrusted", "pacs.008", 1)]
     [InlineData("wrong-version", "pacs.008", 1)]
-    [InlineData("valid", "pacs.009", 1)]
+    [InlineData("valid", "camt.056", 1)]
     [InlineData("valid", "pacs.008", 0)]
     public async Task Held_receipts_never_call_remote_systems(string input, string type, long sequence)
     {
@@ -420,6 +422,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddSingleton<IIncomingReplyProtocol>(new IncomingReplyProtocol(new(new(false, false), h.Time),
                 new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]));
             services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol([fixture.Input.Certificate]));
+            services.AddSingleton<IIncomingPacs009Protocol>(new IncomingPacs009Protocol([fixture.Input.Certificate]));
             services.AddIncomingComposition();
             configure?.Invoke(services);
             h.Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

@@ -12,7 +12,7 @@ internal sealed class AggregateIdentityConfiguration : IEntityTypeConfiguration<
     {
         builder.ToTable("AggregateIdentities", table => table.HasCheckConstraint(
             "CK_AggregateIdentities_Kind",
-            $"[Kind] IN ('{OutgoingPaymentKind}', '{IncomingPaymentKind}')"));
+            $"[Kind] IN ('{OutgoingPaymentKind}', '{IncomingPaymentKind}', '{IncomingTransferKind}')"));
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.Property(x => x.Kind).HasMaxLength(AggregateIdentity.KindLength).IsUnicode(false);

@@ -34,6 +34,7 @@ internal static class EventRegistry
 {
     internal const string OutgoingPaymentKind = "outgoing-payment";
     internal const string IncomingPaymentKind = "incoming-payment";
+    internal const string IncomingTransferKind = "incoming-transfer";
 
     internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -44,6 +45,7 @@ internal static class EventRegistry
     {
         OutgoingPayment => OutgoingPaymentKind,
         IncomingPayment => IncomingPaymentKind,
+        IncomingFiTransfer => IncomingTransferKind,
         _ => throw new InvalidOperationException("Unregistered aggregate.")
     };
 
@@ -60,6 +62,15 @@ internal static class EventRegistry
             IncomingProcessingOperation.OutcomeConflictObserved => "incoming-payment.outcome-conflict-observed",
             IncomingProcessingOperation.OutcomeObserved => "incoming-payment.outcome-observed",
             _ => throw new InvalidOperationException("Unregistered incoming operation.")
+        },
+        IncomingTransferRegistered => "incoming-transfer.registered",
+        IncomingTransferRecorded record => record.Operation switch
+        {
+            IncomingTransferOperation.SubmissionStarted => "incoming-transfer.submission-started",
+            IncomingTransferOperation.CoreOutcomeRecorded => "incoming-transfer.core-outcome-recorded",
+            IncomingTransferOperation.ResubmissionRequired => "incoming-transfer.resubmission-required",
+            IncomingTransferOperation.ManualReviewRequired => "incoming-transfer.manual-review-required",
+            _ => throw new InvalidOperationException("Unregistered incoming transfer operation.")
         },
         PaymentReceived => "payment.received",
         PaymentProcessingObserved => "payment.processing-observed",

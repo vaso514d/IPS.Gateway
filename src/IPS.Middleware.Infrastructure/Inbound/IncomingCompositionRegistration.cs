@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Inbound.StatusReports;
+using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Inbound.Workers;
@@ -22,6 +23,7 @@ public static class IncomingCompositionRegistration
         services.TryAddSingleton(new IncomingReplyOptions());
         services.TryAddSingleton(new IncomingReconciliationOptions());
         services.TryAddSingleton<IIncomingCoreReplyInterpreter, IncomingCoreReplyInterpreter>();
+        services.TryAddSingleton<IIncomingTransferReplyInterpreter, IncomingCoreReplyInterpreter>();
         services.AddSingleton<InboundReplyChannel>();
         services.TryAddSingleton<IncomingTransportSettings>();
         services.TryAddSingleton(sp => new IncomingReplyAdmission(sp.GetRequiredService<IncomingTransportSettings>().Ips.ConnectionLimit - 1));
@@ -30,6 +32,9 @@ public static class IncomingCompositionRegistration
         services.AddScoped<IIncomingCompositionRepository, IncomingCompositionRepository>();
         services.AddScoped<IncomingReceiptPreparation>();
         services.AddScoped<IncomingStatusReportProcessing>();
+        services.AddScoped<IIncomingTransferRepository, IncomingTransferRepository>();
+        services.AddScoped<IncomingPacs009Processing>();
+        services.AddScoped<IncomingTransferProcessing>();
         services.AddScoped<IncomingPacs008Processing>();
         services.AddScoped<IncomingReplyProcessing>();
         return services;

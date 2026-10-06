@@ -19,6 +19,8 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal DbSet<ResendRow> Resends => Set<ResendRow>();
     internal DbSet<IncomingPayment> IncomingPayments => Set<IncomingPayment>();
     internal DbSet<IncomingPaymentMetadata> IncomingMetadata => Set<IncomingPaymentMetadata>();
+    internal DbSet<IncomingFiTransfer> IncomingTransfers => Set<IncomingFiTransfer>();
+    internal DbSet<IncomingTransferMetadata> IncomingTransferMetadata => Set<IncomingTransferMetadata>();
     internal DbSet<IncomingCoreCallRow> IncomingCoreCalls => Set<IncomingCoreCallRow>();
     internal DbSet<IncomingReplyRow> IncomingReplies => Set<IncomingReplyRow>();
     internal DbSet<IncomingReplyAttemptRow> IncomingReplyAttempts => Set<IncomingReplyAttemptRow>();
@@ -44,6 +46,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     {
         modelBuilder.ApplyConfiguration(new OutgoingPaymentMetadataConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingPaymentMetadataConfiguration());
+        modelBuilder.ApplyConfiguration(new IncomingTransferMetadataConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingStatusDeliveryConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingMessageConfiguration());
         modelBuilder.ApplyConfiguration(new InvestigationConfiguration());
@@ -53,6 +56,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new IncomingReplyAttemptConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingCoreCallConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingPaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new IncomingTransferConfiguration());
         modelBuilder.ApplyConfiguration(new AggregateIdentityConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());

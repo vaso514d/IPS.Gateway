@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Transfers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -38,24 +39,49 @@ public sealed class IncomingFollowUpWorker(
         }
 
         await using var scope = scopes.CreateAsyncScope();
-        var ids = await scope.ServiceProvider.GetRequiredService<IncomingReconciliation>().DiscoverAsync(stop);
-        foreach (var id in ids)
+        var payments = await scope.ServiceProvider.GetRequiredService<IncomingReconciliation>().DiscoverAsync(stop);
+        var transfers = await scope.ServiceProvider.GetRequiredService<IncomingTransferProcessing>().DiscoverAsync(stop);
+
+        // Alternate between the two kinds so a backlog of one cannot starve the other.
+        for (var index = 0; index < Math.Max(payments.Count, transfers.Count); index++)
         {
-            if (running.Count == Options.CbsFollowUpCapacity || stop.IsCancellationRequested)
+            if (index < payments.Count && !TryStart(running, payments[index], ProcessPaymentAsync, stop, work))
             {
                 break;
             }
 
-            if (!running.ContainsKey(id))
+            if (index < transfers.Count && !TryStart(running, transfers[index], ProcessTransferAsync, stop, work))
             {
-                running.Add(id, ObserveAsync(id, ProcessAsync, work));
+                break;
             }
         }
     }
 
-    private async Task ProcessAsync(Guid id, CancellationToken token)
+    // False once capacity is used up or shutdown was requested.
+    private bool TryStart(Dictionary<Guid, Task> running, Guid id, Func<Guid, CancellationToken, Task> process, CancellationToken stop, CancellationToken work)
+    {
+        if (running.Count == Options.CbsFollowUpCapacity || stop.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        if (!running.ContainsKey(id))
+        {
+            running.Add(id, ObserveAsync(id, process, work));
+        }
+
+        return true;
+    }
+
+    private async Task ProcessPaymentAsync(Guid id, CancellationToken token)
     {
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<IncomingReconciliation>().ProcessAsync(id, token);
+    }
+
+    private async Task ProcessTransferAsync(Guid id, CancellationToken token)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IncomingTransferProcessing>().ProcessAsync(id, token);
     }
 }

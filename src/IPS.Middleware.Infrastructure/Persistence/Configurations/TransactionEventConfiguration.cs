@@ -12,7 +12,8 @@ internal sealed class TransactionEventConfiguration : IEntityTypeConfiguration<T
         builder.ToTable("TransactionEvents", table => table.HasCheckConstraint(
             "CK_TransactionEvents_Kind",
             $"([AggregateKind] = '{OutgoingPaymentKind}' AND [Name] LIKE 'payment.%') OR " +
-            $"([AggregateKind] = '{IncomingPaymentKind}' AND [Name] LIKE 'incoming-payment.%')"));
+            $"([AggregateKind] = '{IncomingPaymentKind}' AND [Name] LIKE 'incoming-payment.%') OR " +
+            $"([AggregateKind] = '{IncomingTransferKind}' AND [Name] LIKE 'incoming-transfer.%')"));
         builder.HasKey(x => new { x.TransactionId, x.Sequence });
         builder.HasIndex(x => x.EventId).IsUnique();
         builder.Property(x => x.EventId).ValueGeneratedNever();
