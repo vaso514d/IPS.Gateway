@@ -102,7 +102,7 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
 
         if (statuses.Any(status => Classify(status) is null))
         {
-            return Unresolved($"IPS did not return a final pacs.008 status (status: {string.Join(", ", statuses)}).");
+            return Unresolved($"IPS did not return a final status (status: {string.Join(", ", statuses)}).");
         }
 
         var outcome = Classify(statuses[0])!.Value;

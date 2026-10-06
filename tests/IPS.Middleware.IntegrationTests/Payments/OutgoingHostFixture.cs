@@ -4,6 +4,7 @@ using System.Xml.Linq;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.IntegrationTests.Transport;
+using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
@@ -82,6 +83,28 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseEnvironment("Development")
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
     }
+
+    public static Camt056RecallRequestDto Camt056Request(string reference = "outgoing56") => new()
+    {
+        ClientReference = reference,
+        Id = "HOST-RCL-" + reference,
+        RecallId = "HOST-CXL-" + reference,
+        OriginalMessageId = "ORIG-MSG-HOST",
+        OriginalEndToEndId = "ORIG-E2E-HOST",
+        OriginalTransactionId = "ORIG-TX-HOST",
+        OriginalCurrency = "GEL",
+        OriginalAmount = 10m,
+        OriginalSettlementDate = new DateOnly(2026, 10, 3),
+        ReasonCode = "DUPL",
+        OriginalTransaction = new()
+        {
+            SettlementDate = new DateOnly(2026, 10, 3),
+            Debtor = new() { Name = "Original Payer", Account = "GE29NB0000000101904917" },
+            DebtorAgent = new() { Bicfi = "BAGAGE22" },
+            CreditorAgent = new() { Bicfi = "TBCBGE22" },
+            Creditor = new() { Name = "Original Payee", Account = "GE95TB0000000123456789" }
+        }
+    };
 
     public static Pacs004PaymentReturnRequestDto Pacs004Request(string reference = "outgoing4") => new()
     {

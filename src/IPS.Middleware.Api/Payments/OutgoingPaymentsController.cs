@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.StatusDelivery;
+using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
@@ -41,6 +42,13 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public async Task<IResult> SendPacs004Async([FromBody] Pacs004PaymentReturnRequestDto request, CancellationToken token) =>
         Respond(await submission.SubmitAsync(Pacs004RequestMapping.Map(request), Json(request), token));
+
+    [HttpPost(Camt056RestApiRoutes.Send, Name = "SendCamt056")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IResult> SendCamt056Async([FromBody] Camt056RecallRequestDto request, CancellationToken token) =>
+        Respond(await submission.SubmitAsync(Camt056RequestMapping.Map(request), Json(request), token));
 
     [HttpGet(TransactionRestApiRoutes.Status, Name = "GetTransactionStatus")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]

@@ -323,7 +323,7 @@ public sealed class PaymentSubmissionTests
         var claim = new TransactionClaim(payment.Id, Guid.NewGuid(), Now.AddSeconds(45));
         Assert.Equivalent(new PaymentSubmission(null, null), await repository.ReadAsync(payment.Id, default), strict: true);
         Assert.Throws<InvalidOperationException>(() => repository.StageSubmission(payment, claim, SubmissionMessageKind.Signed, Now));
-        var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("camt.056", "other", "{}").Request!, default)).Payment;
+        var other = (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate("pacs.003", "other", "{}").Request!, default)).Payment;
         Assert.Null(await repository.ReadAsync(other.Id, default));
     }
 

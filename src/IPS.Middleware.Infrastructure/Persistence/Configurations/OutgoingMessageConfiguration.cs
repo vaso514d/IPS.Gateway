@@ -14,9 +14,9 @@ internal sealed class OutgoingMessageConfiguration : IEntityTypeConfiguration<Ou
             table.HasCheckConstraint("CK_OutgoingMessages_Lifecycle",
                 "([InvestigationId] IS NULL OR [ResendId] IS NULL) AND (" +
                 "([Direction] = 0 AND [MessageDefinition] IS NOT NULL AND (" +
-                "([InvestigationId] IS NULL AND [ResendId] IS NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11', 'pacs.004.001.13') AND [OriginatingMessageId] IS NULL) OR " +
+                "([InvestigationId] IS NULL AND [ResendId] IS NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11', 'pacs.004.001.13', 'camt.056.001.11') AND [OriginatingMessageId] IS NULL) OR " +
                 "([InvestigationId] IS NOT NULL AND [MessageDefinition] = 'pacs.028.001.06' AND [OriginatingMessageId] IS NOT NULL) OR " +
-                "([ResendId] IS NOT NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11', 'pacs.004.001.13') AND [OriginatingMessageId] IS NOT NULL)) " +
+                "([ResendId] IS NOT NULL AND [MessageDefinition] IN ('pacs.008.001.12', 'pacs.009.001.11', 'pacs.004.001.13', 'camt.056.001.11') AND [OriginatingMessageId] IS NOT NULL)) " +
                 "AND [Disposition] IS NOT NULL AND [Disposition] IN (0,1) " +
                 "AND [HttpStatusCode] IS NULL AND [HeadersJson] IS NULL AND [ProcessedAtUtc] IS NULL AND [Failure] IS NULL " +
                 "AND (([Status] = 0 AND [StartedAtUtc] IS NULL AND [SubmissionOwner] IS NULL) OR " +

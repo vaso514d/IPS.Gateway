@@ -9,7 +9,7 @@ public sealed class Pacs009Intake(
     IOutgoingPaymentRepository payments,
     OutgoingTransactionIntake intake,
     Pacs008Policy policy,
-    Pacs009ProtocolProfile profile,
+    IpsMessageProfile profile,
     TimeProvider timeProvider)
 {
     private static readonly IntakeValidationError IdentifierInUse =

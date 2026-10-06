@@ -1,6 +1,7 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.StatusDelivery;
+using IPS.Middleware.Infrastructure.Payments.Camt056;
 using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Pacs004;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
@@ -26,6 +27,8 @@ public static class OutgoingHttpRegistration
         services.AddTransient<IOutgoingMessageProtocol>(sp => new Pacs009Preparation(
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
         services.AddTransient<IOutgoingMessageProtocol>(sp => new Pacs004Preparation(
+            sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
+        services.AddTransient<IOutgoingMessageProtocol>(sp => new Camt056Preparation(
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
         services.AddTransient<IIpsReplyInterpreter>(sp => new IpsReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust));
         services.AddTransient<IInvestigationProtocol>(sp => new InvestigationProtocol(

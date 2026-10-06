@@ -19,7 +19,7 @@ internal static class Pacs004Message
     private const string LocalInstrument = "INST";
     private const string ChargeBearer = "SLEV";
 
-    internal static XElement Build(ValidatedPacs004 payment, PaymentMessageContext context, Pacs004ProtocolProfile profile) =>
+    internal static XElement Build(ValidatedPacs004 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
         new("Message",
             new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "pacs", P.NamespaceName),
@@ -29,7 +29,7 @@ internal static class Pacs004Message
                     GroupHeader(payment, context),
                     Transaction(payment, context, profile))));
 
-    private static XElement Header(ValidatedPacs004 payment, PaymentMessageContext context, Pacs004ProtocolProfile profile) =>
+    private static XElement Header(ValidatedPacs004 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
         new(H + "AppHdr",
             HeaderParty("Fr", payment.ParticipantBic),
             HeaderParty("To", profile.IpsBic),
@@ -52,7 +52,7 @@ internal static class Pacs004Message
                 Code("ClrSys", ClearingSystem)),
             new XElement(P + "InstgAgt", FinancialInstitution(payment.ParticipantBic, null)));
 
-    private static XElement Transaction(ValidatedPacs004 payment, PaymentMessageContext context, Pacs004ProtocolProfile profile)
+    private static XElement Transaction(ValidatedPacs004 payment, PaymentMessageContext context, IpsMessageProfile profile)
     {
         var original = payment.Original;
         return new(P + "TxInf",

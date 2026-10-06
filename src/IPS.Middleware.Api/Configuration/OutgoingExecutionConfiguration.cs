@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs004;
@@ -28,6 +29,7 @@ internal static class OutgoingExecutionConfiguration
         services.AddScoped(CreatePacs008Intake);
         services.AddScoped(CreatePacs009Intake);
         services.AddScoped(CreatePacs004Intake);
+        services.AddScoped(CreateCamt056Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
@@ -89,7 +91,7 @@ internal static class OutgoingExecutionConfiguration
             services.GetRequiredService<IOutgoingPaymentRepository>(),
             services.GetRequiredService<OutgoingTransactionIntake>(),
             profile.Policy,
-            new Pacs009ProtocolProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            new IpsMessageProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
             services.GetRequiredService<TimeProvider>());
     }
 
@@ -100,7 +102,18 @@ internal static class OutgoingExecutionConfiguration
             services.GetRequiredService<IOutgoingPaymentRepository>(),
             services.GetRequiredService<OutgoingTransactionIntake>(),
             profile.Policy,
-            new Pacs004ProtocolProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            new IpsMessageProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static Camt056Intake CreateCamt056Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Camt056Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            new IpsMessageProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
             services.GetRequiredService<TimeProvider>());
     }
 

@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs004;
@@ -58,6 +59,7 @@ public sealed class OutgoingRuntime(
             Pacs008Request pacs008 => services.GetRequiredService<Pacs008Intake>().AcceptAsync(pacs008, json, token),
             Pacs009Request pacs009 => services.GetRequiredService<Pacs009Intake>().AcceptAsync(pacs009, json, token),
             Pacs004Request pacs004 => services.GetRequiredService<Pacs004Intake>().AcceptAsync(pacs004, json, token),
+            Camt056Request camt056 => services.GetRequiredService<Camt056Intake>().AcceptAsync(camt056, json, token),
             _ => throw new ArgumentOutOfRangeException(nameof(request), request.GetType().Name, "Unsupported outgoing payment request.")
         };
 

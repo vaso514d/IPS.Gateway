@@ -5,7 +5,7 @@ namespace IPS.Middleware.Application.Payments.Pacs004;
 // Normalized return data and mapping settings fixed at intake; resuming uses these exact values.
 public sealed record AcceptedPacs004(
     ValidatedPacs004 Payment,
-    Pacs004ProtocolProfile Profile,
+    IpsMessageProfile Profile,
     DateTimeOffset EnvelopeCreatedAtUtc) : IAcceptedPayment
 {
     // Explicit implementations keep the shared view out of the stored JSON snapshot.

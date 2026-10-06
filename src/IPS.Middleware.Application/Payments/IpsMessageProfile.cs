@@ -1,14 +1,15 @@
 using System.Text.RegularExpressions;
 using IPS.Middleware.Application.Payments.Pacs008;
 
-namespace IPS.Middleware.Application.Payments.Pacs009;
+namespace IPS.Middleware.Application.Payments;
 
-// Configurable XML mapping settings; intake snapshots them with each accepted payment.
-public sealed record Pacs009ProtocolProfile
+// Configurable XML mapping settings shared by the pacs.009, pacs.004 and camt messages; intake snapshots them with each
+// accepted payment.
+public sealed record IpsMessageProfile
 {
     public const string InstantServiceLevel = "INST";
 
-    public Pacs009ProtocolProfile(string ipsBic, string serviceLevelCode = InstantServiceLevel)
+    public IpsMessageProfile(string ipsBic, string serviceLevelCode = InstantServiceLevel)
     {
         if (ipsBic is null || !Regex.IsMatch(ipsBic, Pacs008Text.Bic, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {

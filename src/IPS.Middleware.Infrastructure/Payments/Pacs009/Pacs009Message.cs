@@ -16,7 +16,7 @@ internal static class Pacs009Message
     private const string ClearingSystem = "IPS";
     private const string LocalInstrument = "INST";
 
-    internal static XElement Build(ValidatedPacs009 payment, PaymentMessageContext context, Pacs009ProtocolProfile profile) =>
+    internal static XElement Build(ValidatedPacs009 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
         new("Message",
             new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
             new XAttribute(XNamespace.Xmlns + "pacs", P.NamespaceName),
@@ -26,7 +26,7 @@ internal static class Pacs009Message
                     GroupHeader(payment, context, profile),
                     Transaction(payment, context))));
 
-    private static XElement Header(ValidatedPacs009 payment, PaymentMessageContext context, Pacs009ProtocolProfile profile) =>
+    private static XElement Header(ValidatedPacs009 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
         new(H + "AppHdr",
             HeaderParty("Fr", payment.ParticipantBic),
             HeaderParty("To", profile.IpsBic),
@@ -37,7 +37,7 @@ internal static class Pacs009Message
     private static XElement HeaderParty(string name, string bic) =>
         new(H + name, new XElement(H + "FIId", new XElement(H + "FinInstnId", new XElement(H + "BICFI", bic))));
 
-    private static XElement GroupHeader(ValidatedPacs009 payment, PaymentMessageContext context, Pacs009ProtocolProfile profile) =>
+    private static XElement GroupHeader(ValidatedPacs009 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
         new(P + "GrpHdr",
             new XElement(P + "MsgId", context.MessageId),
             new XElement(P + "CreDtTm", Timestamp(context.EnvelopeCreatedAtUtc)),

@@ -27,24 +27,24 @@ public interface IGatewayApi
         Description = "Processes a durably accepted Bank/Core instant payment. Returns 200 with the final outcome, including business rejection, or 504 with the current status after the configured HTTP wait (default 30 seconds). A repeated clientReference immediately returns 200 with the existing status and never starts another attempt. Final-status callbacks remain reliable regardless of the HTTP response. 400 = validation.")]
     Task<TransactionStatusDto> SendPacs008Async(Pacs008InstantPaymentRequestDto payment, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Pacs009RestApiRoutes.Send, Tag = "Pacs009", MessageType = "pacs.009", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Pacs009RestApiRoutes.Send, Tag = "Pacs009", MessageType = "pacs.009", SuccessStatusCode = 200,
         Summary = "Send an outbound pacs.009 FI-to-FI credit transfer.",
-        Description = "Accepts the request and answers 202 with status Processing; the final status is delivered to the core system (and readable with GET /api/ips/transactions/status). clientReference is the idempotency key. 400 = validation.")]
+        Description = "Processes a durably accepted FI-to-FI credit transfer. Returns 200 with the final outcome, including business rejection, or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status and never starts another attempt. Final-status callbacks remain reliable regardless of the HTTP response. 400 = validation.")]
     Task<TransactionStatusDto> SendPacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Pacs004RestApiRoutes.Send, Tag = "Pacs004", MessageType = "pacs.004", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Pacs004RestApiRoutes.Send, Tag = "Pacs004", MessageType = "pacs.004", SuccessStatusCode = 200,
         Summary = "Send an outbound pacs.004 payment return.",
-        Description = "A payment return — also the positive answer to a received camt.056 recall. Answers 202 with status Processing; the final status is delivered to the core system. clientReference is the idempotency key.")]
+        Description = "A payment return, also the positive answer to a received camt.056 recall. Returns 200 with the final outcome, including business rejection, or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status and never starts another attempt. Final-status callbacks remain reliable regardless of the HTTP response. 400 = validation.")]
     Task<TransactionStatusDto> SendPacs004Async(Pacs004PaymentReturnRequestDto payment, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Camt056RestApiRoutes.Send, Tag = "Recall", MessageType = "camt.056", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Camt056RestApiRoutes.Send, Tag = "Recall", MessageType = "camt.056", SuccessStatusCode = 200,
         Summary = "Send a camt.056 request for recall of a pacs.008 this bank sent.",
-        Description = "Asks IPS to recall a completed outbound instant credit transfer (NBG profile IPS_camt.056 - V1). Answers 202; the final status is IPS's technical verdict, delivered to the core system. The creditor bank answers later with an inbound pacs.004 (funds returned) or camt.029 (refused).")]
+        Description = "Asks IPS to recall a completed outbound instant credit transfer (NBG profile IPS_camt.056 - V1). Returns 200 with the final status, which is the technical verdict of IPS, or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status. The creditor bank answers later with an inbound pacs.004 (funds returned) or camt.029 (refused). 400 = validation.")]
     Task<TransactionStatusDto> SendCamt056Async(Camt056RecallRequestDto request, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Camt029RestApiRoutes.Send, Tag = "Recall", MessageType = "camt.029", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Camt029RestApiRoutes.Send, Tag = "Recall", MessageType = "camt.029", SuccessStatusCode = 200,
         Summary = "Send a camt.029 negative answer to a received camt.056 recall.",
-        Description = "Refuses a recall this bank received as the creditor (NBG profile IPS_camt.029 - V1; Conf and TxCxlSts are always RJCR). Answers 202; the final status is delivered to the core system. To accept a recall, send a pacs.004 instead.")]
+        Description = "Refuses a recall this bank received as the creditor (NBG profile IPS_camt.029 - V1; Conf and TxCxlSts are always RJCR). Returns 200 with the final status, which is the technical verdict of IPS, or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status. To accept a recall, send a pacs.004 instead. 400 = validation.")]
     Task<TransactionStatusDto> SendCamt029Async(Camt029ResolutionOfInvestigationDto request, CancellationToken cancellationToken);
 
     [RestEndpoint("POST", Pain002RestApiRoutes.Send, Tag = "PaymentInitiation", MessageType = "pain.002", SuccessStatusCode = 202,
