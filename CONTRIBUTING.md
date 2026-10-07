@@ -24,11 +24,13 @@ dotnet tool restore
 dotnet restore IPS.Middleware.slnx
 dotnet build IPS.Middleware.slnx --configuration Release --no-restore
 sqllocaldb start MSSQLLocalDB
-dotnet test IPS.Middleware.slnx --configuration Release --no-build
+dotnet test IPS.Middleware.slnx --configuration Release --no-build -m:1
 dotnet format IPS.Middleware.slnx --verify-no-changes --no-restore --exclude src/IPS.MiidleWear.Contracts
 dotnet ef migrations has-pending-model-changes --project src/IPS.Middleware.Infrastructure --configuration Release --no-build
 git diff --check
 ```
+
+The Aspire tests (`tests/IPS.Middleware.AspireTests`) start SQL Server and the service in containers and need Docker; without Docker they are skipped with the reason. `-m:1` runs the test projects one after another: run in parallel with the SQL and Java integration tests, the container orchestrator can exceed its own one-minute start timeout on a single machine. See [the local environment](docs/local-environment.md).
 
 Build warnings are errors. GitHub Actions repeats restore, Release build, tests, and formatting on Windows. It uploads test results and uses the runner's SQL Server LocalDB for isolated database tests. SQL tests create and delete only their own generated databases; they do not use application configuration. Branch protection will be configured when a remote is introduced.
 

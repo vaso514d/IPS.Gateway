@@ -21,9 +21,10 @@ public abstract class SupervisedBackgroundService(bool enabled, TimeSpan shutdow
     protected bool IsAdmitting => !_admission.IsCancellationRequested;
     protected CancellationToken ExecutionToken => _execution.Token;
 
-    // The service is healthy while every loop has progressed within stallFactor times the period it promised.
+    // The service is healthy while every loop has progressed within stallFactor times the period it promised, plus the time one
+    // pass of the loop may take (a sweep waits on SQL, so a short period alone would flag a busy but healthy loop).
     // The three reads are not taken together, so a probe made while the service stops may still say Running; the next one says Draining.
-    public WorkerHealth Health(DateTimeOffset now, double stallFactor)
+    public WorkerHealth Health(DateTimeOffset now, double stallFactor, TimeSpan passAllowance)
     {
         var name = GetType().Name;
         if (!enabled)
@@ -51,7 +52,7 @@ public abstract class SupervisedBackgroundService(bool enabled, TimeSpan shutdow
             return new(name, WorkerState.Stopped, "The service has stopped.");
         }
 
-        var stalled = _beats.Where(beat => now - beat.Value.AtUtc > beat.Value.Period * stallFactor).Select(beat => beat.Key).Order().ToArray();
+        var stalled = _beats.Where(beat => now - beat.Value.AtUtc > beat.Value.Period * stallFactor + passAllowance).Select(beat => beat.Key).Order().ToArray();
         return stalled.Length == 0
             ? new(name, WorkerState.Running, null)
             : new(name, WorkerState.Stalled, "No progress in: " + string.Join(", ", stalled));

@@ -82,9 +82,9 @@ public sealed class ReadinessCheckTests
         using var disabled = new TestWorker(enabled: false);
         using var notStarted = new TestWorker(enabled: true);
 
-        Assert.Equal(WorkerState.Disabled, disabled.Health(Now, 3).State);
-        Assert.True(disabled.Health(Now, 3).IsHealthy);
-        Assert.Equal(WorkerState.NotStarted, notStarted.Health(Now, 3).State);
+        Assert.Equal(WorkerState.Disabled, disabled.Health(Now, 3, TimeSpan.Zero).State);
+        Assert.True(disabled.Health(Now, 3, TimeSpan.Zero).IsHealthy);
+        Assert.Equal(WorkerState.NotStarted, notStarted.Health(Now, 3, TimeSpan.Zero).State);
     }
 
     [Fact]
@@ -95,14 +95,31 @@ public sealed class ReadinessCheckTests
         await worker.StartAsync(default);
         await worker.Started;
 
-        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3).State);
+        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3, TimeSpan.Zero).State);
         clock.Now += TimeSpan.FromSeconds(29);
-        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3).State);
+        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3, TimeSpan.Zero).State);
         clock.Now += TimeSpan.FromSeconds(2);
-        var stalled = worker.Health(clock.Now, 3);
+        var stalled = worker.Health(clock.Now, 3, TimeSpan.Zero);
 
         Assert.Equal(WorkerState.Stalled, stalled.State);
         Assert.Contains("loop", stalled.Detail, StringComparison.Ordinal);
+        worker.Release();
+        await worker.StopAsync(default);
+    }
+
+    [Fact]
+    public async Task The_pass_allowance_keeps_a_busy_loop_with_a_short_period_from_reading_as_stalled()
+    {
+        var clock = new TestClock(Now);
+        using var worker = new TestWorker(enabled: true, clock);
+        await worker.StartAsync(default);
+        await worker.Started;
+
+        clock.Now += TimeSpan.FromSeconds(35);
+
+        Assert.Equal(WorkerState.Stalled, worker.Health(clock.Now, 3, TimeSpan.Zero).State);
+        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3, TimeSpan.FromSeconds(10)).State);
+        Assert.Equal(WorkerState.Stalled, worker.Health(clock.Now.AddSeconds(6), 3, TimeSpan.FromSeconds(10)).State);
         worker.Release();
         await worker.StopAsync(default);
     }
@@ -115,11 +132,11 @@ public sealed class ReadinessCheckTests
         await worker.StartAsync(default);
         await worker.Started;
         clock.Now += TimeSpan.FromMinutes(5);
-        Assert.Equal(WorkerState.Stalled, worker.Health(clock.Now, 3).State);
+        Assert.Equal(WorkerState.Stalled, worker.Health(clock.Now, 3, TimeSpan.Zero).State);
 
         worker.BeatNow();
 
-        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3).State);
+        Assert.Equal(WorkerState.Running, worker.Health(clock.Now, 3, TimeSpan.Zero).State);
         worker.Release();
         await worker.StopAsync(default);
     }
@@ -132,7 +149,7 @@ public sealed class ReadinessCheckTests
         await worker.Started;
 
         var stopping = worker.StopAsync(default);
-        var draining = worker.Health(Now, 3);
+        var draining = worker.Health(Now, 3, TimeSpan.Zero);
         worker.Release();
         await stopping;
 
@@ -150,8 +167,8 @@ public sealed class ReadinessCheckTests
         await Task.WhenAny(ended.ExecuteTask!, Task.Delay(TimeSpan.FromSeconds(10)));
         await Task.WhenAny(failed.ExecuteTask!, Task.Delay(TimeSpan.FromSeconds(10)));
 
-        Assert.Equal(WorkerState.Stopped, ended.Health(Now, 3).State);
-        Assert.Equal(WorkerState.Faulted, failed.Health(Now, 3).State);
+        Assert.Equal(WorkerState.Stopped, ended.Health(Now, 3, TimeSpan.Zero).State);
+        Assert.Equal(WorkerState.Faulted, failed.Health(Now, 3, TimeSpan.Zero).State);
     }
 
     [Fact]
@@ -221,6 +238,7 @@ public sealed class ReadinessCheckTests
         Assert.Throws<InvalidOperationException>(new DiagnosticsSettings { CertificateWarning = TimeSpan.Zero }.Validate);
         Assert.Throws<InvalidOperationException>(new DiagnosticsSettings { DatabaseTimeout = TimeSpan.FromMinutes(6) }.Validate);
         Assert.Throws<InvalidOperationException>(new DiagnosticsSettings { WorkerStallFactor = double.NaN }.Validate);
+        Assert.Throws<InvalidOperationException>(new DiagnosticsSettings { WorkerPassAllowance = TimeSpan.FromSeconds(-1) }.Validate);
         Assert.Throws<InvalidOperationException>(new DiagnosticsSettings { SnapshotInterval = TimeSpan.FromDays(2) }.Validate);
     }
 

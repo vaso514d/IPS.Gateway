@@ -259,6 +259,11 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
 - See [007c](specs/007c-incoming-recalls.md).
 
+## Aspire test environment (012)
+
+- `tests/IPS.Middleware.AppHost` declares a SQL Server container, the simulators and one or more API instances (projects, or containers built from `src/IPS.Middleware.Api/Dockerfile` with `Middleware:Container=true`); `tests/IPS.Middleware.Simulators` is the test-support stand-in for IPS, the CBS callback and the Proxy Solution with a `/_sim` control API; `tests/IPS.Middleware.AspireTests` starts the stack with `Aspire.Hosting.Testing` and skips with a reason when Docker is not running. None of it is referenced by `src/`.
+- See [012](specs/012-aspire-test-environment.md) and the [local environment guide](local-environment.md).
+
 ## Shutdown and multi-instance guarantees (011)
 
 - **Ownership.** Any number of instances may share one database. A payment, a callback, an investigation or a resend is worked by the instance that holds its SQL claim; a claim expires after its ownership period and another instance then takes the work. A marker is committed before every IPS or core call, so a takeover after an unknown outcome sends the flagged possible-duplicate resend of the same bytes, never a fresh message (a pacs.008 is investigated with a pacs.028 first and resent only if IPS does not know it).

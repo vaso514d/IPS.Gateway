@@ -70,7 +70,7 @@ internal sealed class WorkerHealthCheck(
     {
         var unhealthy = services
             .OfType<SupervisedBackgroundService>()
-            .Select(service => service.Health(time.GetUtcNow(), settings.WorkerStallFactor))
+            .Select(service => service.Health(time.GetUtcNow(), settings.WorkerStallFactor, settings.WorkerPassAllowance))
             .Where(health => !health.IsHealthy)
             .ToArray();
         // A probe repeats every few seconds, so a problem is logged when it appears or changes, not on every probe.

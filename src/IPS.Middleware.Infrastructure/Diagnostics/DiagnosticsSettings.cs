@@ -8,12 +8,14 @@ public sealed class DiagnosticsSettings
     public TimeSpan CertificateWarning { get; init; } = TimeSpan.FromDays(30);
     // A worker loop is stalled when it has not progressed for this multiple of its expected period.
     public double WorkerStallFactor { get; init; } = 3;
+    // Added to that bound for the time one pass of a worker loop may take.
+    public TimeSpan WorkerPassAllowance { get; init; } = TimeSpan.FromSeconds(10);
     public TimeSpan DatabaseTimeout { get; init; } = TimeSpan.FromSeconds(3);
 
     public void Validate()
     {
         var intervalsAreUsable = SnapshotInterval > TimeSpan.Zero && SnapshotInterval <= TimeSpan.FromDays(1) && CertificateWarning > TimeSpan.Zero;
-        var stallFactorIsUsable = double.IsFinite(WorkerStallFactor) && WorkerStallFactor >= 1;
+        var stallFactorIsUsable = double.IsFinite(WorkerStallFactor) && WorkerStallFactor >= 1 && WorkerPassAllowance >= TimeSpan.Zero;
         var databaseTimeoutIsUsable = DatabaseTimeout > TimeSpan.Zero && DatabaseTimeout <= TimeSpan.FromMinutes(5);
         if (!intervalsAreUsable || !stallFactorIsUsable || !databaseTimeoutIsUsable)
         {
