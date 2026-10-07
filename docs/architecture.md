@@ -259,6 +259,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
 - See [007c](specs/007c-incoming-recalls.md).
 
+## Proxy management (009)
+
+- **Stateless.** `ProxyManagement` (Application) validates a register, update or remove request with the source's XSD-derived limits, asks `IProxyProtocol` for the signed acmt.022 and `IProxyClient` for one POST, then reads the answer. Nothing is stored, retried or scheduled; each call has a fresh operation and bulk reference.
+- **Infrastructure `Proxy/`.** `Acmt022Message` builds the three documents in the Annex E `hdr:Message` wrapper, `ProxySchema` validates them against the embedded `acmt.022.001.04` schema, `ProxyProtocol` signs with the shared ECDSA signer (or sends unsigned without a certificate), `ProxyReplyReader` reads the pacs.002.001.13 answer by element local names, and `ProxyClient` posts to `PRX/register`, `PRX/update` and `PRX/remove` with the PRX headers on a single-attempt HTTP client.
+- **Api.** `ProxyController` calls `ProxyManagement` with the requests `ProxyRequestMapping` builds from the imported Contracts. Accept and reject are both 200; validation is 400; no answer is 504 (timeout) or 502 (other failure). The routes exist only while `Proxy:Enabled` is true.
+- See [009](specs/009-proxy-management.md).
+
 ## Incoming camt.055 (008c)
 
 - An incoming camt.055 (a PISP's cancellation request for a payment initiation; short type, `.12`, `.012` or `.08`) is acknowledged and archived exactly like the recalls of 007c: `PaymentMessageTypes.IsArchivedCancellation` names all three types once, `IncomingReceiptPreparation` completes the receipt as processed and `IncomingReceiveWorker` acknowledges it after the commit. Nothing is verified, delivered to the core or answered.

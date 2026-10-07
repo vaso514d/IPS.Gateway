@@ -11,5 +11,8 @@
     <ProjectReference Include="../IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
   </ItemGroup>
-  <ItemGroup><EmbeddedResource Include="Payments/Pacs008/Schemas/*.xsd" /></ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Payments/Pacs008/Schemas/*.xsd" />
+    <EmbeddedResource Include="Proxy/Schemas/*.xsd" />
+  </ItemGroup>
 </Project>

@@ -13,6 +13,7 @@ internal static class DependencyInjection
             .AddIncomingWorkerConfiguration()
             .AddOutgoingExecutionConfiguration()
             .AddOutgoingApi()
+            .AddProxyConfiguration()
             .AddSigning();
     }
 
@@ -25,6 +26,7 @@ internal static class DependencyInjection
         services.ValidateOutgoingTransport();
         services.ValidateIncomingWorkers();
         services.ValidateOutgoingExecution();
+        services.ValidateProxy();
     }
 
     private static IServiceCollection AddSigning(this IServiceCollection services)

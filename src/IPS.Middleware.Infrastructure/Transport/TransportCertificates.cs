@@ -24,12 +24,13 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         HttpEndpointSettings cbs,
         CertificateSettings[] signatureSources,
         Pacs008SigningPolicy signingPolicy,
-        TimeProvider time)
+        TimeProvider time,
+        bool signingOptional = false)
     {
         _time = time;
         try
         {
-            _signing = LoadSigningCertificate(signingSource, signingPolicy);
+            _signing = LoadSigningCertificate(signingSource, signingPolicy, signingOptional);
             _ipsClient = LoadClientCertificate(ips.ClientCertificate);
             _cbsClient = LoadClientCertificate(cbs.ClientCertificate);
             _ipsServerTrust = LoadTrust(ips.ServerTrust);
@@ -80,12 +81,13 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         return options;
     }
 
-    private X509Certificate2? LoadSigningCertificate(CertificateSettings? source, Pacs008SigningPolicy signingPolicy)
+    private X509Certificate2? LoadSigningCertificate(CertificateSettings? source, Pacs008SigningPolicy signingPolicy, bool signingOptional)
     {
         var signing = Load(source, privateKeyRequired: true);
         if (signing is null)
         {
-            return signingPolicy.AllowUnsignedWithoutCertificate
+            // The Proxy Solution signs only when a certificate is configured, as in the source; the IPS messages never do.
+            return signingOptional || signingPolicy.AllowUnsignedWithoutCertificate
                 ? null
                 : throw new InvalidOperationException("A signing certificate or explicit Development unsigned policy is required.");
         }
