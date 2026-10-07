@@ -9,6 +9,7 @@ using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
+using IPS.Middleware.Application.Payments.Pain002;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
@@ -74,6 +75,8 @@ internal static class OutgoingProcessProbe
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddScoped(sp => new Camt029Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
+        builder.Services.AddScoped(sp => new Pain002Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
+            Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddSingleton<OutgoingRuntime>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         using var host = builder.Build();
@@ -84,6 +87,11 @@ internal static class OutgoingProcessProbe
             {
                 var payment = Pacs009Fixture.Request("crash");
                 await scope.ServiceProvider.GetRequiredService<Pacs009Intake>().AcceptAsync(payment, JsonSerializer.Serialize(payment), default);
+            }
+            else if (settings.MessageType == PaymentMessageTypes.Pain002)
+            {
+                var payment = Pain002Fixture.Request("crash");
+                await scope.ServiceProvider.GetRequiredService<Pain002Intake>().AcceptAsync(payment, JsonSerializer.Serialize(payment), default);
             }
             else if (settings.MessageType == PaymentMessageTypes.Camt029)
             {

@@ -10,6 +10,7 @@ using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
+using IPS.MiidleWear.Contracts.Pain002;
 using IPS.MiidleWear.Contracts.Transactions;
 using Microsoft.AspNetCore.Mvc;
 
@@ -57,6 +58,13 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public async Task<IResult> SendCamt029Async([FromBody] Camt029ResolutionOfInvestigationDto request, CancellationToken token) =>
         Respond(await submission.SubmitAsync(RecallRequestMapping.Map(request), Json(request), token));
+
+    [HttpPost(Pain002RestApiRoutes.Send, Name = "SendPain002")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
+    [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
+    public async Task<IResult> SendPain002Async([FromBody] Pain002PaymentStatusReportDto request, CancellationToken token) =>
+        Respond(await submission.SubmitAsync(Pain002RequestMapping.Map(request), Json(request), token));
 
     [HttpGet(TransactionRestApiRoutes.Status, Name = "GetTransactionStatus")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]

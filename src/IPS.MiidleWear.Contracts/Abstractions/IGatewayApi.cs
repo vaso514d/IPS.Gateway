@@ -47,9 +47,9 @@ public interface IGatewayApi
         Description = "Refuses a recall this bank received as the creditor (NBG profile IPS_camt.029 - V1; Conf and TxCxlSts are always RJCR). Returns 200 with the final status, which is the technical verdict of IPS, or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status. To accept a recall, send a pacs.004 instead. 400 = validation.")]
     Task<TransactionStatusDto> SendCamt029Async(Camt029ResolutionOfInvestigationDto request, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Pain002RestApiRoutes.Send, Tag = "PaymentInitiation", MessageType = "pain.002", SuccessStatusCode = 202,
+    [RestEndpoint("POST", Pain002RestApiRoutes.Send, Tag = "PaymentInitiation", MessageType = "pain.002", SuccessStatusCode = 200,
         Summary = "Send a pain.002 refusing a received pain.001 payment initiation.",
-        Description = "This bank, as the originator participant, refuses a payment a PISP initiated (Annex D §3.2.11–§3.2.12; GrpSts and PmtInfSts are always RJCT). Answers 202; IPS replies with a pain.002 and forwards the refusal to the PISP, and the final status (Accepted = IPS took the refusal) is delivered to the core system. To accept the initiation, send the payment as a pacs.008 whose endToEndId is \"PSP-\" + the pain.001 PmtInfId.")]
+        Description = "This bank, as the originator participant, refuses a payment a PISP initiated (Annex D 3.2.11 to 3.2.12; GrpSts and PmtInfSts are always RJCT). Returns 200 with the final status, which is IPS answer to the refusal (ACCP = IPS took it, RJCT = IPS refused it), or 504 with the current status after the configured HTTP wait. A repeated clientReference immediately returns 200 with the existing status. To accept the initiation, send the payment as a pacs.008 whose endToEndId is PSP- plus the pain.001 PmtInfId. 400 = validation.")]
     Task<TransactionStatusDto> SendPain002Async(Pain002PaymentStatusReportDto request, CancellationToken cancellationToken);
 
     [RestEndpoint("GET", TransactionRestApiRoutes.Status, Tag = "Transactions",

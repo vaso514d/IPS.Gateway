@@ -6,6 +6,7 @@ using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
+using IPS.Middleware.Application.Payments.Pain002;
 
 namespace IPS.Middleware.Infrastructure.Persistence;
 // Explicit camel-case JSON for stored payment artifacts; CLR type names are never written.
@@ -28,6 +29,7 @@ internal static class PaymentJson
         PaymentMessageTypes.Pacs004 => Write(new AcceptedSnapshot<AcceptedPacs004>(AcceptedVersion, (AcceptedPacs004)accepted)),
         PaymentMessageTypes.Camt056 => Write(new AcceptedSnapshot<AcceptedCamt056>(AcceptedVersion, (AcceptedCamt056)accepted)),
         PaymentMessageTypes.Camt029 => Write(new AcceptedSnapshot<AcceptedCamt029>(AcceptedVersion, (AcceptedCamt029)accepted)),
+        PaymentMessageTypes.Pain002 => Write(new AcceptedSnapshot<AcceptedPain002>(AcceptedVersion, (AcceptedPain002)accepted)),
         _ => throw new ArgumentOutOfRangeException(nameof(messageType), messageType, "No accepted snapshot for this message type.")
     };
     internal static IAcceptedPayment? ReadAccepted(string messageType, string? json) => messageType switch
@@ -37,6 +39,7 @@ internal static class PaymentJson
         PaymentMessageTypes.Pacs004 => ReadSnapshot<AcceptedPacs004>(json),
         PaymentMessageTypes.Camt056 => ReadSnapshot<AcceptedCamt056>(json),
         PaymentMessageTypes.Camt029 => ReadSnapshot<AcceptedCamt029>(json),
+        PaymentMessageTypes.Pain002 => ReadSnapshot<AcceptedPain002>(json),
         _ => null
     };
     private static T? ReadSnapshot<T>(string? json)

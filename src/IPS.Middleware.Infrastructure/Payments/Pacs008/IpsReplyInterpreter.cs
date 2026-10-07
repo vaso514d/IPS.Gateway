@@ -4,9 +4,11 @@ using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Payments.Pain002;
 using IPS.Middleware.Infrastructure.Transport;
 
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
@@ -20,8 +22,11 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
     private static readonly string[] AcceptedStatuses = ["ACCP", "ACTC", "ACSC"];
     private const string Rejected = "RJCT";
 
+    // A pain.002 is answered by a header, every other message by a signed pacs.002.
     public IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent) =>
-        Interpret(response, sent, sent.MessageDefinition, strictEvidence: false);
+        sent.MessageDefinition == PaymentMessageTypes.Pain002Definition
+            ? Pain002ReplyInterpreter.Interpret(response)
+            : Interpret(response, sent, sent.MessageDefinition, strictEvidence: false);
 
     internal IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition) =>
         Interpret(response, sent, messageDefinition, strictEvidence: true);

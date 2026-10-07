@@ -27,6 +27,8 @@ public static class Pacs008Schema
 
     internal static void ValidatePain001(string xml) => ValidateMessage(xml, Inbound.Transfers.IncomingPain001Protocol.DocumentNamespace);
 
+    internal static void ValidatePain002(string xml) => ValidateMessage(xml, Pain002.Pain002Xml.DocumentNamespace);
+
     internal static void ValidateInvestigation(string xml) => ValidateMessage(xml, Investigation.Pacs028Xml.DocumentNamespace);
 
     private static XDocument ValidateMessage(string xml, string documentNamespace)
@@ -52,7 +54,7 @@ public static class Pacs008Schema
     private static XmlSchemaSet Load()
     {
         var schemas = new XmlSchemaSet { XmlResolver = null };
-        foreach (var file in new[] { "head.001.001.03.xsd", "pacs.008.001.12.xsd", "pacs.009.001.11.xsd", "pacs.004.001.13.xsd", "camt.056.001.11.xsd", "pain.001.001.12.xsd", "camt.029.001.13.xsd", "pacs.002.001.14.xsd", "pacs.028.001.06.xsd" })
+        foreach (var file in new[] { "head.001.001.03.xsd", "pacs.008.001.12.xsd", "pacs.009.001.11.xsd", "pacs.004.001.13.xsd", "camt.056.001.11.xsd", "pain.001.001.12.xsd", "pain.002.001.14.xsd", "camt.029.001.13.xsd", "pacs.002.001.14.xsd", "pacs.028.001.06.xsd" })
         {
             using var stream = typeof(Pacs008Schema).Assembly.GetManifestResourceStream(
                 "IPS.Middleware.Infrastructure.Payments.Pacs008.Schemas." + file)!;

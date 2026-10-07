@@ -9,6 +9,7 @@ using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
+using IPS.Middleware.Application.Payments.Pain002;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Camt029;
@@ -17,6 +18,7 @@ using IPS.Middleware.Infrastructure.Payments.Pacs004;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Payments.Pacs009;
+using IPS.Middleware.Infrastructure.Payments.Pain002;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -37,6 +39,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
         Pacs004Protocol = new Pacs004Preparation(signer, Certificates);
         Camt056Protocol = new Camt056Preparation(signer, Certificates);
         Camt029Protocol = new Camt029Preparation(signer, Certificates);
+        Pain002Protocol = new Pain002Preparation(signer, Certificates);
         Ips = new(IpsCertificate);
         Certificates.Current = SigningCertificate;
     }
@@ -51,6 +54,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     public Pacs004Preparation Pacs004Protocol { get; }
     public Camt056Preparation Camt056Protocol { get; }
     public Camt029Preparation Camt029Protocol { get; }
+    public Pain002Preparation Pain002Protocol { get; }
     public IpsSimulator Ips { get; }
     public Pacs008Options Options { get; } = new(ownership: Ownership);
 
@@ -95,6 +99,17 @@ internal sealed class ProcessingHarness : IAsyncDisposable
             .AcceptAsync(request, JsonSerializer.Serialize(request), default);
     }
 
+    public async Task<PaymentIntakeResult> AcceptAsync(Pain002Request request)
+    {
+        await using var session = Database.Session();
+        return await new Pain002Intake(session.Payments, new OutgoingTransactionIntake(session.Payments, session.Unit, Clock),
+                Pacs008Fixture.Policy, new("NBGEGE22"), Clock)
+            .AcceptAsync(request, JsonSerializer.Serialize(request), default);
+    }
+
+    public async Task<Guid> AcceptPain002Async(string reference = "processing") =>
+        (await AcceptAsync(Pain002Fixture.Request(reference))).Intake!.Payment.Id;
+
     public async Task<Guid> AcceptCamt029Async(string reference = "processing") =>
         (await AcceptAsync(Camt029Fixture.Request(reference))).Intake!.Payment.Id;
 
@@ -112,7 +127,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     {
         await using var session = Database.Session(interceptors);
         return await new OutgoingPaymentProcessing(session.Payments, session.Work, new PaymentPreparationRepository(session.Context),
-                session.Submissions, session.Unit, [Protocol, Pacs009Protocol, Pacs004Protocol, Camt056Protocol, Camt029Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
+                session.Submissions, session.Unit, [Protocol, Pacs009Protocol, Pacs004Protocol, Camt056Protocol, Camt029Protocol, Pain002Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
             .ProcessAsync(id, cancellationToken);
     }
 
@@ -249,8 +264,8 @@ internal sealed class IpsSimulator(X509Certificate2 ipsCertificate) : IIpsTransp
         var reply = new IpsReplies.Reply
         {
             MessageId = Value("BizMsgIdr"),
-            TransactionId = Value("OrgnlTxId", "TxId"),
-            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId"),
+            TransactionId = Value("OrgnlTxId", "TxId", "OrgnlPmtInfId"),
+            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId", "OrgnlPmtInfId"),
             OriginalMessageName = Value("MsgDefIdr")
         };
         if (Gate is { } gate)

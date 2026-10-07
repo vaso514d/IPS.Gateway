@@ -9,6 +9,7 @@ using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
+using IPS.MiidleWear.Contracts.Pain002;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -84,6 +85,15 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseEnvironment("Development")
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
     }
+
+    public static Pain002PaymentStatusReportDto Pain002Request(string reference = "outgoing2") => new()
+    {
+        ClientReference = reference,
+        Id = "HOST-REF-" + reference,
+        OriginalMessageId = "PAIN001-MSG-HOST",
+        OriginalPaymentInformationId = "PMTINF-HOST",
+        ReasonCode = "CUST"
+    };
 
     public static Camt029ResolutionOfInvestigationDto Camt029Request(string reference = "outgoing29") => new()
     {
@@ -214,8 +224,8 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         var reply = new IpsReplies.Reply
         {
             MessageId = Value("BizMsgIdr"),
-            TransactionId = Value("OrgnlTxId", "TxId"),
-            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId"),
+            TransactionId = Value("OrgnlTxId", "TxId", "OrgnlPmtInfId"),
+            EndToEndId = Value("OrgnlEndToEndId", "EndToEndId", "OrgnlPmtInfId"),
             OriginalMessageName = Value("MsgDefIdr"),
             GroupStatus = status,
             TransactionStatus = status,

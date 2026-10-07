@@ -119,6 +119,10 @@ public sealed class OutgoingCrashTests
     [InlineData(PaymentMessageTypes.Camt029, "marker", true)]
     [InlineData(PaymentMessageTypes.Camt029, "response", false)]
     [InlineData(PaymentMessageTypes.Camt029, "resend-response", true)]
+    [InlineData(PaymentMessageTypes.Pain002, "ready", false)]
+    [InlineData(PaymentMessageTypes.Pain002, "marker", true)]
+    [InlineData(PaymentMessageTypes.Pain002, "response", false)]
+    [InlineData(PaymentMessageTypes.Pain002, "resend-response", true)]
     public async Task Killed_process_recovers_a_possible_duplicate_message_and_repeats_no_marker(string messageType, string checkpoint, bool resentAsDuplicate)
     {
         await using var fixture = await OutgoingHostFixture.CreateAsync();

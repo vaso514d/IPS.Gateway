@@ -7,6 +7,7 @@ using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
+using IPS.Middleware.Application.Payments.Pain002;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Execution;
@@ -32,6 +33,7 @@ internal static class OutgoingExecutionConfiguration
         services.AddScoped(CreatePacs004Intake);
         services.AddScoped(CreateCamt056Intake);
         services.AddScoped(CreateCamt029Intake);
+        services.AddScoped(CreatePain002Intake);
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
@@ -123,6 +125,17 @@ internal static class OutgoingExecutionConfiguration
     {
         var profile = services.GetRequiredService<PaymentProfile>();
         return new Camt029Intake(
+            services.GetRequiredService<IOutgoingPaymentRepository>(),
+            services.GetRequiredService<OutgoingTransactionIntake>(),
+            profile.Policy,
+            new IpsMessageProfile(profile.Protocol.IpsBic, profile.Protocol.ServiceLevelCode),
+            services.GetRequiredService<TimeProvider>());
+    }
+
+    private static Pain002Intake CreatePain002Intake(IServiceProvider services)
+    {
+        var profile = services.GetRequiredService<PaymentProfile>();
+        return new Pain002Intake(
             services.GetRequiredService<IOutgoingPaymentRepository>(),
             services.GetRequiredService<OutgoingTransactionIntake>(),
             profile.Policy,

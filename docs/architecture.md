@@ -247,6 +247,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - Delivery, recovery and the acknowledgement are those of 005c and 005d; the `PmtInfId` is the CBS key and status reference (`messageKind=Pain001`). The core answers IPS itself (a `PSP-` pacs.008, or a pain.002 from 008b); the initiation deadline is not enforced here.
 - See [008a](specs/008a-incoming-pain001.md).
 
+## Outgoing pain.002 (008b)
+
+- **One more type on the shared core.** `PaymentMessageTypes.Pain002` joins the outgoing set. `Pain002Intake` validates the source rules (message id, refused message id and payment information id of at most 35 ASCII characters, reason code 1-4 uppercase characters) and snapshots `AcceptedPain002`. The message id is the caller's `Id`, which is also the stored protocol transaction id; it must be unused. The refusal is always RJCT in both status elements.
+- **IPS's answer is a header.** `IpsReplyInterpreter.Interpret(response, sent)` hands a pain.002 correlation (definition `pain.002.001.14`) to `Pain002ReplyInterpreter`: `X-MONTRAN-IPS-ReqSts` `ACCP` is Accepted, `RJCT/<code>` is Rejected with IPS's code, anything else, conflicting headers or a non-200 status is Unresolved and so resent. The response body is neither required nor verified.
+- **XML and recovery.** `pain.002.001.14` in the IPS v1 profile, validated against the embedded schema and signed like the other types; the possible-duplicate resend is shared; there is no pre-send deadline. `OrgnlMsgNmId` is `pain.001.001.12`.
+- See [008b](specs/008b-outgoing-pain002.md).
+
 ## Incoming recalls (007c)
 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
