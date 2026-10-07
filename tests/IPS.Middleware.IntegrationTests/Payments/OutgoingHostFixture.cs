@@ -44,6 +44,9 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
     // Whether each payment submission carried the possible-duplicate header, in arrival order.
     public ConcurrentQueue<bool> PossibleDuplicateFlags { get; } = new();
 
+    // The protocol version header of each payment submission, so a test can tell instances configured with different versions apart.
+    public ConcurrentQueue<string?> IpsVersions { get; } = new();
+
     // The next payment submissions never get a reply: IPS may have processed them, but the connection is dropped.
     public void LoseNextReplies(int submissions) => _lostReplies = submissions;
 
@@ -80,6 +83,10 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
     }
 
     public WebApplicationFactory<Program> Host() => new ConfiguredHost(Configuration);
+
+    // An instance whose settings differ from the shared configuration, for tests that run several instances.
+    public WebApplicationFactory<Program> Host(Dictionary<string, string?> overrides) =>
+        new ConfiguredHost(Configuration.Concat(overrides).GroupBy(pair => pair.Key).ToDictionary(group => group.Key, group => group.Last().Value));
     private sealed class ConfiguredHost(Dictionary<string, string?> settings) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseEnvironment("Development")
@@ -198,6 +205,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         }
 
         PossibleDuplicateFlags.Enqueue(context.Request.Headers.ContainsKey("X-MONTRAN-RTP-PossibleDuplicate"));
+        IpsVersions.Enqueue(context.Request.Headers["X-MONTRAN-IPS-Version"]);
         FirstSendAtUtc ??= DateTimeOffset.UtcNow;
         FirstSend.TrySetResult();
         if (Block)

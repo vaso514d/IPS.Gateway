@@ -259,6 +259,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
 - See [007c](specs/007c-incoming-recalls.md).
 
+## Shutdown and multi-instance guarantees (011)
+
+- **Ownership.** Any number of instances may share one database. A payment, a callback, an investigation or a resend is worked by the instance that holds its SQL claim; a claim expires after its ownership period and another instance then takes the work. A marker is committed before every IPS or core call, so a takeover after an unknown outcome sends the flagged possible-duplicate resend of the same bytes, never a fresh message (a pacs.008 is investigated with a pacs.028 first and resent only if IPS does not know it).
+- **Stop.** A stopping instance first refuses new work (new intake is stored and answered with its current status after the HTTP wait, which is 504 while it is unfinished, and finished by another instance or the restart), then drains running work within its shutdown budget and commits the outcome and the callback row, and only past the budget cancels, persists what it observed and leaves the claim to expire. Readiness is Unhealthy from the first moment of the stop. The host shutdown timeout is at least the drain budget plus the longest evidence persistence budget.
+- **Proved by** `OutgoingMultiInstanceTests` (two instances recovering the same work send and report each payment once; a stop inside the budget; a stop past it recovered by another instance with one flagged resend of the same bytes; hand-over after a stop; intake during a drain; the host timeout) and the earlier crash, claim and incoming two-worker tests. Not exercised: a hosting platform's SIGTERM and load-balancer draining, and clock skew between instances (claims use each instance's clock).
+- See [011](specs/011-shutdown-and-multi-instance.md).
+
 ## Readiness and diagnostics (010)
 
 - **Readiness.** `/health/ready` runs the `ready`-tagged checks (`DatabaseHealthCheck`, `WorkerHealthCheck`, `CertificateHealthCheck` in the Api) and returns only the status. Workers expose `SupervisedBackgroundService.Health` from loop heartbeats; certificate owners expose their expiries.
