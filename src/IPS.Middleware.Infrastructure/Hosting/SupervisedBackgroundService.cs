@@ -115,7 +115,10 @@ public abstract class SupervisedBackgroundService(bool enabled, TimeSpan shutdow
     protected abstract Task RunAsync(CancellationToken stop, CancellationToken work);
 
     // A loop reports that it is alive and when it promises to report again.
-    protected void Beat(string loop, TimeSpan period) => _beats[loop] = new(Time.GetUtcNow(), period);
+    protected void Beat(string loop, TimeSpan period) => Beat(loop, period, Time.GetUtcNow());
+
+    // A loop whose own work may hang reports when that work started rather than when the loop last turned.
+    protected void Beat(string loop, TimeSpan period, DateTimeOffset at) => _beats[loop] = new(at, period);
 
     // Work admitted outside RunAsync; the returned task completes when that work has drained.
     protected virtual Task StopAdmissionAsync() => Task.CompletedTask;

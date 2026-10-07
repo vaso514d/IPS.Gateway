@@ -266,6 +266,27 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         Assert.Equal(expected, protocol.Interpret(new(response, null, DateTimeOffset.UtcNow), Envelope()).Outcome);
     }
 
+    [Theory]
+    [MemberData(nameof(SignatureValidity.Moments), MemberType = typeof(SignatureValidity))]
+    public void A_reply_response_proves_delivery_only_while_its_signing_certificate_is_valid(string moment, bool valid)
+    {
+        var certificate = fixture.Input.Certificate;
+        var clock = new TestClock(SignatureValidity.At(certificate, moment));
+        var protocol = new IncomingReplyProtocol(new(new(false, false), clock), new Certificates(certificate), new IpsSignatureTrust([certificate], clock));
+
+        var result = protocol.Interpret(new(fixture.Response("accepted"), null, clock.Now), Envelope());
+
+        if (valid)
+        {
+            Assert.Equal(ReplyDeliveryOutcome.Delivered, result.Outcome);
+        }
+        else
+        {
+            Assert.Equal(ReplyDeliveryOutcome.Unresolved, result.Outcome);
+            Assert.Equal(SignatureValidity.ReplyUnresolved(certificate), result.Description);
+        }
+    }
+
     [Fact]
     public void Http_success_unsigned_or_empty_body_never_proves_delivery()
     {
@@ -362,8 +383,9 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         Assert.Equal(IncomingReplyStatus.Delivered, (await h.ReadAsync(id)).Status);
     }
 
-    private IncomingReplyProtocol Protocol() => new(new(new(false, false), TimeProvider.System), new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]);
-    private IncomingReplyEnvelope Envelope() => new("BAGAGE22", ((IncomingPacs008ReadResult.Ready)Protocol().Read(fixture.Input.Signed["valid"])).Payment.Original,
+    private IncomingReplyProtocol Protocol() => new(new(new(false, false), TimeProvider.System), new Certificates(fixture.Input.Certificate),
+        new IpsSignatureTrust([fixture.Input.Certificate], TimeProvider.System));
+    private IncomingReplyEnvelope Envelope() => new("BAGAGE22", ((IncomingPacs008ReadResult.Ready)Protocol().Read(fixture.Input.Signed["valid"], DateTimeOffset.UtcNow)).Payment.Original,
         new(true, DateTimeOffset.UtcNow), new("REPLY", "STATUS", DateTimeOffset.UtcNow), new("NBGEGE22"), 2);
     private sealed class Clock : TimeProvider
     {
@@ -413,7 +435,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         public Certificates Certificates { get; } = new(fixture.Input.Certificate);
         public IncomingReplyOptions Options { get; set; } = new();
         public Pacs008ProtocolProfile Profile { get; set; } = new("NBGEGE22");
-        public IncomingReplyProtocol Protocol => new(new(new(false, false), Time), Certificates, [fixture.Input.Certificate]);
+        public IncomingReplyProtocol Protocol => new(new(new(false, false), Time), Certificates, new IpsSignatureTrust([fixture.Input.Certificate], Time));
 
         public static async Task<Harness> CreateAsync(IncomingReplyFixture fixture) => new(await SqlTestDatabase.CreateAsync(), fixture);
         public async Task<Guid> SeedAsync(long sequence = 1, bool accepted = true, string input = "valid")
@@ -427,7 +449,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
                 return registered.JournalId;
             }
 
-            var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(xml)).Payment;
+            var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(xml, Time.Now)).Payment;
             var work = new InboundWorkRepository(db);
             var claim = await ClaimAsync(db, registered.JournalId);
             var payments = new IncomingPaymentRepository(db);
@@ -458,7 +480,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
 
         public async Task StageEnvelopeAsync(TransactionDbContext db, InboundClaim claim)
         {
-            var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(fixture.Input.Signed["valid"])).Payment;
+            var incoming = ((IncomingPacs008ReadResult.Ready)Protocol.Read(fixture.Input.Signed["valid"], Time.Now)).Payment;
             var repo = new IncomingReplyRepository(db);
             await repo.StageEnvelopeAsync(claim, new("BAGAGE22", incoming.Original, (await repo.ReadDecisionAsync(claim.JournalId, default))!,
                 new(Guid.NewGuid().ToString("N"), Guid.NewGuid().ToString("N"), Time.Now), Profile, Options.MaxAttempts), Time.Now, default);

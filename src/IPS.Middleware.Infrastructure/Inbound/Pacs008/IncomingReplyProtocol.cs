@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Inbound.Pacs008;
@@ -13,11 +12,11 @@ namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 public sealed class IncomingReplyProtocol(
         Pacs008MessageSigner signer,
         ISigningCertificateSource certificates,
-        IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingReplyProtocol
+        IpsSignatureTrust trust) : IIncomingReplyProtocol
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
 
-    public IncomingPacs008ReadResult Read(string xml) => new IncomingPacs008Reader().Read(xml, trustedIpsCertificates);
+    public IncomingPacs008ReadResult Read(string xml, DateTimeOffset receivedAtUtc) => new IncomingPacs008Reader().Read(xml, trust, receivedAtUtc);
 
     public string Build(IncomingReplyEnvelope envelope) => new IncomingPacs002Reply(envelope.Profile, signer)
         .BuildUnsigned(envelope.Original, envelope.Decision, envelope.Context, envelope.ParticipantBic);
@@ -39,7 +38,7 @@ public sealed class IncomingReplyProtocol(
 
         // Annex D: ReplyToPayment returns the final status of the original payment, including on replay.
         var original = envelope.Original;
-        var result = new IpsReplyInterpreter(trustedIpsCertificates).Interpret(response,
+        var result = new IpsReplyInterpreter(trust).Interpret(response,
             new(original.GroupMessageId, original.TransactionId!, original.EndToEndId));
         if (result.Status == IpsReplyStatus.Unresolved)
         {

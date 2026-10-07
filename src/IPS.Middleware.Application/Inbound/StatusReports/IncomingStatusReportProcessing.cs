@@ -48,7 +48,7 @@ public sealed class IncomingStatusReportProcessing(
         }
 
         var correlation = accepted.ReplyCorrelation(message.MessageId, message.TransactionId);
-        var reply = protocol.Interpret(receipt.RawXml, correlation);
+        var reply = protocol.Interpret(receipt.RawXml, correlation, receipt.ReceivedAtUtc);
         if (reply.Status == IpsReplyStatus.Unresolved)
         {
             return await HoldAsync(claim, reply.Details.Description ?? NotAReport, now, token);

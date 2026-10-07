@@ -101,9 +101,9 @@ public sealed class Camt056RecoveryTests
         {
             await using var s = Core.Database.Session();
             var policy = new Pacs008SigningPolicy(false, false);
-            var protocol = new InvestigationProtocol(new(policy, Core.Clock), Core.Certificates, policy, new([Core.IpsCertificate]));
+            var protocol = new InvestigationProtocol(new(policy, Core.Clock), Core.Certificates, policy, new(new IpsSignatureTrust([Core.IpsCertificate], Core.Clock)));
             return await new OutgoingDuplicateResend(s.Payments, s.Work, new PaymentPreparationRepository(s.Context),
-                new ResendRepository(s.Context), s.Unit, protocol, Core.Ips, new IpsReplyInterpreter([Core.IpsCertificate]), Options, Core.Clock)
+                new ResendRepository(s.Context), s.Unit, protocol, Core.Ips, new IpsReplyInterpreter(new IpsSignatureTrust([Core.IpsCertificate], Core.Clock)), Options, Core.Clock)
                 .ProcessAsync(Id, default);
         }
 

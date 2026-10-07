@@ -1,7 +1,11 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
+using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Inbound.StatusReports;
+using IPS.Middleware.Infrastructure.Payments.Investigation;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using Xunit;
 using static IPS.Middleware.IntegrationTests.Payments.IpsReplies;
 
@@ -88,6 +92,64 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
         }
     }
 
+    // A reply and an investigation answer are judged when they are interpreted; an unsolicited report as of its receipt,
+    // however late it is processed. Each is refused when the signing certificate was not valid at that moment.
+    [Theory]
+    [MemberData(nameof(SignatureValidity.Moments), MemberType = typeof(SignatureValidity))]
+    public void Replies_and_reports_are_trusted_only_while_the_signing_certificate_is_valid(string moment, bool valid)
+    {
+        var at = SignatureValidity.At(replies.Ips, moment);
+        var trust = new IpsSignatureTrust([replies.Ips], new TestClock(at));
+        var processedLate = new IpsSignatureTrust([replies.Ips], new TestClock(SignatureValidity.LongAfterExpiry(replies.Ips)));
+        var response = new IpsSubmissionResponse(200, replies.Signed["accepted"], [new("X-MONTRAN-IPS-ReqSts", "ACCP")]);
+
+        var reply = new IpsReplyInterpreter(trust).Interpret(response, Sent);
+        var investigation = new Pacs028ReplyInterpreter(trust).Interpret(response, Sent, "INQUIRY-1");
+        var report = new StatusReportProtocol(processedLate).Interpret(replies.Signed["accepted"], Sent, receivedAtUtc: at);
+
+        if (valid)
+        {
+            Assert.Equal(IpsReplyStatus.Accepted, reply.Status);
+            Assert.Equal(InvestigationOutcome.OriginalAccepted, investigation.Outcome);
+            Assert.Equal(IpsReplyStatus.Accepted, report.Status);
+        }
+        else
+        {
+            var reason = SignatureValidity.ReplyUnresolved(replies.Ips);
+            Assert.Equal((IpsReplyStatus.Unresolved, IpsReplyStatus.Unresolved), (reply.Status, report.Status));
+            Assert.Equal(InvestigationOutcome.Unresolved, investigation.Outcome);
+            Assert.Equal(reason, reply.Details.Description);
+            Assert.Equal(reason, investigation.Details.Description);
+            Assert.Equal(reason, report.Details.Description);
+        }
+    }
+
+    // Annex C 2.1: the next IPS certificate is configured before IPS switches to it; each verifies only within its period.
+    [Fact]
+    public async Task Rotation_hands_trust_from_the_expiring_certificate_to_the_next_at_their_bounds()
+    {
+        var expiry = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+        var start = expiry.AddDays(-7);
+        using var expiring = Certificate("CN=Expiring IPS", expiry.AddYears(-1), expiry);
+        using var next = Certificate("CN=Next IPS", start, expiry.AddYears(1));
+        var signedByExpiring = (await SignAsync(expiring, Unsigned(Accepted)))[0];
+        var signedByNext = (await SignAsync(next, Unsigned(Accepted)))[0];
+        var clock = new TestClock(start);
+        var interpreter = new IpsReplyInterpreter(new IpsSignatureTrust([expiring, next], clock));
+        IpsReply ReplyAt(DateTimeOffset now, string body)
+        {
+            clock.Now = now;
+            return interpreter.Interpret(new(200, body, [new("X-MONTRAN-IPS-ReqSts", "ACCP")]), Sent);
+        }
+
+        Assert.Equal(IpsReplyStatus.Accepted, ReplyAt(expiry, signedByExpiring).Status);
+        var expired = ReplyAt(expiry.AddTicks(1), signedByExpiring);
+        Assert.Equal((IpsReplyStatus.Unresolved, SignatureValidity.ReplyUnresolved(expiring)), (expired.Status, expired.Details.Description));
+        var early = ReplyAt(start.AddTicks(-1), signedByNext);
+        Assert.Equal((IpsReplyStatus.Unresolved, SignatureValidity.ReplyUnresolved(next)), (early.Status, early.Details.Description));
+        Assert.Equal(IpsReplyStatus.Accepted, ReplyAt(start, signedByNext).Status);
+    }
+
     private IpsReply Interpret(string body, string? requestStatus) =>
         Interpreter(replies.Ips).Interpret(new(200, body, requestStatus is null ? [] : [new("X-MONTRAN-IPS-ReqSts", requestStatus)]), Sent);
 
@@ -102,7 +164,7 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
         return presented;
     }
 
-    private static IpsReplyInterpreter Interpreter(X509Certificate2 trusted) => new([trusted]);
+    private static IpsReplyInterpreter Interpreter(X509Certificate2 trusted) => new(new IpsSignatureTrust([trusted], TimeProvider.System));
 
     public sealed class SignedReplies : IAsyncLifetime
     {

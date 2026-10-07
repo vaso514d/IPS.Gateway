@@ -102,6 +102,26 @@ public sealed class IncomingAcknowledgementTests
         Assert.Equal("No progress in: IPS acknowledgement", health.Detail);
     }
 
+    // Recheck of 2026-10-07: with a free slot, the loop keeps turning, so its beat must come from the hung acknowledgement itself.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task One_hung_acknowledgement_is_a_stall_while_the_other_slot_is_free_or_keeps_working(bool continuing)
+    {
+        await using var test = await Worker.StartAsync(new() { Enabled = true, AcknowledgementCapacity = 2 },
+            messages: continuing ? int.MaxValue : 1, requestTimeout: TimeSpan.FromMilliseconds(200), holdFirstOnly: true);
+        await test.Acknowledgements.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var calls = test.Receiver.Calls;
+        var sent = test.Acknowledgements.Sent.Count;
+        await Task.Delay(TimeSpan.FromMilliseconds(600));
+
+        Assert.True(test.Receiver.Calls > calls);
+        Assert.Equal(continuing, test.Acknowledgements.Sent.Count > sent);
+        var health = test.Service.Health(TimeProvider.System.GetUtcNow(), stallFactor: 2, passAllowance: TimeSpan.Zero);
+        Assert.Equal(WorkerState.Stalled, health.State);
+        Assert.Equal("No progress in: IPS acknowledgement", health.Detail);
+    }
+
     private static async Task EventuallyAsync(Func<bool> condition)
     {
         var watch = Stopwatch.StartNew();
@@ -132,12 +152,13 @@ public sealed class IncomingAcknowledgementTests
 
         // A receive worker over real SQL whose receiver returns `messages` pacs.009 receipts and then empty polls.
         // The second receipt arrives only once the first acknowledgement has started, so the queue's contents are known.
-        public static async Task<Worker> StartAsync(IncomingWorkerOptions options, int messages, TimeSpan? requestTimeout = null)
+        public static async Task<Worker> StartAsync(
+            IncomingWorkerOptions options, int messages, TimeSpan? requestTimeout = null, bool holdFirstOnly = false)
         {
             var database = await SqlTestDatabase.CreateAsync();
             await using var db = database.Context();
             var connection = db.Database.GetConnectionString()!;
-            var acknowledgements = new HeldAcknowledgements(database);
+            var acknowledgements = new HeldAcknowledgements(database, holdFirstOnly);
             var receiver = new ScriptedReceiver(messages, acknowledgements.Entered.Task);
             var services = new ServiceCollection();
             services.AddLogging();
@@ -198,8 +219,9 @@ public sealed class IncomingAcknowledgementTests
         }
     }
 
-    // The first acknowledgement waits until the test releases it; each one records whether its receipt was already committed.
-    private sealed class HeldAcknowledgements(SqlTestDatabase database) : IIncomingAckClient
+    // Acknowledgements wait until the test releases them (only the first, with holdFirstOnly); each one records whether its
+    // receipt was already committed.
+    private sealed class HeldAcknowledgements(SqlTestDatabase database, bool holdFirstOnly) : IIncomingAckClient
     {
         private readonly ConcurrentQueue<long> _sent = new();
         private readonly ConcurrentQueue<bool> _stored = new();
@@ -219,7 +241,11 @@ public sealed class IncomingAcknowledgementTests
             }
 
             Entered.TrySetResult();
-            await Release.Task.WaitAsync(cancellationToken);
+            if (!holdFirstOnly || sequence == 1)
+            {
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+
             return new(200, "", []);
         }
     }

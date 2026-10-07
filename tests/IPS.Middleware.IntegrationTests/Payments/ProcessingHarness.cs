@@ -127,7 +127,7 @@ internal sealed class ProcessingHarness : IAsyncDisposable
     {
         await using var session = Database.Session(interceptors);
         return await new OutgoingPaymentProcessing(session.Payments, session.Work, new PaymentPreparationRepository(session.Context),
-                session.Submissions, session.Unit, [Protocol, Pacs009Protocol, Pacs004Protocol, Camt056Protocol, Camt029Protocol, Pain002Protocol], Ips, new IpsReplyInterpreter([IpsCertificate]), Options, Clock)
+                session.Submissions, session.Unit, [Protocol, Pacs009Protocol, Pacs004Protocol, Camt056Protocol, Camt029Protocol, Pain002Protocol], Ips, new IpsReplyInterpreter(new IpsSignatureTrust([IpsCertificate], Clock)), Options, Clock)
             .ProcessAsync(id, cancellationToken);
     }
 

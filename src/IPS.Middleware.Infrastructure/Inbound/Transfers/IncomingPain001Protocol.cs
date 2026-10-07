@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -15,7 +14,7 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transfers;
 // is trusted before its signature verifies; an initiation is delivered only when it is schema-valid, single, and carries
 // a short enough initiation id, its message id and creation time, the debtor's agent (which must be us) and an instructed
 // amount. Parties, accounts, agents, addresses and remittance are read as for a pacs.008.
-public sealed class IncomingPain001Protocol(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingTransferProtocol
+public sealed class IncomingPain001Protocol(IpsSignatureTrust trust) : IIncomingTransferProtocol
 {
     public const string DocumentNamespace = "urn:iso:std:iso:20022:tech:xsd:pain.001.001.12";
 
@@ -25,7 +24,7 @@ public sealed class IncomingPain001Protocol(IReadOnlyCollection<X509Certificate2
 
     public bool Reads(string messageType) => PaymentMessageTypes.IsPain001(messageType);
 
-    public IncomingTransferReadResult Read(string xml)
+    public IncomingTransferReadResult Read(string xml, DateTimeOffset receivedAtUtc)
     {
         try
         {
@@ -42,7 +41,13 @@ public sealed class IncomingPain001Protocol(IReadOnlyCollection<X509Certificate2
                 return Hold("Unsupported message definition.");
             }
 
-            if (!IpsSignatureVerifier.IsTrusted(xml, trustedIpsCertificates))
+            var signature = trust.Check(xml, receivedAtUtc);
+            if (signature is IpsSignatureCheck.OutsideValidity outside)
+            {
+                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
+            }
+
+            if (signature is not IpsSignatureCheck.Trusted)
             {
                 return Hold("Untrusted message signature.");
             }

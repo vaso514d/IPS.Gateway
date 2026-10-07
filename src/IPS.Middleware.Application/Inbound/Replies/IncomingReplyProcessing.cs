@@ -70,7 +70,7 @@ public sealed class IncomingReplyProcessing(
 
         IncomingPacs008Reference original;
         IncomingReplyDecision? decision;
-        switch (protocol.Read(receipt.RawXml))
+        switch (protocol.Read(receipt.RawXml, receipt.ReceivedAtUtc))
         {
             case IncomingPacs008ReadResult.Reject rejected:
                 original = rejected.Original;

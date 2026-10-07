@@ -77,6 +77,56 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         Assert.Equal(IncomingReplyStatus.Delivered, reply.Status);
     }
 
+    // 012b: a payment is judged as of its receipt. Received one tick before the IPS certificate became valid, it is held
+    // with the validity reason even though it is processed while the certificate is valid, and nothing reaches the CBS or IPS.
+    [Fact]
+    public async Task A_payment_received_outside_its_certificate_validity_is_held_without_a_payment_or_remote_call()
+    {
+        var certificate = fixture.Input.Certificate;
+        await using var h = await Harness.CreateAsync(fixture);
+        var id = await h.SeedAsync(receivedAt: SignatureValidity.At(certificate, "tick-before-start"));
+
+        Assert.Equal(IncomingCompositionStatus.Held, (await h.RunAsync(id)).Status);
+
+        await using var db = h.Database.Context();
+        var receipt = (await new InboundReceiptRepository(db).ReadAsync(id, default))!;
+        Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
+        Assert.Equal(SignatureValidity.Stored(SignatureValidity.IncomingHold(certificate)), receipt.HoldReason);
+        Assert.False(await db.Set<IncomingPayment>().AnyAsync());
+        Assert.Empty(h.Core.Submissions);
+        Assert.Empty(h.Reply.Messages);
+    }
+
+    // 012b: the reply step reads the payment again after the CBS credited it, by then past the certificate's expiry. The
+    // payment was received while the certificate was valid, so the pacs.002 is still built, signed and delivered.
+    [Fact]
+    public async Task A_payment_received_while_the_certificate_was_valid_is_answered_after_the_certificate_expired()
+    {
+        var certificate = fixture.Input.Certificate;
+        var notAfter = SignatureValidity.At(certificate, "not-after");
+        // Our signing certificate and the IPS certificate that signs IPS's answer are the current ones at reply time.
+        using var current = IpsReplies.Certificate("CN=Current IPS", notAfter.AddDays(-30), notAfter.AddYears(1));
+        var answer = (await IpsReplies.SignAsync(current, IpsReplies.Unsigned(IncomingReplyFixture.Reference)))[0];
+        await using var h = await Harness.CreateAsync(fixture, configure: services => services.AddSingleton<IIncomingReplyProtocol>(provider =>
+        {
+            var time = provider.GetRequiredService<TimeProvider>();
+            return new IncomingReplyProtocol(new(new(false, false), time), new Certificates(current), new IpsSignatureTrust([certificate, current], time));
+        }));
+        // The minimal payment has no acceptance time, so its payment window runs from the receipt.
+        h.Time.Now = notAfter.AddSeconds(-1);
+        var id = await h.SeedAsync(input: "minimal");
+        h.Reply.Response = new(200, answer, [new("X-MONTRAN-IPS-ReqSts", "ACCP")]);
+        h.Core.AfterSubmit = () => h.Time.Now = notAfter.AddTicks(1);
+
+        await h.RunAsync(id);
+
+        Assert.Single(h.Core.Submissions);
+        var reply = await h.SnapshotAsync(id);
+        Assert.Equal(IncomingReplyStatus.Delivered, reply.Status);
+        Assert.True(reply.Envelope.Decision.Accepted);
+        Assert.True(await JavaSignatureVerifier.VerifyAsync(Assert.Single(h.Reply.Messages), current));
+    }
+
     [Theory]
     [InlineData("untrusted", "pacs.008", 1)]
     [InlineData("wrong-version", "pacs.008", 1)]
@@ -449,20 +499,25 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddSingleton(new InboundSchedulingOptions(capacity: capacity, discoveryBatch: capacity));
             services.AddSingleton(new Pacs008ProtocolProfile("NBGEGE22"));
             services.AddSingleton<IIncomingReplyProtocol>(new IncomingReplyProtocol(new(new(false, false), h.Time),
-                new Certificates(fixture.Input.Certificate), [fixture.Input.Certificate]));
-            services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol([fixture.Input.Certificate]));
-            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs009Protocol([fixture.Input.Certificate]));
-            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs004Protocol([fixture.Input.Certificate]));
+                new Certificates(fixture.Input.Certificate), new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs009Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs004Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
             services.AddIncomingComposition();
             configure?.Invoke(services);
             h.Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             return h;
         }
-        public async Task<Guid> SeedAsync(long sequence = 1, string input = "valid", string type = "pacs.008", string? rawXml = null)
+        public async Task<Guid> SeedAsync(
+            long sequence = 1,
+            string input = "valid",
+            string type = "pacs.008",
+            string? rawXml = null,
+            DateTimeOffset? receivedAt = null)
         {
             await using var db = Database.Context();
             var receipt = await new InboundReceiptRepository(db).StageRegistrationAsync(new("BAGAGE22", sequence, type,
-                rawXml ?? (input == "untrusted" ? IncomingPacs008Fixture.Xml : Fixture.Input.Signed[input]), false, Time.Now), default);
+                rawXml ?? (input == "untrusted" ? IncomingPacs008Fixture.Xml : Fixture.Input.Signed[input]), false, receivedAt ?? Time.Now), default);
             await new UnitOfWork(db).SaveAsync();
             return receipt.JournalId;
         }

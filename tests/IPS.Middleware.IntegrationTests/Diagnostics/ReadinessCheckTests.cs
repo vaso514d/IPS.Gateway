@@ -8,6 +8,7 @@ using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -196,8 +197,8 @@ public sealed class ReadinessCheckTests
     public async Task The_certificate_check_follows_the_days_left_of_the_nearest_expiry(int daysLeft, HealthStatus expected)
     {
         var inventory = new FixedInventory(
-            new CertificateExpiry("outgoing", "CN=signing", Now.AddDays(daysLeft)),
-            new CertificateExpiry("outgoing", "CN=other", Now.AddDays(365)));
+            new CertificateExpiry("outgoing", "CN=signing", Now.AddDays(daysLeft), Now.AddYears(-1)),
+            new CertificateExpiry("outgoing", "CN=other", Now.AddDays(365), Now.AddYears(-1)));
 
         var result = await new CertificateHealthCheck(inventory, new DiagnosticsSettings(), new TestClock(Now), NullLogger<CertificateHealthCheck>.Instance)
             .CheckHealthAsync(new());
@@ -210,12 +211,33 @@ public sealed class ReadinessCheckTests
     {
         var empty = await new CertificateHealthCheck(new FixedInventory(), new DiagnosticsSettings(), new TestClock(Now), NullLogger<CertificateHealthCheck>.Instance)
             .CheckHealthAsync(new());
-        var expired = await new CertificateHealthCheck(new FixedInventory(new CertificateExpiry("proxy", "CN=secret-subject", Now.AddDays(-1))),
+        var expired = await new CertificateHealthCheck(new FixedInventory(new CertificateExpiry("proxy", "CN=secret-subject", Now.AddDays(-1), Now.AddYears(-1))),
                 new DiagnosticsSettings(), new TestClock(Now), NullLogger<CertificateHealthCheck>.Instance)
             .CheckHealthAsync(new());
 
         Assert.Equal(HealthStatus.Healthy, empty.Status);
         Assert.DoesNotContain("secret-subject", expired.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_certificate_that_is_not_valid_yet_is_named_as_information_without_changing_the_status()
+    {
+        var start = Now.AddDays(3);
+        var inventory = new FixedInventory(
+            new CertificateExpiry("incoming", "CN=Next IPS", Now.AddYears(2), start),
+            new CertificateExpiry("incoming", "CN=Current IPS", Now.AddDays(365), Now.AddYears(-1)));
+        var log = new ScopeLog();
+
+        var check = new CertificateHealthCheck(inventory, new DiagnosticsSettings(), new TestClock(Now), new TypedLog<CertificateHealthCheck>(log));
+
+        var result = await check.CheckHealthAsync(new());
+        var repeated = await check.CheckHealthAsync(new());
+
+        Assert.Equal((HealthStatus.Healthy, HealthStatus.Healthy), (result.Status, repeated.Status));
+        Assert.DoesNotContain("Next IPS", result.Description, StringComparison.Ordinal);
+        var entry = Assert.Single(log.Entries);
+        Assert.Equal(LogLevel.Information, entry.Level);
+        Assert.Contains($"incoming certificate (CN=Next IPS) is not valid until {start:O}", entry.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -272,6 +294,17 @@ public sealed class ReadinessCheckTests
         {
             public IReadOnlyList<CertificateExpiry> Expiries() => expiries;
         }
+    }
+
+    // Lets a check that needs a typed logger write into a ScopeLog.
+    internal sealed class TypedLog<T>(ScopeLog log) : ILogger<T>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => log.BeginScope(state);
+
+        public bool IsEnabled(LogLevel logLevel) => log.IsEnabled(logLevel);
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            log.Log(logLevel, eventId, state, exception, formatter);
     }
 
     private sealed class TestWorker(bool enabled, TestClock? clock = null, bool completes = false, bool fails = false)

@@ -228,9 +228,9 @@ public sealed class InvestigationWorkflowTests
         services.AddSingleton(h.Options);
         services.AddSingleton<TimeProvider>(h.Core.Clock);
         services.AddSingleton<IIpsTransport>(h);
-        services.AddSingleton<IIpsReplyInterpreter>(new IpsReplyInterpreter([h.Core.IpsCertificate]));
+        services.AddSingleton<IIpsReplyInterpreter>(new IpsReplyInterpreter(new IpsSignatureTrust([h.Core.IpsCertificate], h.Core.Clock)));
         var policy = new Pacs008SigningPolicy(false, false);
-        services.AddSingleton<IInvestigationProtocol>(new InvestigationProtocol(new(policy, h.Core.Clock), h.Core.Certificates, policy, new([h.Core.IpsCertificate])));
+        services.AddSingleton<IInvestigationProtocol>(new InvestigationProtocol(new(policy, h.Core.Clock), h.Core.Certificates, policy, new(new IpsSignatureTrust([h.Core.IpsCertificate], h.Core.Clock))));
         await using var provider = services.BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<OutgoingResend>());
@@ -311,7 +311,7 @@ public sealed class InvestigationWorkflowTests
         {
             await using var s = Core.Database.Session(interceptor is null ? [] : [interceptor]);
             var policy = new Pacs008SigningPolicy(false, false);
-            var protocol = new InvestigationProtocol(new(policy, Core.Clock), Core.Certificates, policy, new([Core.IpsCertificate]));
+            var protocol = new InvestigationProtocol(new(policy, Core.Clock), Core.Certificates, policy, new(new IpsSignatureTrust([Core.IpsCertificate], Core.Clock)));
             return await new OutgoingInvestigation(s.Payments, s.Work, new PaymentPreparationRepository(s.Context), new InvestigationRepository(s.Context),
                 new ResendRepository(s.Context), s.Unit, protocol, this, Options, Core.Clock).ProcessAsync(Id, token);
         }

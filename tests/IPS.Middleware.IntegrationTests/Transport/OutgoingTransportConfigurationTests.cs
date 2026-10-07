@@ -1,11 +1,16 @@
+using IPS.Middleware.Api.Diagnostics;
 using IPS.Middleware.Application.Abstractions.Payments;
 using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Transport;
+using IPS.Middleware.IntegrationTests.Diagnostics;
+using IPS.Middleware.IntegrationTests.Payments;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Transport;
@@ -62,6 +67,39 @@ public sealed class OutgoingTransportConfigurationTests
         settings[key] = value;
         using var host = new Host(settings);
         Assert.ThrowsAny<Exception>(() => host.CreateClient());
+    }
+
+    // 012b rotation: the next IPS signature certificate can be configured before its validity starts; an expired one cannot.
+    [Fact]
+    public async Task A_signature_trust_certificate_not_valid_yet_loads_and_readiness_names_it_while_an_expired_one_fails_startup()
+    {
+        using var certificates = new TransportCertificates();
+        var now = DateTimeOffset.UtcNow;
+        using var next = IpsReplies.Certificate("CN=Next IPS", now.AddDays(30), now.AddYears(1));
+        using var expired = IpsReplies.Certificate("CN=Expired IPS", now.AddYears(-1), now.AddDays(-1));
+        var settings = Settings(certificates);
+        settings["Payments:Outgoing:Transport:IpsSignatureTrust:1:Path"] = certificates.SavePublic(next, "next.pem").Path;
+        using (var host = new Host(settings))
+        {
+            using var http = host.CreateClient();
+            Assert.Equal(2, host.Services.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust.Count);
+            var log = new ScopeLog();
+            var readiness = await new CertificateHealthCheck(
+                    host.Services.GetRequiredService<ICertificateInventory>(),
+                    new DiagnosticsSettings { CertificateWarning = TimeSpan.FromHours(1) },
+                    TimeProvider.System,
+                    new ReadinessCheckTests.TypedLog<CertificateHealthCheck>(log))
+                .CheckHealthAsync(new());
+
+            Assert.Equal(HealthStatus.Healthy, readiness.Status);
+            var notice = $"outgoing certificate (CN=Next IPS) is not valid until {SignatureValidity.At(next, "not-before"):O}";
+            Assert.Contains(notice, Assert.Single(log.Entries).Message, StringComparison.Ordinal);
+        }
+
+        settings["Payments:Outgoing:Transport:IpsSignatureTrust:1:Path"] = certificates.SavePublic(expired, "expired.pem").Path;
+        using var refused = new Host(settings);
+        var error = Assert.Throws<InvalidOperationException>(() => refused.CreateClient());
+        Assert.Contains("outside its validity period", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

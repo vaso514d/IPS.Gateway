@@ -148,7 +148,7 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         var claim = (await work.StageClaimAsync(a.JournalId, time.GetUtcNow(), TimeSpan.FromSeconds(45), default))!;
         await new UnitOfWork(db).SaveAsync();
         var original = ((IPS.Middleware.Application.Inbound.Pacs008.IncomingPacs008ReadResult.Ready)
-            new IPS.Middleware.Infrastructure.Inbound.Pacs008.IncomingPacs008Reader().Read(fixture.Input.Signed["valid"], [fixture.Input.Certificate])).Payment.Original;
+            new IPS.Middleware.Infrastructure.Inbound.Pacs008.IncomingPacs008Reader().Read(fixture.Input.Signed["valid"], new IpsSignatureTrust([fixture.Input.Certificate], time), time.GetUtcNow())).Payment.Original;
         await work.StageOriginalReferencesAsync(claim, original, time.GetUtcNow(), default);
         await new IncomingReplyRepository(db).StageEnvelopeAsync(claim, new("BAGAGE22", original,
             new(false, time.GetUtcNow(), "FF01", "Invalid structure"), new("HEADER", "GROUP", time.GetUtcNow()), new("NBGEGE22"), 2), time.GetUtcNow(), default);

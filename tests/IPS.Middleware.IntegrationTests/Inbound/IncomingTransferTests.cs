@@ -124,6 +124,54 @@ public sealed class IncomingTransferTests
         Assert.False(await session.Context.Set<IncomingTransferMetadata>().AnyAsync());
     }
 
+    public static TheoryData<string, string, bool> TransfersAtValidityBounds()
+    {
+        var data = new TheoryData<string, string, bool>();
+        foreach (var messageType in new[] { "pacs.009", "pacs.004", "pain.001" })
+        {
+            foreach (var moment in SignatureValidity.Moments())
+            {
+                data.Add(messageType, (string)moment[0], (bool)moment[1]);
+            }
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(TransfersAtValidityBounds))]
+    // Judged as of the receipt: processing after the certificate expired does not matter.
+    public async Task A_transfer_received_outside_its_certificate_validity_is_held_and_nothing_is_stored(string messageType, string receivedAt, bool valid)
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var unsigned = messageType switch
+        {
+            "pacs.009" => Unsigned(),
+            "pacs.004" => UnsignedReturn(),
+            _ => UnsignedInitiation()
+        };
+        var xml = await SignedAsync(core, unsigned);
+        core.Clock.Now = SignatureValidity.LongAfterExpiry(core.IpsCertificate);
+
+        var (result, journalId) = await ApplyAsync(core, xml, messageType: messageType, receivedAt: SignatureValidity.At(core.IpsCertificate, receivedAt));
+
+        await using var session = core.Database.Session();
+        var stored = await session.Context.Set<IncomingTransferMetadata>().AnyAsync();
+        if (valid)
+        {
+            Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+            Assert.True(stored);
+        }
+        else
+        {
+            Assert.Equal(IncomingCompositionStatus.Held, result.Status);
+            var receipt = await ReadReceiptAsync(core, journalId);
+            Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
+            Assert.Equal(SignatureValidity.Stored(SignatureValidity.IncomingHold(core.IpsCertificate)), receipt.HoldReason);
+            Assert.False(stored);
+        }
+    }
+
     [Fact]
     public async Task A_redelivery_is_one_transfer_and_different_content_under_the_same_key_is_held()
     {
@@ -1097,13 +1145,18 @@ public sealed class IncomingTransferTests
     private static async Task<string> SignedAsync(ProcessingHarness core, string unsigned, X509Certificate2? signer = null) =>
         (await IpsReplies.SignAsync(signer ?? core.IpsCertificate, unsigned))[0];
 
-    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(ProcessingHarness core, string xml, long sequence = 1, string messageType = "pacs.009")
+    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(
+        ProcessingHarness core,
+        string xml,
+        long sequence = 1,
+        string messageType = "pacs.009",
+        DateTimeOffset? receivedAt = null)
     {
         Guid journalId;
         await using (var registering = core.Database.Session())
         {
             var registration = await new InboundReceiptRepository(registering.Context)
-                .StageRegistrationAsync(new(Participant, sequence, messageType, xml, false, core.Clock.Now), default);
+                .StageRegistrationAsync(new(Participant, sequence, messageType, xml, false, receivedAt ?? core.Clock.Now), default);
             await registering.Unit.SaveAsync();
             journalId = registration.JournalId;
         }
@@ -1117,8 +1170,9 @@ public sealed class IncomingTransferTests
 
         await using var session = core.Database.Session();
         var receipt = (await new InboundReceiptRepository(session.Context).ReadAsync(journalId, default))!.Receipt;
+        var trust = new IpsSignatureTrust([core.IpsCertificate], core.Clock);
         var handler = new IncomingTransferRegistration(
-            [new IncomingPacs009Protocol([core.IpsCertificate]), new IncomingPacs004Protocol([core.IpsCertificate]), new IncomingPain001Protocol([core.IpsCertificate])],
+            [new IncomingPacs009Protocol(trust), new IncomingPacs004Protocol(trust), new IncomingPain001Protocol(trust)],
             new IncomingTransferRepository(session.Context),
             new InboundWorkRepository(session.Context),
             session.Unit,

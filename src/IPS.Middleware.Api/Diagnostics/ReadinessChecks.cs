@@ -95,6 +95,7 @@ internal sealed class CertificateHealthCheck(
     ILogger<CertificateHealthCheck> logger) : IHealthCheck
 {
     private string _lastProblem = "";
+    private string _lastNotice = "";
 
     public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
@@ -102,9 +103,13 @@ internal sealed class CertificateHealthCheck(
         var expiries = inventory.Sources().SelectMany(source => source.Expiries()).ToArray();
         var expired = expiries.Where(certificate => certificate.NotAfterUtc <= now).ToArray();
         var expiring = expiries.Where(certificate => certificate.NotAfterUtc > now && certificate.NotAfterUtc - now <= settings.CertificateWarning).ToArray();
+        // Only IPS signature trust loads before its validity starts (012b): the next certificate, configured for rotation.
+        var notYetValid = expiries.Where(certificate => certificate.NotBeforeUtc > now).ToArray();
         var problem = string.Join("; ",
             expired.Select(certificate => $"a {certificate.Source} certificate ({certificate.Subject}) expired at {certificate.NotAfterUtc:O}")
                 .Concat(expiring.Select(certificate => $"a {certificate.Source} certificate ({certificate.Subject}) expires at {certificate.NotAfterUtc:O}")));
+        var notice = string.Join("; ",
+            notYetValid.Select(certificate => $"a {certificate.Source} certificate ({certificate.Subject}) is not valid until {certificate.NotBeforeUtc:O}"));
         if (problem != _lastProblem)
         {
             _lastProblem = problem;
@@ -114,12 +119,26 @@ internal sealed class CertificateHealthCheck(
             }
         }
 
+        if (notice != _lastNotice)
+        {
+            _lastNotice = notice;
+            if (notice.Length != 0)
+            {
+                logger.LogInformation("Readiness: {Notice}", notice);
+            }
+        }
+
         if (expired.Length != 0)
         {
             return Task.FromResult(HealthCheckResult.Unhealthy("A certificate has expired."));
         }
 
-        return Task.FromResult(expiring.Length != 0 ? HealthCheckResult.Degraded("A certificate expires soon.") : HealthCheckResult.Healthy());
+        if (expiring.Length != 0)
+        {
+            return Task.FromResult(HealthCheckResult.Degraded("A certificate expires soon."));
+        }
+
+        return Task.FromResult(HealthCheckResult.Healthy(notYetValid.Length != 0 ? "A signature trust certificate is not valid yet." : null));
     }
 
 }

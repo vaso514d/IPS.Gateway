@@ -1,15 +1,15 @@
-using System.Security.Cryptography.X509Certificates;
 using IPS.Middleware.Application.Payments.Investigation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 namespace IPS.Middleware.Infrastructure.Payments.Investigation;
 // Separates a report about the payment from a rejection of the investigation itself.
-public sealed class Pacs028ReplyInterpreter(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates)
+public sealed class Pacs028ReplyInterpreter(IpsSignatureTrust trust)
 {
     private const int TransactionNotFound = 1016;
     private const int TransactionStillProcessing = 1017;
-    private readonly IpsReplyInterpreter _replies = new(trustedIpsCertificates);
+    private readonly IpsReplyInterpreter _replies = new(trust);
     public InvestigationReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation original, string investigationMessageId)
     {
         var payment = _replies.Interpret(response, original, Pacs008Message.MessageDefinition);

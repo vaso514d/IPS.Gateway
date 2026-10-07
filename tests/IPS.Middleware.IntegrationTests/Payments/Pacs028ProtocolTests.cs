@@ -129,7 +129,7 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
         }
     }
 
-    private InvestigationReply Interpret(IpsSubmissionResponse response) => new Pacs028ReplyInterpreter([evidence.Ips]).Interpret(response, Original, Inquiry);
+    private InvestigationReply Interpret(IpsSubmissionResponse response) => new Pacs028ReplyInterpreter(new IpsSignatureTrust([evidence.Ips], TimeProvider.System)).Interpret(response, Original, Inquiry);
     public sealed class Evidence : IAsyncLifetime
     {
         public X509Certificate2 Ips { get; } = Certificate();

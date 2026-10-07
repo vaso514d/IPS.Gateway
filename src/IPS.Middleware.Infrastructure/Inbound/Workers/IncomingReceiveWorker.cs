@@ -131,20 +131,29 @@ public sealed class IncomingReceiveWorker(
     }
 
     // At most AcknowledgementCapacity acknowledgements run at once. The loop promises a beat within one IPS request timeout, the
-    // longest one acknowledgement may take, so acknowledgements that hang beyond it show as a stall of this loop alone.
+    // longest one acknowledgement may take. Its beat is as old as the oldest acknowledgement still running, so one that hangs
+    // shows as a stall of this loop alone, even while the other slots keep working. The loop wakes whenever an
+    // acknowledgement finishes, so its beat moves on as soon as the oldest one completes.
     private async Task AcknowledgeQueuedAsync(ChannelReader<Acknowledgement> queue, CancellationToken work)
     {
         var period = transport.Ips.RequestTimeout;
-        var running = new List<Task>();
+        var running = new Dictionary<Task, DateTimeOffset>();
         try
         {
             while (true)
             {
-                Beat(AcknowledgementLoop, period);
-                running.RemoveAll(task => task.IsCompleted);
+                var finished = running.Keys
+                    .Where(task => task.IsCompleted)
+                    .ToArray();
+                foreach (var task in finished)
+                {
+                    running.Remove(task);
+                }
+
+                Beat(AcknowledgementLoop, period, OldestStart(running));
                 if (running.Count == Options.AcknowledgementCapacity)
                 {
-                    await Task.WhenAny(running);
+                    await Task.WhenAny(running.Keys);
                     continue;
                 }
 
@@ -152,7 +161,7 @@ public sealed class IncomingReceiveWorker(
                 using var wait = CancellationTokenSource.CreateLinkedTokenSource(idle.Token, work);
                 try
                 {
-                    if (!await queue.WaitToReadAsync(wait.Token))
+                    if (!await WaitForQueueOrCompletionAsync(queue, running.Keys, wait))
                     {
                         return;
                     }
@@ -164,14 +173,44 @@ public sealed class IncomingReceiveWorker(
 
                 if (queue.TryRead(out var acknowledgement))
                 {
-                    running.Add(AcknowledgeAsync(acknowledgement, work));
+                    running.Add(AcknowledgeAsync(acknowledgement, work), Time.GetUtcNow());
                 }
             }
         }
         finally
         {
-            await Task.WhenAll(running);
+            await Task.WhenAll(running.Keys);
         }
+    }
+
+    private DateTimeOffset OldestStart(Dictionary<Task, DateTimeOffset> running) =>
+        running.Count == 0 ? Time.GetUtcNow() : running.Values.Min();
+
+    // Waits for a queued acknowledgement, or for a running one to finish so the loop beats again. False once the queue is
+    // completed and empty; the wait's cancellation (idle period or work) surfaces as OperationCanceledException.
+    private static async Task<bool> WaitForQueueOrCompletionAsync(
+        ChannelReader<Acknowledgement> queue,
+        IEnumerable<Task> running,
+        CancellationTokenSource wait)
+    {
+        var queued = queue.WaitToReadAsync(wait.Token).AsTask();
+        var first = await Task.WhenAny(running.Append(queued));
+        if (first == queued)
+        {
+            return await queued;
+        }
+
+        // Stop waiting on the queue; the next pass reads anything that arrived meanwhile.
+        await wait.CancelAsync();
+        try
+        {
+            await queued;
+        }
+        catch (OperationCanceledException) when (wait.IsCancellationRequested)
+        {
+        }
+
+        return true;
     }
 
     private async Task AcknowledgeAsync(Acknowledgement acknowledgement, CancellationToken token)

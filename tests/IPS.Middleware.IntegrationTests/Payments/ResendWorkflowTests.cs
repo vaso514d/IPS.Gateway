@@ -343,7 +343,7 @@ public sealed class ResendWorkflowTests
         {
             await using var s = Core.Database.Session(interceptor is null ? [] : [interceptor]);
             return await new OutgoingResend(s.Payments, s.Work, new PaymentPreparationRepository(s.Context), new InvestigationRepository(s.Context),
-                new ResendRepository(s.Context), s.Unit, Protocol(), this, new IpsReplyInterpreter([Core.IpsCertificate]), Options, Core.Clock)
+                new ResendRepository(s.Context), s.Unit, Protocol(), this, new IpsReplyInterpreter(new IpsSignatureTrust([Core.IpsCertificate], Core.Clock)), Options, Core.Clock)
                 .ProcessAsync(Id, token);
         }
 
@@ -399,6 +399,6 @@ public sealed class ResendWorkflowTests
         public ValueTask DisposeAsync() => Core.DisposeAsync();
 
         private InvestigationProtocol Protocol() =>
-            new(new(Policy, Core.Clock), Core.Certificates, Policy, new([Core.IpsCertificate]));
+            new(new(Policy, Core.Clock), Core.Certificates, Policy, new(new IpsSignatureTrust([Core.IpsCertificate], Core.Clock)));
     }
 }

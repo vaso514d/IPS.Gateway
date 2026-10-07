@@ -69,7 +69,7 @@ public sealed class IncomingReceiptPreparation(
             return await HoldAsync(claim, "Unsupported incoming message type.", now, token);
         }
 
-        return protocol.Read(receipt.RawXml) switch
+        return protocol.Read(receipt.RawXml, receipt.ReceivedAtUtc) switch
         {
             IncomingPacs008ReadResult.Hold held => await HoldAsync(claim, held.Reason, now, token),
             IncomingPacs008ReadResult.Reject rejected => await PrepareRejectionAsync(claim, receipt, rejected, now, token),

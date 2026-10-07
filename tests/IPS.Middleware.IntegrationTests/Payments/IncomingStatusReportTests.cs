@@ -103,6 +103,50 @@ public sealed class IncomingStatusReportTests
         Assert.Equal(0, await CallbacksAsync(core, id));
     }
 
+    // Judged as of the receipt. Processing cannot precede the receipt, so a report received after the expiry is processed
+    // then too; one received before the start is processed inside the validity period, which does not matter.
+    [Theory]
+    [InlineData("tick-before-start")]
+    [InlineData("tick-after-end")]
+    public async Task A_report_received_outside_its_certificate_validity_holds_the_receipt_and_changes_nothing(string receivedAt)
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var id = await PaymentAsync(core, TransactionStatus.Uncertain);
+        var xml = await ReportAsync(core, id, "ACCP");
+        var before = await core.ReadAsync(id);
+        var at = SignatureValidity.At(core.IpsCertificate, receivedAt);
+        core.Clock.Now = at > core.Clock.Now ? at : core.Clock.Now;
+
+        var (result, journalId) = await ApplyAsync(core, xml, receivedAt: at);
+
+        Assert.Equal(IncomingCompositionStatus.Held, result.Status);
+        var receipt = await ReadReceiptAsync(core, journalId);
+        Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
+        Assert.Equal(SignatureValidity.Stored(SignatureValidity.ReplyUnresolved(core.IpsCertificate)), receipt.HoldReason);
+        var after = await core.ReadAsync(id);
+        Assert.Equal(TransactionStatus.Uncertain, after.Payment.CurrentStatus);
+        Assert.Equal(before.NextActionAtUtc, after.NextActionAtUtc);
+        Assert.Equal(before.Events, after.Events);
+        Assert.Equal(0, await CallbacksAsync(core, id));
+    }
+
+    [Fact]
+    public async Task A_report_received_while_the_certificate_was_valid_settles_the_payment_after_the_certificate_expired()
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var id = await PaymentAsync(core, TransactionStatus.Uncertain);
+        var xml = await ReportAsync(core, id, "ACCP");
+        var receivedAt = core.Clock.Now;
+        core.Clock.Now = SignatureValidity.LongAfterExpiry(core.IpsCertificate);
+
+        var (result, journalId) = await ApplyAsync(core, xml, receivedAt: receivedAt);
+
+        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Equal(InboundProcessingStatus.Processed, (await ReadReceiptAsync(core, journalId)).Status);
+        Assert.Equal(TransactionStatus.Accepted, (await core.ReadAsync(id)).Payment.CurrentStatus);
+        Assert.Equal(1, await CallbacksAsync(core, id));
+    }
+
     [Theory]
     [InlineData(TransactionStatus.Accepted, "RJCT", "payment.outcome-conflict-observed")]
     [InlineData(TransactionStatus.Accepted, "ACCP", "payment.outcome-observed")]
@@ -445,17 +489,21 @@ public sealed class IncomingStatusReportTests
         return (await IpsReplies.SignAsync(signer ?? core.IpsCertificate, unsignedEdit?.Invoke(unsigned) ?? unsigned))[0];
     }
 
-    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(ProcessingHarness core, string xml, long sequence = 1)
+    private static async Task<(IncomingCompositionResult Result, Guid JournalId)> ApplyAsync(
+        ProcessingHarness core,
+        string xml,
+        long sequence = 1,
+        DateTimeOffset? receivedAt = null)
     {
-        var journalId = await RegisterAsync(core, xml, sequence);
+        var journalId = await RegisterAsync(core, xml, sequence, receivedAt);
         return (await RunAsync(core, journalId), journalId);
     }
 
-    private static async Task<Guid> RegisterAsync(ProcessingHarness core, string xml, long sequence = 1)
+    private static async Task<Guid> RegisterAsync(ProcessingHarness core, string xml, long sequence = 1, DateTimeOffset? receivedAt = null)
     {
         await using var session = core.Database.Session();
         var registration = await new InboundReceiptRepository(session.Context)
-            .StageRegistrationAsync(new("BAGAGE22", sequence, "pacs.002", xml, false, core.Clock.Now), default);
+            .StageRegistrationAsync(new("BAGAGE22", sequence, "pacs.002", xml, false, receivedAt ?? core.Clock.Now), default);
         await session.Unit.SaveAsync();
         return registration.JournalId;
     }
@@ -476,7 +524,7 @@ public sealed class IncomingStatusReportTests
             new PaymentPreparationRepository(session.Context),
             session.Work,
             new InboundWorkRepository(session.Context),
-            new StatusReportProtocol([core.IpsCertificate]),
+            new StatusReportProtocol(new IpsSignatureTrust([core.IpsCertificate], core.Clock)),
             session.Unit,
             new IncomingCompositionOptions(),
             core.Clock);

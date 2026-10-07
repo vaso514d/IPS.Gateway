@@ -36,12 +36,12 @@ public static class OutgoingHttpRegistration
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
         services.AddTransient<IOutgoingMessageProtocol>(sp => new Pain002Preparation(
             sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<OutgoingTransportCertificates>()));
-        services.AddTransient<IIpsReplyInterpreter>(sp => new IpsReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust));
+        services.AddTransient<IIpsReplyInterpreter>(sp => new IpsReplyInterpreter(SignatureTrust(sp)));
         services.AddTransient<IInvestigationProtocol>(sp => new InvestigationProtocol(
             sp.GetRequiredService<Pacs008MessageSigner>(),
             sp.GetRequiredService<OutgoingTransportCertificates>(),
             sp.GetRequiredService<Pacs008SigningPolicy>(),
-            new Pacs028ReplyInterpreter(sp.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust)));
+            new Pacs028ReplyInterpreter(SignatureTrust(sp))));
         Add(services, Ips, true);
         Add(services, Cbs, false);
         return services;
@@ -55,6 +55,9 @@ public static class OutgoingHttpRegistration
             using var client = services.GetRequiredService<IHttpClientFactory>().CreateClient(name);
         }
     }
+
+    private static IpsSignatureTrust SignatureTrust(IServiceProvider services) =>
+        new(services.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust, services.GetRequiredService<TimeProvider>());
 
     private static void Add(IServiceCollection services, string name, bool ips) => SingleAttemptHttp.Add(services, name, sp =>
     {

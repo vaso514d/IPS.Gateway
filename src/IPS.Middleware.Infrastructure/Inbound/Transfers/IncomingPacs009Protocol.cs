@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -13,14 +12,14 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transfers;
 
 // Reads a pacs.009 from IPS. Nothing in the message is trusted before its signature verifies; a transfer is delivered only
 // when it is schema-valid, single, and names both agents by BICFI. Field rules follow the source mapper.
-public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIncomingTransferProtocol
+public sealed class IncomingPacs009Protocol(IpsSignatureTrust trust) : IIncomingTransferProtocol
 {
     private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs009Xml.DocumentNamespace;
 
     public bool Reads(string messageType) => PaymentMessageTypes.IsPacs009(messageType);
 
-    public IncomingTransferReadResult Read(string xml)
+    public IncomingTransferReadResult Read(string xml, DateTimeOffset receivedAtUtc)
     {
         try
         {
@@ -37,7 +36,13 @@ public sealed class IncomingPacs009Protocol(IReadOnlyCollection<X509Certificate2
                 return Hold("Unsupported message definition.");
             }
 
-            if (!IpsSignatureVerifier.IsTrusted(xml, trustedIpsCertificates))
+            var signature = trust.Check(xml, receivedAtUtc);
+            if (signature is IpsSignatureCheck.OutsideValidity outside)
+            {
+                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
+            }
+
+            if (signature is not IpsSignatureCheck.Trusted)
             {
                 return Hold("Untrusted message signature.");
             }

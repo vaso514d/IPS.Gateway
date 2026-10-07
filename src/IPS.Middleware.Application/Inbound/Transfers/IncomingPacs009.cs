@@ -34,8 +34,9 @@ public interface IIncomingTransferProtocol
     bool Reads(string messageType);
 
     // Ready only for a trusted, schema-valid single transfer with everything the core needs; otherwise Hold. A value date
-    // IPS did not send stays absent, so a redelivery on another day is still the same content.
-    IncomingTransferReadResult Read(string xml);
+    // IPS did not send stays absent, so a redelivery on another day is still the same content. The signature is judged
+    // as of the receipt time.
+    IncomingTransferReadResult Read(string xml, DateTimeOffset receivedAtUtc);
 }
 
 // Records compare by value, so a redelivery is recognized by equality.

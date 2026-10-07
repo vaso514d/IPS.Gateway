@@ -27,7 +27,7 @@ public sealed class IncomingTransferRegistration(
     public async Task<IncomingCompositionResult> ProcessAsync(InboundClaim claim, InboundReceipt receipt, CancellationToken token)
     {
         var now = timeProvider.GetUtcNow();
-        var read = protocols.Single(protocol => protocol.Reads(receipt.MessageType)).Read(receipt.RawXml);
+        var read = protocols.Single(protocol => protocol.Reads(receipt.MessageType)).Read(receipt.RawXml, receipt.ReceivedAtUtc);
         if (read is not IncomingTransferReadResult.Ready { Transfer: var content })
         {
             return await HoldAsync(claim, ((IncomingTransferReadResult.Hold)read).Reason, now, token);

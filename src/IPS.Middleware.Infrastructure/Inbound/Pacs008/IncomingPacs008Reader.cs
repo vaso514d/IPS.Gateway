@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -15,7 +14,7 @@ public sealed class IncomingPacs008Reader
     private static readonly XNamespace Pacs = Pacs008Xml.DocumentNamespace;
 
     // Ready for a trusted, valid single payment; FF01 Reject for a trusted count/batch violation; otherwise Hold.
-    public IncomingPacs008ReadResult Read(string xml, IReadOnlyCollection<X509Certificate2> trustedCertificates)
+    public IncomingPacs008ReadResult Read(string xml, IpsSignatureTrust trust, DateTimeOffset receivedAtUtc)
     {
         try
         {
@@ -33,7 +32,13 @@ public sealed class IncomingPacs008Reader
             }
 
             // Nothing in the message is trusted, including its correlation, before the original signature verifies.
-            if (!IpsSignatureVerifier.IsTrusted(xml, trustedCertificates))
+            var signature = trust.Check(xml, receivedAtUtc);
+            if (signature is IpsSignatureCheck.OutsideValidity outside)
+            {
+                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
+            }
+
+            if (signature is not IpsSignatureCheck.Trusted)
             {
                 return Hold("Untrusted message signature.");
             }

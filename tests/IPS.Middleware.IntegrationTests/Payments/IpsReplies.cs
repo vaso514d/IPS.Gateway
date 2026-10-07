@@ -12,6 +12,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 internal static class IpsReplies
 {
     private const string Pacs028Namespace = "urn:iso:std:iso:20022:tech:xsd:pacs.028.001.06";
+    private static readonly DateTimeOffset EarliestTestClock = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     internal sealed record Reply
     {
@@ -72,13 +73,21 @@ internal static class IpsReplies
 
     internal static bool IsInvestigation(string xml) => xml.Contains(Pacs028Namespace, StringComparison.Ordinal);
 
+    // Signatures are verified at the test's clock (012b), so the default validity covers both the fixed test clocks
+    // (October 2026) and the real current time.
     internal static X509Certificate2 Certificate(string subject = "CN=Simulated IPS", DateTimeOffset? validAt = null)
+    {
+        var at = validAt ?? DateTimeOffset.UtcNow;
+        var start = at < EarliestTestClock ? at : EarliestTestClock;
+        return Certificate(subject, start.AddDays(-1), at.AddYears(1));
+    }
+
+    internal static X509Certificate2 Certificate(string subject, DateTimeOffset notBefore, DateTimeOffset notAfter)
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var request = new CertificateRequest(subject, key, HashAlgorithmName.SHA256);
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, critical: true));
-        var at = validAt ?? DateTimeOffset.UtcNow;
-        return request.CreateSelfSigned(at.AddDays(-1), at.AddYears(1));
+        return request.CreateSelfSigned(notBefore, notAfter);
     }
 
     /// <summary>Signs every message in one JVM run; certificates must carry an ECDSA private key.</summary>

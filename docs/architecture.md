@@ -271,6 +271,12 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **pacs.004 ceiling.** `Pacs004Validator` compares the amounts with the same normalized currencies (`ValidatedPacs004.CurrencyOf`/`OriginalCurrencyOf`) the message is built with.
 - See [012a](specs/012a-audit-corrections.md) and the [audit](reviews/business-flow-audit-2026-10-07.md).
 
+## IPS signature certificate validity (012b)
+
+- **At verification.** `IpsSignatureTrust` (Infrastructure, `Payments/Pacs008/Signing`) pairs the configured IPS signature certificates with the service `TimeProvider`; every IPS verifier (`IpsReplyInterpreter`, `Pacs028ReplyInterpreter`, `StatusReportProtocol`, `IncomingReplyProtocol`, `IncomingPacs008Reader`, the incoming pacs.009, pacs.004 and pain.001 protocols) receives it from `OutgoingHttpRegistration`/`IncomingHttpRegistration`. `IpsSignatureVerifier` checks the matched certificate's validity before the digest and signature: incoming messages at their stored receipt time (the incoming ports take `ReceivedAtUtc`), replies to our sends at the current time; and reports a certificate outside its period separately from an untrusted signature, so the hold or unresolved reason names the expiry. Proxy signatures are not affected.
+- **Rotation.** `CertificateSettings.LoadSignatureTrust` accepts a trust certificate that is not valid yet; TLS and signing certificates are still refused outside their period, and an expired trust certificate still fails startup. `CertificateHealthCheck` logs a not-yet-valid certificate as information without changing the status.
+- See [012b](specs/012b-signature-certificate-validity.md).
+
 ## Shutdown and multi-instance guarantees (011)
 
 - **Ownership.** Any number of instances may share one database. A payment, a callback, an investigation or a resend is worked by the instance that holds its SQL claim; a claim expires after its ownership period and another instance then takes the work. A marker is committed before every IPS or core call, so a takeover after an unknown outcome sends the flagged possible-duplicate resend of the same bytes, never a fresh message (a pacs.008 is investigated with a pacs.028 first and resent only if IPS does not know it).

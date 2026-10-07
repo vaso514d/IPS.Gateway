@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -15,7 +14,7 @@ namespace IPS.Middleware.Infrastructure.Payments.Pacs008;
 
 // A final outcome requires HTTP 200 with a schema-valid pacs.002 signed by a trusted IPS certificate that references
 // the sent identifiers and reports agreeing final statuses. Everything else is unresolved and needs investigation.
-public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> trustedIpsCertificates) : IIpsReplyInterpreter
+public sealed class IpsReplyInterpreter(IpsSignatureTrust trust) : IIpsReplyInterpreter
 {
     internal const string RequestStatusHeader = IpsHeaders.RequestStatus;
     private static readonly XNamespace P = Pacs008Schema.ReplyNamespace;
@@ -23,15 +22,25 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
     private const string Rejected = "RJCT";
 
     // A pain.002 is answered by a header, every other message by a signed pacs.002.
+    // A reply to our own send is judged when it is interpreted.
     public IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent) =>
+        Interpret(response, sent, receivedAtUtc: null);
+
+    // An unsolicited report is judged as of its receipt.
+    internal IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, DateTimeOffset? receivedAtUtc) =>
         sent.MessageDefinition == PaymentMessageTypes.Pain002Definition
             ? Pain002ReplyInterpreter.Interpret(response)
-            : Interpret(response, sent, sent.MessageDefinition, strictEvidence: false);
+            : Interpret(response, sent, sent.MessageDefinition, strictEvidence: false, receivedAtUtc);
 
     internal IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition) =>
-        Interpret(response, sent, messageDefinition, strictEvidence: true);
+        Interpret(response, sent, messageDefinition, strictEvidence: true, receivedAtUtc: null);
 
-    private IpsReply Interpret(IpsSubmissionResponse response, IpsReplyCorrelation sent, string messageDefinition, bool strictEvidence)
+    private IpsReply Interpret(
+        IpsSubmissionResponse response,
+        IpsReplyCorrelation sent,
+        string messageDefinition,
+        bool strictEvidence,
+        DateTimeOffset? receivedAtUtc)
     {
         var headers = response.Headers
             .Where(header => string.Equals(header.Name, RequestStatusHeader, StringComparison.OrdinalIgnoreCase))
@@ -65,7 +74,13 @@ public sealed class IpsReplyInterpreter(IReadOnlyCollection<X509Certificate2> tr
             return Unresolved($"The IPS reply is not a valid pacs.002: {exception.Message}");
         }
 
-        if (!IpsSignatureVerifier.IsTrusted(response.Body, trustedIpsCertificates))
+        var signature = receivedAtUtc is { } at ? trust.Check(response.Body, at) : trust.Check(response.Body);
+        if (signature is IpsSignatureCheck.OutsideValidity outside)
+        {
+            return Unresolved($"The IPS reply was signed by a trusted IPS certificate outside its validity period: {outside.Detail}");
+        }
+
+        if (signature is not IpsSignatureCheck.Trusted)
         {
             return Unresolved("The IPS reply signature is missing, invalid or not from a trusted IPS certificate.");
         }

@@ -72,9 +72,29 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
     {
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(IncomingPacs008Fixture.Xml));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(fixture.Signed["valid"].Replace("12.50", "13.50", StringComparison.Ordinal)));
-        Assert.IsType<IncomingPacs008ReadResult.Hold>(new IncomingPacs008Reader().Read(fixture.Signed["valid"], []));
+        Assert.IsType<IncomingPacs008ReadResult.Hold>(new IncomingPacs008Reader().Read(fixture.Signed["valid"], new IpsSignatureTrust([], TimeProvider.System), DateTimeOffset.UtcNow));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read("<!DOCTYPE Message [<!ENTITY x SYSTEM 'file:///unread'>]><Message>&x;</Message>"));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read("<broken"));
+    }
+
+    [Theory]
+    [MemberData(nameof(SignatureValidity.Moments), MemberType = typeof(SignatureValidity))]
+    public void A_payment_is_trusted_only_if_its_signing_certificate_was_valid_when_it_was_received(string moment, bool valid)
+    {
+        // Processing happens long after the certificate expired; only the receipt time counts.
+        var processing = new TestClock(SignatureValidity.LongAfterExpiry(fixture.Certificate));
+        var trust = new IpsSignatureTrust([fixture.Certificate], processing);
+
+        var result = new IncomingPacs008Reader().Read(fixture.Signed["valid"], trust, SignatureValidity.At(fixture.Certificate, moment));
+
+        if (valid)
+        {
+            Assert.IsType<IncomingPacs008ReadResult.Ready>(result);
+        }
+        else
+        {
+            Assert.Equal(SignatureValidity.IncomingHold(fixture.Certificate), Assert.IsType<IncomingPacs008ReadResult.Hold>(result).Reason);
+        }
     }
 
     [Fact]
@@ -148,6 +168,6 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
         Assert.All(doc.Descendants(p + "AddtlInf"), info => Assert.Equal(new string('x', 35), info.Value));
     }
 
-    private IncomingPacs008ReadResult Read(string xml) => new IncomingPacs008Reader().Read(xml, [fixture.Certificate]);
+    private IncomingPacs008ReadResult Read(string xml) => new IncomingPacs008Reader().Read(xml, new IpsSignatureTrust([fixture.Certificate], TimeProvider.System), DateTimeOffset.UtcNow);
     private IncomingPacs008 Ready() => Assert.IsType<IncomingPacs008ReadResult.Ready>(Read(fixture.Signed["valid"])).Payment;
 }

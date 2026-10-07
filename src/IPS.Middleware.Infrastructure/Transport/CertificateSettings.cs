@@ -22,7 +22,15 @@ public sealed class CertificateSettings
         && System.IO.Path.GetExtension(Path) is { } extension
         && (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase) || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase));
 
-    public X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls = false)
+    public X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls = false) =>
+        Load(privateKeyRequired, now, forTls, notYetValidAccepted: false);
+
+    // Annex C 2.1: the next IPS signature certificate can be configured before its validity starts, so the service is
+    // ready when IPS switches to it. It verifies nothing until then; an expired one is still refused.
+    internal X509Certificate2 LoadSignatureTrust(DateTimeOffset now) =>
+        Load(privateKeyRequired: false, now, forTls: false, notYetValidAccepted: true);
+
+    private X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls, bool notYetValidAccepted)
     {
         if (string.IsNullOrWhiteSpace(Path) == string.IsNullOrWhiteSpace(Thumbprint))
         {
@@ -37,7 +45,7 @@ public sealed class CertificateSettings
 
         try
         {
-            RequireUsable(certificate, privateKeyRequired, now);
+            RequireUsable(certificate, privateKeyRequired, now, notYetValidAccepted);
             return certificate;
         }
         catch
@@ -79,9 +87,11 @@ public sealed class CertificateSettings
         return IsPkcs12File ? LoadPkcs12(forTls) : LoadPem(privateKeyRequired);
     }
 
-    private static void RequireUsable(X509Certificate2 certificate, bool privateKeyRequired, DateTimeOffset now)
+    private static void RequireUsable(X509Certificate2 certificate, bool privateKeyRequired, DateTimeOffset now, bool notYetValidAccepted)
     {
-        if (now < certificate.NotBefore.ToUniversalTime() || now > certificate.NotAfter.ToUniversalTime())
+        var expired = now > certificate.NotAfter.ToUniversalTime();
+        var refusedBeforeStart = !notYetValidAccepted && now < certificate.NotBefore.ToUniversalTime();
+        if (expired || refusedBeforeStart)
         {
             throw new InvalidOperationException("Configured certificate is outside its validity period.");
         }

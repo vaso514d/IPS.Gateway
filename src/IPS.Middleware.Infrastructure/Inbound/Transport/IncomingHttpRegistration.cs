@@ -27,21 +27,16 @@ public static class IncomingHttpRegistration
         services.AddTransient<IIncomingReceiveClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
         services.AddTransient<IIncomingReplyClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
         services.AddTransient<IIncomingAckClient>(sp => sp.GetRequiredService<IncomingIpsClient>());
-        services.AddTransient<IStatusReportProtocol>(sp =>
-            new StatusReportProtocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
-        services.AddTransient<IIncomingTransferProtocol>(sp =>
-            new IncomingPacs009Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
-        services.AddTransient<IIncomingTransferProtocol>(sp =>
-            new IncomingPacs004Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
-        services.AddTransient<IIncomingTransferProtocol>(sp =>
-            new IncomingPain001Protocol(sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
+        services.AddTransient<IStatusReportProtocol>(sp => new StatusReportProtocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPacs009Protocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPacs004Protocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPain001Protocol(SignatureTrust(sp)));
         services.AddTransient<IncomingCbsClient>();
         services.AddTransient<IIncomingTransferCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingReversalClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingReplyProtocol>(sp => new IncomingReplyProtocol(
-            sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<ISigningCertificateSource>(),
-            sp.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust));
+            sp.GetRequiredService<Pacs008MessageSigner>(), sp.GetRequiredService<ISigningCertificateSource>(), SignatureTrust(sp)));
         AddClient(services, IpsReceive, ips: true, receive: true);
         AddClient(services, IpsReply, ips: true, receive: false);
         AddClient(services, Cbs, ips: false, receive: false);
@@ -69,6 +64,9 @@ public static class IncomingHttpRegistration
             throw new InvalidOperationException("Payment participant does not match the configured transport participant.");
         }
     }
+
+    private static IpsSignatureTrust SignatureTrust(IServiceProvider services) =>
+        new(services.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust, services.GetRequiredService<TimeProvider>());
 
     private static void AddClient(IServiceCollection services, string name, bool ips, bool receive)
     {

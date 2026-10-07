@@ -53,7 +53,8 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
     }
 
     internal IReadOnlyList<CertificateExpiry> Expiries(string source) => _owned
-        .Select(certificate => new CertificateExpiry(source, certificate.Subject, certificate.NotAfter.ToUniversalTime()))
+        .Select(certificate => new CertificateExpiry(
+            source, certificate.Subject, certificate.NotAfter.ToUniversalTime(), certificate.NotBefore.ToUniversalTime()))
         .ToArray();
 
     public void Dispose()
@@ -119,7 +120,9 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
 
     private X509Certificate2[] LoadSignatureTrust(CertificateSettings[] sources)
     {
-        var trust = LoadTrust(sources);
+        var trust = sources
+            .Select(source => Own(source.LoadSignatureTrust(_time.GetUtcNow())))
+            .ToArray();
         foreach (var certificate in trust)
         {
             CertificateSettings.RequireDigitalSignature(certificate);
@@ -143,7 +146,11 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
             return null;
         }
 
-        var certificate = source.Load(privateKeyRequired, _time.GetUtcNow(), forTls);
+        return Own(source.Load(privateKeyRequired, _time.GetUtcNow(), forTls));
+    }
+
+    private X509Certificate2 Own(X509Certificate2 certificate)
+    {
         _owned.Add(certificate);
         return certificate;
     }
