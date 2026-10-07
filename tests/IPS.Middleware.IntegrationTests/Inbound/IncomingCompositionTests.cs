@@ -83,6 +83,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     [InlineData("valid", "camt.053", 1)]
     [InlineData("valid", "pacs.008", 0)]
     [InlineData("valid", "camt.056", 0)]
+    [InlineData("valid", "camt.055", 0)]
     public async Task Held_receipts_never_call_remote_systems(string input, string type, long sequence)
     {
         await using var h = await Harness.CreateAsync(fixture);
@@ -97,7 +98,11 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     [InlineData("camt.056.001.11")]
     [InlineData("camt.029")]
     [InlineData("camt.029.001.13")]
-    public async Task A_recall_is_archived_without_a_payment_a_reply_or_any_remote_call(string type)
+    [InlineData("camt.055")]
+    [InlineData("camt.055.001.12")]
+    [InlineData("camt.055.001.012")]
+    [InlineData("camt.055.001.08")]
+    public async Task A_recall_or_cancellation_is_archived_without_a_payment_a_reply_or_any_remote_call(string type)
     {
         await using var h = await Harness.CreateAsync(fixture);
         var id = await h.SeedAsync(1, rawXml: "<archived recall />", type: type);

@@ -11,7 +11,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 namespace IPS.Middleware.Application.Inbound.Composition;
 
 // Turns an owned receipt into a registered payment or transfer, a ready rejection reply, an applied status report, an
-// archived recall or a held receipt.
+// archived recall or cancellation or a held receipt.
 public sealed class IncomingReceiptPreparation(
     IInboundReceiptRepository receipts,
     IInboundWorkRepository work,
@@ -54,7 +54,7 @@ public sealed class IncomingReceiptPreparation(
             return await statusReports.ProcessAsync(claim, receipt, token);
         }
 
-        if (PaymentMessageTypes.IsArchivedRecall(receipt.MessageType))
+        if (PaymentMessageTypes.IsArchivedCancellation(receipt.MessageType))
         {
             return await ArchiveAsync(claim, now, token);
         }
@@ -138,7 +138,7 @@ public sealed class IncomingReceiptPreparation(
         return new IncomingCompositionResult(status, registered.PaymentId);
     }
 
-    // The stored receipt is the archive: the recall is acknowledged to IPS by the receive worker and is not acted on.
+    // The stored receipt is the archive: the recall or cancellation is acknowledged to IPS by the receive worker and is not acted on.
     private async Task<IncomingCompositionResult> ArchiveAsync(InboundClaim claim, DateTimeOffset now, CancellationToken token)
     {
         if (!await work.StageFinishAsync(claim, now, null, token))

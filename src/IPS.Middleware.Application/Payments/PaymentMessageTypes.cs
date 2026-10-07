@@ -12,6 +12,10 @@ public static class PaymentMessageTypes
     public const string Camt056Definition = "camt.056.001.11";
     public const string Camt029 = "camt.029";
     public const string Camt029Definition = "camt.029.001.13";
+    public const string Camt055 = "camt.055";
+    public const string Camt055Definition = "camt.055.001.12";
+    public const string Camt055Spelled012 = "camt.055.001.012";
+    public const string Camt055Spelled08 = "camt.055.001.08";
     public const string Pain002 = "pain.002";
     public const string Pain002Definition = "pain.002.001.14";
     public const string Pain001 = "pain.001";
@@ -42,9 +46,11 @@ public static class PaymentMessageTypes
 
     public static bool IsPacs002(string messageType) => messageType is Pacs002 or Pacs002Definition;
 
-    // An incoming recall request or refusal is only acknowledged and archived; nothing is delivered to the core system.
-    public static bool IsArchivedRecall(string messageType) =>
-        messageType is Camt056 or Camt056Definition or Camt029 or Camt029Definition;
+    // An incoming recall request or refusal, or a cancellation request for a payment initiation (the registry also spells its
+    // definition camt.055.001.012 and camt.055.001.08), is only acknowledged and archived; nothing is delivered to the core system.
+    public static bool IsArchivedCancellation(string messageType) =>
+        messageType is Camt056 or Camt056Definition or Camt029 or Camt029Definition
+            or Camt055 or Camt055Definition or Camt055Spelled012 or Camt055Spelled08;
 
     public static bool IsOutgoing(string messageType) => Outgoing.Contains(messageType);
 

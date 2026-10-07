@@ -660,12 +660,12 @@ public sealed class IncomingTransferTests
     }
 
     [Fact]
-    public async Task Worker_acknowledges_recalls_after_storing_them_and_leaves_other_unsupported_types_unacknowledged()
+    public async Task Worker_acknowledges_recalls_and_cancellations_after_storing_them_and_leaves_other_unsupported_types_unacknowledged()
     {
         await using var core = await ProcessingHarness.CreateAsync();
         // The unsupported type comes first, so an acknowledgement of it would show before the recalls'. The first
         // acknowledgement fails and sequence 11 is delivered again, which must be acknowledged again and stored once.
-        var deliveries = new ConcurrentQueue<(string Sequence, string Type)>([("13", "camt.053"), ("11", "camt.056"), ("11", "camt.056"), ("12", "camt.029")]);
+        var deliveries = new ConcurrentQueue<(string Sequence, string Type)>([("13", "camt.053"), ("11", "camt.056"), ("11", "camt.056"), ("12", "camt.029"), ("14", "camt.055")]);
         var acknowledgements = new ConcurrentQueue<string?>();
         await using var server = await HttpSimulator.StartAsync(async context =>
         {
@@ -701,16 +701,16 @@ public sealed class IncomingTransferTests
             {
                 await using var session = core.Database.Session();
                 var statuses = await session.Context.Set<InboundJournalEntry>().OrderBy(entry => entry.Sequence).Select(entry => entry.Status).ToListAsync();
-                return statuses.SequenceEqual([InboundProcessingStatus.Processed, InboundProcessingStatus.Processed, InboundProcessingStatus.Held]);
+                return statuses.SequenceEqual([InboundProcessingStatus.Processed, InboundProcessingStatus.Processed, InboundProcessingStatus.Held, InboundProcessingStatus.Processed]);
             });
-            await EventuallyAsync(() => Task.FromResult(acknowledgements.Count >= 3));
+            await EventuallyAsync(() => Task.FromResult(acknowledgements.Count >= 4));
         }
         finally
         {
             await host.StopAsync();
         }
 
-        Assert.Equal(["11", "11", "12"], acknowledgements);
+        Assert.Equal(["11", "11", "12", "14"], acknowledgements);
         await using var check = core.Database.Session();
         Assert.Equal(1, await check.Context.Set<InboundJournalEntry>().Where(entry => entry.Sequence == 11).Select(entry => entry.DuplicateCount).SingleAsync());
     }

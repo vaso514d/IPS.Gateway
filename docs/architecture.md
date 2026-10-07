@@ -259,6 +259,11 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
 - See [007c](specs/007c-incoming-recalls.md).
 
+## Incoming camt.055 (008c)
+
+- An incoming camt.055 (a PISP's cancellation request for a payment initiation; short type, `.12`, `.012` or `.08`) is acknowledged and archived exactly like the recalls of 007c: `PaymentMessageTypes.IsArchivedCancellation` names all three types once, `IncomingReceiptPreparation` completes the receipt as processed and `IncomingReceiveWorker` acknowledges it after the commit. Nothing is verified, delivered to the core or answered.
+- See [008c](specs/008c-incoming-camt055.md).
+
 ## Outgoing camt.029 and the shared recall parts (007b)
 
 - **One more type on the shared core.** `PaymentMessageTypes.Camt029` joins the outgoing set. `Camt029Intake` validates the source rules (the creditor agent must be us, the quoted currency enabled, settlement date not in the future, reason code 1-4 uppercase characters) and snapshots `AcceptedCamt029`. The message id is the caller's `Id` and the transaction id its cancellation status id. The answer is always a refusal (RJCR).
