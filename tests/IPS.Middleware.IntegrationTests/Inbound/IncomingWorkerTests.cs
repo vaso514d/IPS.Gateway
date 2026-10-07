@@ -105,15 +105,17 @@ public sealed class IncomingWorkerTests
     }
 
     [Theory]
-    [InlineData(3, 5, 2, 2)]
-    [InlineData(100, 100, 2, 98)]
-    [InlineData(20, 5, 2, 3)]
-    public void Handler_capacity_uses_both_connection_budgets(int ips, int cbs, int followUp, int expected)
+    [InlineData(3, 5, 2, 1, 1)]
+    [InlineData(5, 5, 2, 2, 2)]
+    [InlineData(100, 100, 2, 2, 97)]
+    [InlineData(20, 5, 2, 2, 3)]
+    public void Handler_capacity_uses_both_connection_budgets(int ips, int cbs, int followUp, int acknowledgements, int expected)
     {
-        var options = new IncomingWorkerOptions { Enabled = true, CbsFollowUpCapacity = followUp };
+        var options = new IncomingWorkerOptions { Enabled = true, CbsFollowUpCapacity = followUp, AcknowledgementCapacity = acknowledgements };
         var transport = new IncomingTransportSettings { Enabled = true, Ips = new() { ConnectionLimit = ips }, Cbs = new() { ConnectionLimit = cbs } };
         options.Validate(transport);
         Assert.Equal(expected, options.ProcessingCapacity(transport));
+        Assert.Equal(ips - 1 - acknowledgements, options.IpsSendCapacity(transport));
     }
 
     [Fact]
@@ -123,7 +125,61 @@ public sealed class IncomingWorkerTests
         Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { Enabled = true, CbsFollowUpCapacity = 100 }.Validate(new() { Enabled = true }));
         Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { EmptyDelay = TimeSpan.Zero }.Validate(new()));
         Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { ShutdownBudget = TimeSpan.Zero }.Validate(new()));
+        Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { AcknowledgementCapacity = 0 }.Validate(new()));
+        Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { AcknowledgementBacklog = 0 }.Validate(new()));
+        // Receive and two acknowledgements would leave no IPS connection for replies.
+        Assert.Throws<InvalidOperationException>(() => new IncomingWorkerOptions { Enabled = true }
+            .Validate(new() { Enabled = true, Ips = new() { ConnectionLimit = 3 } }));
     }
+
+    [Fact]
+    public void Follow_up_admits_a_transfer_within_two_admissions_while_reconciliation_keeps_a_backlog()
+    {
+        var admission = new FollowUpAdmission();
+        var transfer = Guid.NewGuid();
+        var admitted = new List<FollowUpKind>();
+
+        // Capacity one: every sweep finds a fresh reconciliation backlog and the same due transfer, and one slot is free.
+        for (var sweep = 0; sweep < 4; sweep++)
+        {
+            var transfers = admitted.Contains(FollowUpKind.Transfer) ? Array.Empty<Guid>() : [transfer];
+            admitted.Add(Assert.Single(admission.Select(Fresh(5), transfers, free: 1, _ => false)).Kind);
+        }
+
+        Assert.Equal(new[] { FollowUpKind.Reconciliation, FollowUpKind.Transfer, FollowUpKind.Reconciliation, FollowUpKind.Reconciliation }, admitted);
+    }
+
+    [Fact]
+    public void Follow_up_alternates_kinds_as_single_slots_free_up_and_one_kind_alone_takes_every_slot()
+    {
+        var admission = new FollowUpAdmission();
+
+        var kinds = Enumerable.Range(0, 4).Select(_ => Assert.Single(admission.Select(Fresh(3), Fresh(3), free: 1, _ => false)).Kind).ToArray();
+        var payments = Fresh(3);
+        var paymentsOnly = admission.Select(payments, [], free: 3, _ => false);
+        var transfers = Fresh(3);
+        var transfersOnly = admission.Select([], transfers, free: 3, _ => false);
+
+        Assert.Equal(new[] { FollowUpKind.Reconciliation, FollowUpKind.Transfer, FollowUpKind.Reconciliation, FollowUpKind.Transfer }, kinds);
+        Assert.Equal(payments, paymentsOnly.Select(due => due.Id));
+        Assert.Equal(transfers, transfersOnly.Select(due => due.Id));
+    }
+
+    [Fact]
+    public void Follow_up_skips_running_work_without_using_a_slot_and_keeps_the_turn_for_the_next_item_of_its_kind()
+    {
+        var admission = new FollowUpAdmission();
+        var running = Guid.NewGuid();
+        var payment = Guid.NewGuid();
+        var next = Guid.NewGuid();
+        var transfer = Guid.NewGuid();
+
+        var started = admission.Select([running, payment, next], [transfer], free: 2, id => id == running);
+
+        Assert.Equal(new FollowUpWork[] { new(payment, FollowUpKind.Reconciliation), new(transfer, FollowUpKind.Transfer) }, started);
+    }
+
+    private static Guid[] Fresh(int count) => Enumerable.Range(0, count).Select(_ => Guid.NewGuid()).ToArray();
 
     private sealed class Dispatcher(InboundProcessingChannel channel, IncomingWorkerOptions options, Func<Guid, CancellationToken, Task> handler)
         : IncomingWorker(options, TimeProvider.System, NullLogger.Instance)

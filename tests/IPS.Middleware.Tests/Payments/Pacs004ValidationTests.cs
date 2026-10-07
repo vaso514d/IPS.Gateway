@@ -113,7 +113,12 @@ public sealed class Pacs004ValidationTests
         { "original.amount", r => r with { Original = Valid().Original! with { Currency = "USD" } } },
         { "original.uetr", r => r with { Original = Valid().Original! with { Uetr = Guid.Empty } } },
         { "original.originalMessageId", r => r with { Original = Valid().Original! with { OriginalMessageId = new string('x', 36) } } },
-        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m } } }
+        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m } } },
+        // The ceiling compares the currencies the message is built with, so a blank or differently spelled one cannot skip it.
+        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m, Currency = "" } } },
+        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m, Currency = "   " } } },
+        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m, Currency = "gel" } } },
+        { "amount", r => r with { Amount = 200m, Original = Valid().Original! with { Amount = 100m, Currency = " GEL " } } }
     };
 
     [Theory]

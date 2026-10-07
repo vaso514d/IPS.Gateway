@@ -46,7 +46,7 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
         // The original amount cannot be smaller than what is returned (Annex D 3.2.3.g); only same-currency amounts compare.
         RuleFor(x => x.Amount).Must((request, amount) => request.Original!.Amount!.Value >= amount!.Value)
             .When(request => request.Original?.Amount is not null && request.Amount is not null &&
-                string.Equals(request.Original.Currency ?? request.Currency, request.Currency, StringComparison.OrdinalIgnoreCase))
+                ValidatedPacs004.OriginalCurrencyOf(request) == ValidatedPacs004.CurrencyOf(request))
             .WithMessage("Amount cannot be greater than the original amount.");
     }
 

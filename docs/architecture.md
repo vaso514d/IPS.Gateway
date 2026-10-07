@@ -264,6 +264,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - `tests/IPS.Middleware.AppHost` declares a SQL Server container, the simulators and one or more API instances (projects, or containers built from `src/IPS.Middleware.Api/Dockerfile` with `Middleware:Container=true`); `tests/IPS.Middleware.Simulators` is the test-support stand-in for IPS, the CBS callback and the Proxy Solution with a `/_sim` control API; `tests/IPS.Middleware.AspireTests` starts the stack with `Aspire.Hosting.Testing` and skips with a reason when Docker is not running. None of it is referenced by `src/`.
 - See [012](specs/012-aspire-test-environment.md) and the [local environment guide](local-environment.md).
 
+## Business-flow audit corrections (012a)
+
+- **Acknowledgement never blocks receiving.** `IncomingReceiveWorker` commits a receipt, queues its MessageAck on a bounded in-memory queue (`AcknowledgementBacklog`) and polls again. An acknowledgement loop in the same worker sends at most `AcknowledgementCapacity` at once, beats its own "IPS acknowledgement" heartbeat and drains the queue after polling stops, within the shutdown budget. A full queue skips the acknowledgement; IPS redelivery acknowledges the duplicate. The acknowledgement connections are reserved: replies get `IncomingWorkerOptions.IpsSendCapacity` (IPS ConnectionLimit - 1 - AcknowledgementCapacity) through `IncomingReplyAdmission`, which `AddIncomingWorkers` registers before composition's default.
+- **Fair CBS follow-up.** `FollowUpAdmission` offers due pacs.008 reconciliation and transfer work alternately and starts each admission with the kind not admitted last, across sweeps.
+- **pacs.004 ceiling.** `Pacs004Validator` compares the amounts with the same normalized currencies (`ValidatedPacs004.CurrencyOf`/`OriginalCurrencyOf`) the message is built with.
+- See [012a](specs/012a-audit-corrections.md) and the [audit](reviews/business-flow-audit-2026-10-07.md).
+
 ## Shutdown and multi-instance guarantees (011)
 
 - **Ownership.** Any number of instances may share one database. A payment, a callback, an investigation or a resend is worked by the instance that holds its SQL claim; a claim expires after its ownership period and another instance then takes the work. A marker is committed before every IPS or core call, so a takeover after an unknown outcome sends the flagged possible-duplicate resend of the same bytes, never a fresh message (a pacs.008 is investigated with a pacs.028 first and resent only if IPS does not know it).

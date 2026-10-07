@@ -17,5 +17,5 @@ public sealed class IncomingReplyWorker(
 {
     protected override Task RunAsync(CancellationToken stop, CancellationToken work) => Task.WhenAll(
         RefillAsync(token => discovery.RefillAsync(replies: true, token), scheduling.DiscoveryInterval, stop),
-        DispatchAsync(channel, transport.Ips.ConnectionLimit - 1, execution.DeliverReplyAsync, stop, work));
+        DispatchAsync(channel, Options.IpsSendCapacity(transport), execution.DeliverReplyAsync, stop, work));
 }

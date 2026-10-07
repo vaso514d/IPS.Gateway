@@ -330,7 +330,7 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         {
             Enabled = true,
             ParticipantBic = "BAGAGE22",
-            Ips = new() { BaseUrl = url, ConnectionLimit = 3 },
+            Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.SavePfx(fixture.Input.Certificate),
             IpsSignatureTrust = [certificates.SavePublic(fixture.Input.Certificate, "ips.pem")]

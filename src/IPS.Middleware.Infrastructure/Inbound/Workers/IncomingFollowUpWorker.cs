@@ -13,6 +13,8 @@ public sealed class IncomingFollowUpWorker(
         ILogger<IncomingFollowUpWorker> logger)
     : IncomingWorker(options, time, logger)
 {
+    private readonly FollowUpAdmission _admission = new();
+
     protected override async Task RunAsync(CancellationToken stop, CancellationToken work)
     {
         var running = new Dictionary<Guid, Task>();
@@ -41,36 +43,15 @@ public sealed class IncomingFollowUpWorker(
         await using var scope = scopes.CreateAsyncScope();
         var payments = await scope.ServiceProvider.GetRequiredService<IncomingReconciliation>().DiscoverAsync(stop);
         var transfers = await scope.ServiceProvider.GetRequiredService<IncomingTransferProcessing>().DiscoverAsync(stop);
-
-        // Alternate between the two kinds so a backlog of one cannot starve the other.
-        for (var index = 0; index < Math.Max(payments.Count, transfers.Count); index++)
+        foreach (var due in _admission.Select(payments, transfers, Options.CbsFollowUpCapacity - running.Count, running.ContainsKey))
         {
-            if (index < payments.Count && !TryStart(running, payments[index], ProcessPaymentAsync, stop, work))
+            if (stop.IsCancellationRequested)
             {
                 break;
             }
 
-            if (index < transfers.Count && !TryStart(running, transfers[index], ProcessTransferAsync, stop, work))
-            {
-                break;
-            }
+            running.Add(due.Id, ObserveAsync(due.Id, due.Kind == FollowUpKind.Transfer ? ProcessTransferAsync : ProcessPaymentAsync, work));
         }
-    }
-
-    // False once capacity is used up or shutdown was requested.
-    private bool TryStart(Dictionary<Guid, Task> running, Guid id, Func<Guid, CancellationToken, Task> process, CancellationToken stop, CancellationToken work)
-    {
-        if (running.Count == Options.CbsFollowUpCapacity || stop.IsCancellationRequested)
-        {
-            return false;
-        }
-
-        if (!running.ContainsKey(id))
-        {
-            running.Add(id, ObserveAsync(id, process, work));
-        }
-
-        return true;
     }
 
     private async Task ProcessPaymentAsync(Guid id, CancellationToken token)

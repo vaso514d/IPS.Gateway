@@ -506,7 +506,7 @@ public sealed class IncomingStatusReportTests
         {
             Enabled = true,
             ParticipantBic = "BAGAGE22",
-            Ips = new() { BaseUrl = url, ConnectionLimit = 3 },
+            Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.Identity,
             IpsSignatureTrust = [certificates.SavePublic(core.IpsCertificate, "ips.pem")]

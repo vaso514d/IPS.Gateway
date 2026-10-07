@@ -6,6 +6,8 @@ public sealed class IncomingWorkerOptions
 {
     public bool Enabled { get; init; }
     public int CbsFollowUpCapacity { get; init; } = 2;
+    public int AcknowledgementCapacity { get; init; } = 2;
+    public int AcknowledgementBacklog { get; init; } = 1000;
     public TimeSpan MessageDelay { get; init; } = TimeSpan.Zero;
     public TimeSpan EmptyDelay { get; init; } = TimeSpan.FromMilliseconds(250);
     public TimeSpan ErrorDelay { get; init; } = TimeSpan.FromSeconds(1);
@@ -13,8 +15,8 @@ public sealed class IncomingWorkerOptions
 
     public void Validate(IncomingTransportSettings transport)
     {
-        if (CbsFollowUpCapacity <= 0 || MessageDelay < TimeSpan.Zero || EmptyDelay <= TimeSpan.Zero ||
-            ErrorDelay <= TimeSpan.Zero || ShutdownBudget <= TimeSpan.Zero)
+        if (CbsFollowUpCapacity <= 0 || AcknowledgementCapacity <= 0 || AcknowledgementBacklog <= 0 || MessageDelay < TimeSpan.Zero ||
+            EmptyDelay <= TimeSpan.Zero || ErrorDelay <= TimeSpan.Zero || ShutdownBudget <= TimeSpan.Zero)
         {
             throw new InvalidOperationException("Incoming worker capacities and delays must be positive (message delay may be zero).");
         }
@@ -29,12 +31,16 @@ public sealed class IncomingWorkerOptions
             throw new InvalidOperationException("Incoming workers require enabled transport.");
         }
 
-        if (transport.Ips.ConnectionLimit <= 1 || transport.Cbs.ConnectionLimit <= CbsFollowUpCapacity)
+        if (IpsSendCapacity(transport) <= 0 || transport.Cbs.ConnectionLimit <= CbsFollowUpCapacity)
         {
-            throw new InvalidOperationException("Incoming connections must leave capacity after receive and CBS follow-up reservations.");
+            throw new InvalidOperationException(
+                "Incoming connections must leave capacity after the receive, acknowledgement and CBS follow-up reservations.");
         }
     }
 
+    // IPS connections left for replies once receive and the acknowledgements have theirs.
+    public int IpsSendCapacity(IncomingTransportSettings transport) => transport.Ips.ConnectionLimit - 1 - AcknowledgementCapacity;
+
     public int ProcessingCapacity(IncomingTransportSettings transport) =>
-        Math.Min(transport.Ips.ConnectionLimit - 1, transport.Cbs.ConnectionLimit - CbsFollowUpCapacity);
+        Math.Min(IpsSendCapacity(transport), transport.Cbs.ConnectionLimit - CbsFollowUpCapacity);
 }

@@ -670,6 +670,7 @@ public sealed class IncomingTransferTests
         // acknowledgement fails and sequence 11 is delivered again, which must be acknowledged again and stored once.
         var deliveries = new ConcurrentQueue<(string Sequence, string Type)>([("13", "camt.053"), ("11", "camt.056"), ("11", "camt.056"), ("12", "camt.029"), ("14", "camt.055")]);
         var acknowledgements = new ConcurrentQueue<string?>();
+        var acknowledgementCalls = 0;
         await using var server = await HttpSimulator.StartAsync(async context =>
         {
             if (context.Request.Method == "GET" && context.Request.Path == "/Message")
@@ -687,8 +688,9 @@ public sealed class IncomingTransferTests
             }
             else if (context.Request.Method == "POST" && context.Request.Path == "/MessageAck")
             {
+                // Acknowledgements run concurrently since 012a, so the failing one is the first to arrive, counted atomically.
                 acknowledgements.Enqueue(context.Request.Headers["X-MONTRAN-IPS-MessageSeq"]);
-                context.Response.StatusCode = acknowledgements.Count == 1 ? 500 : 200;
+                context.Response.StatusCode = Interlocked.Increment(ref acknowledgementCalls) == 1 ? 500 : 200;
             }
             else
             {
@@ -713,7 +715,7 @@ public sealed class IncomingTransferTests
             await host.StopAsync();
         }
 
-        Assert.Equal(["11", "11", "12", "14"], acknowledgements);
+        Assert.Equal(["11", "11", "12", "14"], acknowledgements.Order());
         // Five messages arrived, one of them a redelivery; the first acknowledgement failed and the other three succeeded.
         Assert.Equal(1, probe.Of("ips.incoming.receipts").Count(measured => (bool)measured.Tags["redelivery"]!));
         Assert.Equal(
@@ -1212,7 +1214,7 @@ public sealed class IncomingTransferTests
         {
             Enabled = true,
             ParticipantBic = Participant,
-            Ips = new() { BaseUrl = url, ConnectionLimit = 3 },
+            Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.Identity,
             IpsSignatureTrust = [certificates.SavePublic(core.IpsCertificate, "ips.pem")]

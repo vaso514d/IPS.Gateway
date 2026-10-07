@@ -34,7 +34,7 @@ public sealed record ValidatedPacs004(
     private static ValidatedPacs004 Normalize(Pacs004Request request, Pacs008Policy policy)
     {
         var original = request.Original!;
-        var currency = request.Currency!.Trim().ToUpperInvariant();
+        var currency = CurrencyOf(request)!;
         return new ValidatedPacs004(
             ClientReference: request.ClientReference!.Trim(),
             ReturnId: request.Id!.Trim(),
@@ -54,8 +54,14 @@ public sealed record ValidatedPacs004(
                 MessageId: Optional(original.OriginalMessageId),
                 MessageNameId: Optional(original.OriginalMessageNameId),
                 Amount: original.Amount ?? request.Amount.Value,
-                Currency: Optional(original.Currency)?.ToUpperInvariant() ?? currency));
+                Currency: OriginalCurrencyOf(request)!));
     }
+
+    // The validator compares amounts with these same currencies, so the ceiling and the sent message cannot disagree.
+    internal static string? CurrencyOf(Pacs004Request request) => Optional(request.Currency)?.ToUpperInvariant();
+
+    internal static string? OriginalCurrencyOf(Pacs004Request request) =>
+        Optional(request.Original?.Currency)?.ToUpperInvariant() ?? CurrencyOf(request);
 
     private static ReturnedParty Party(Pacs004PartyInput party)
     {

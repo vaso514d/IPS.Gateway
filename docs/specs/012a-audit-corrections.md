@@ -1,6 +1,6 @@
 # Specification 012a: business-flow audit corrections
 
-Status: specification on codex/payment-initiation, stacked on 012 and the earlier unmerged slices (merge approval pending for all of them). On 2026-10-07 the owner approved correcting the three production findings of the [business-flow audit](../reviews/business-flow-audit-2026-10-07.md) in one slice before 013; the owner approved this specification on 2026-10-07; implementation in progress. The audit's test-environment finding S2 was fixed in 012.
+Status: specification on codex/payment-initiation, stacked on 012 and the earlier unmerged slices (merge approval pending for all of them). On 2026-10-07 the owner approved correcting the three production findings of the [business-flow audit](../reviews/business-flow-audit-2026-10-07.md) in one slice before 013; the owner approved this specification on 2026-10-07; implemented and reviewed ([review evidence](../reviews/012a-audit-corrections.md)), commit approval pending. The audit's test-environment finding S2 was fixed in 012.
 
 ## Scope
 
