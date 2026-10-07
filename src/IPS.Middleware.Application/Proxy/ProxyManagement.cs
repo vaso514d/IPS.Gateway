@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using IPS.Middleware.Application.Diagnostics;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy.Validation;
 using IPS.Middleware.Application.Transactions;
@@ -72,7 +74,7 @@ public sealed class ProxyManagement(IProxyProtocol protocol, IProxyClient client
         var validation = new RegisterProxyValidator().Validate(request);
         if (!validation.IsValid)
         {
-            return ProxyManagementResult.Invalid(IntakeErrors.From(validation));
+            return Invalid(ProxyOperation.Register, validation);
         }
 
         var ids = ProxyIds.New();
@@ -85,7 +87,7 @@ public sealed class ProxyManagement(IProxyProtocol protocol, IProxyClient client
         var validation = new UpdateProxyValidator().Validate(request);
         if (!validation.IsValid)
         {
-            return ProxyManagementResult.Invalid(IntakeErrors.From(validation));
+            return Invalid(ProxyOperation.Update, validation);
         }
 
         var ids = ProxyIds.New();
@@ -98,7 +100,7 @@ public sealed class ProxyManagement(IProxyProtocol protocol, IProxyClient client
         var validation = new RemoveProxyValidator().Validate(request);
         if (!validation.IsValid)
         {
-            return ProxyManagementResult.Invalid(IntakeErrors.From(validation));
+            return Invalid(ProxyOperation.Remove, validation);
         }
 
         var ids = ProxyIds.New();
@@ -111,9 +113,20 @@ public sealed class ProxyManagement(IProxyProtocol protocol, IProxyClient client
         var reply = await client.SendAsync(operation, xml, cancellationToken);
         if (reply.Delivery != ProxyDelivery.Replied)
         {
+            PaymentMetrics.ProxyCalled(OperationName(operation), reply.Delivery == ProxyDelivery.TimedOut ? "timed_out" : "failed");
             return ProxyManagementResult.Unanswered(reply.Delivery);
         }
 
-        return new ProxyManagementResult(protocol.ReadReply(reply.Xml!, ids.OperationId), ProxyDelivery.Replied, []);
+        var outcome = protocol.ReadReply(reply.Xml!, ids.OperationId);
+        PaymentMetrics.ProxyCalled(OperationName(operation), outcome.Accepted ? "accepted" : "rejected");
+        return new ProxyManagementResult(outcome, ProxyDelivery.Replied, []);
     }
+
+    private static ProxyManagementResult Invalid(ProxyOperation operation, FluentValidation.Results.ValidationResult validation)
+    {
+        PaymentMetrics.ValidationRejected("proxy." + OperationName(operation));
+        return ProxyManagementResult.Invalid(IntakeErrors.From(validation));
+    }
+
+    private static string OperationName(ProxyOperation operation) => operation.ToString().ToLowerInvariant();
 }

@@ -52,6 +52,10 @@ internal sealed class TransportCertificates : ISigningCertificateSource, IDispos
         return ValueTask.FromResult(_signing);
     }
 
+    internal IReadOnlyList<CertificateExpiry> Expiries(string source) => _owned
+        .Select(certificate => new CertificateExpiry(source, certificate.Subject, certificate.NotAfter.ToUniversalTime()))
+        .ToArray();
+
     public void Dispose()
     {
         foreach (var certificate in _owned)

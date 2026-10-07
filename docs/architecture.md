@@ -259,6 +259,13 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
 - See [007c](specs/007c-incoming-recalls.md).
 
+## Readiness and diagnostics (010)
+
+- **Readiness.** `/health/ready` runs the `ready`-tagged checks (`DatabaseHealthCheck`, `WorkerHealthCheck`, `CertificateHealthCheck` in the Api) and returns only the status. Workers expose `SupervisedBackgroundService.Health` from loop heartbeats; certificate owners expose their expiries.
+- **Metrics.** `PaymentMetrics` (Application) is the one meter. Outcome counters are recorded from committed domain events in the unit of work; HTTP durations in `HttpEvidence`; proxy, callback, validation, acknowledgement and error counters at their workflow steps; backlog gauges from a cached `BacklogReader` snapshot refreshed by `BacklogSnapshotService`.
+- **Correlation.** `WorkScope` opens a log scope per unit of outgoing, incoming and receive work.
+- See [010](specs/010-readiness-diagnostics.md).
+
 ## Proxy management (009)
 
 - **Stateless.** `ProxyManagement` (Application) validates a register, update or remove request with the source's XSD-derived limits, asks `IProxyProtocol` for the signed acmt.022 and `IProxyClient` for one POST, then reads the answer. Nothing is stored, retried or scheduled; each call has a fresh operation and bulk reference.

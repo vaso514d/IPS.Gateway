@@ -195,6 +195,7 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         services.AddDbContext<IPS.Middleware.Infrastructure.Transactions.TransactionDbContext>(o => o.AddInterceptors(failure));
         services.AddSingleton<IIncomingReceiveClient>(receiver);
         services.AddSingleton(new IncomingWorkerOptions { Enabled = true, EmptyDelay = TimeSpan.FromMilliseconds(10), ErrorDelay = TimeSpan.FromMilliseconds(10) });
+        services.AddSingleton(new IncomingTransportSettings());
         services.AddInboundFoundations();
         services.AddSingleton<IncomingReceiveWorker>();
         await using var provider = services.BuildServiceProvider();

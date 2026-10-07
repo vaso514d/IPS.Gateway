@@ -6,6 +6,7 @@ using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.StatusDelivery;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
+using IPS.Middleware.IntegrationTests.Diagnostics;
 using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -13,6 +14,7 @@ using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Payments;
 
+[Collection("Metrics")]
 public sealed class OutgoingStatusDeliveryTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
@@ -36,6 +38,25 @@ public sealed class OutgoingStatusDeliveryTests
         Assert.Null(dto.CoreReference);
         await using var read = database.Session();
         Assert.Empty(await new OutgoingStatusRepository(read.Context).FindDueAsync(Now.AddDays(1), 50, default));
+    }
+
+    [Fact]
+    public async Task Callback_results_are_counted_as_delivered_failed_or_exhausted()
+    {
+        using var probe = new MetricsProbe();
+        await using var delivered = await SqlTestDatabase.CreateAsync();
+        await Deliver(delivered, await FinalizeAsync(delivered), new Receiver((_, _) => Task.FromResult(200)), Now);
+        await using var failing = await SqlTestDatabase.CreateAsync();
+        var key = await FinalizeAsync(failing);
+        var options = new StatusDeliveryOptions(attemptsPerRound: 2, maxRounds: 1);
+        var remote = new Receiver((_, _) => Task.FromResult(503));
+
+        await Deliver(failing, key, remote, Now, options);
+        await Deliver(failing, key, remote, Now.AddSeconds(5), options);
+
+        Assert.Equal(
+            new Dictionary<string, long> { ["delivered"] = 1, ["failed"] = 1, ["exhausted"] = 1 },
+            probe.CountBy("ips.cbs.callbacks", "result"));
     }
 
     [Fact]

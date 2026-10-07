@@ -1,5 +1,6 @@
 using System.Text;
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Diagnostics;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Transport;
 
@@ -24,6 +25,7 @@ public sealed class OutgoingIpsClient(IHttpClientFactory clients, OutgoingTransp
         if (possibleDuplicate)
         {
             request.Headers.Add(IpsHeaders.ResendPossibleDuplicate, "true");
+            PaymentMetrics.ResendSent();
         }
 
         request.Headers.Connection.Add("keep-alive");

@@ -1,3 +1,5 @@
+using IPS.Middleware.Application.Diagnostics;
+using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,6 +12,7 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
 
     protected async Task ObserveAsync(Guid id, Func<Guid, CancellationToken, Task> process, CancellationToken work)
     {
+        using var scope = WorkScope.Begin(Logger, "incoming", id);
         try
         {
             await process(id, work);
@@ -21,6 +24,7 @@ public abstract class IncomingWorker(IncomingWorkerOptions options, TimeProvider
         catch (Exception error)
         {
             Logger.LogError(error, "Incoming work {WorkId} failed; SQL recovery will rediscover it", id);
+            PaymentMetrics.ErrorLogged(GetType().Name);
         }
     }
 

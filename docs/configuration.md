@@ -9,6 +9,7 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 | Payments:Outgoing:Policy | Pacs008Policy | Required enabled currency list, amount bounds, Treasury and indirect participants |
 | Payments:Outgoing:Protocol | Pacs008ProtocolProfile | Required IPS BIC and outgoing XML mapping profile |
 | Proxy | ProxySettings | Opt-in Proxy Solution management (register, update, remove): participant and Proxy BICs, protocol version, endpoint URL, pool, timeouts, breaker, TLS client certificate and server trust, optional signing certificate |
+| Diagnostics | DiagnosticsSettings | Backlog snapshot on/off and interval, certificate expiry warning window, worker stall factor, readiness database timeout |
 | Payments:Outgoing:Transport | OutgoingTransportSettings | Opt-in IPS initial-send and CBS callback URLs, paths, pools, timeouts, breakers and separate certificate sources |
 | Payments:Outgoing:StatusDelivery | StatusDeliveryOptions | Callback attempts/rounds, retry delays, call/persistence/ownership budgets, discovery |
 | Payments:Incoming:Processing | IncomingProcessingOptions | Payment window, inline status/reply budgets, ownership, response persistence budget, first follow-up delay |
@@ -99,3 +100,7 @@ The first investigation identity freezes its absolute deadline from the accepted
 ## Proxy management (009)
 
 `Proxy:Enabled` defaults false; while false the `/api/proxy/*` routes do not exist. Enabling validates the settings and loads the certificates at startup without contacting the Proxy Solution. It requires an 8 or 11 character `ParticipantBic` and `ProxyBic`, an ASCII `ProtocolVersion`, and `Proxy:Endpoint` (HTTPS base URL; loopback HTTP only in Development; production requires a TLS client certificate). `Proxy:SigningCertificate` is optional: without it the acmt.022 is sent unsigned, as in the source. The operations are stateless and use no database. A timeout is returned as HTTP 504 and any other failure to get an answer as 502; the outcome of the operation is then unknown.
+
+## Readiness and diagnostics (010)
+
+`GET /health/ready` returns only `Healthy`, `Degraded` (HTTP 200) or `Unhealthy` (HTTP 503); what failed is logged. It checks the database (reachable and every migration applied, only when an enabled feature uses it), the supervised workers (running, progressing within `WorkerStallFactor` times their period, not draining) and the loaded certificates (Degraded within `CertificateWarning` of expiry, Unhealthy once expired). `/health/live` is unchanged. The meter `IPS.Middleware` carries counters, one HTTP duration histogram and backlog gauges refreshed from SQL every `SnapshotInterval`; attach OpenTelemetry or another listener in the host to export them. `Diagnostics:BacklogSnapshot` turns the SQL snapshot off.

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using IPS.Middleware.Api.Configuration;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapGet("/health/live", () => TypedResults.Text("Healthy")).WithName("Liveness");
+app.MapHealthChecks(DiagnosticsConfiguration.ReadyPath, new HealthCheckOptions { Predicate = check => check.Tags.Contains(DiagnosticsConfiguration.ReadyTag) });
 app.MapControllers();
 app.Run();
 

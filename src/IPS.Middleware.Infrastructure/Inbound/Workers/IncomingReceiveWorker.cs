@@ -1,5 +1,8 @@
+using IPS.Middleware.Application.Diagnostics;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Infrastructure.Diagnostics;
+using IPS.Middleware.Infrastructure.Inbound.Transport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -9,14 +12,18 @@ public sealed class IncomingReceiveWorker(
         IServiceScopeFactory scopes,
         InboundReceiptRegistration receipts,
         IncomingWorkerOptions options,
+        IncomingTransportSettings transport,
         TimeProvider time,
         ILogger<IncomingReceiveWorker> logger)
     : IncomingWorker(options, time, logger)
 {
     protected override async Task RunAsync(CancellationToken stop, CancellationToken work)
     {
+        // One receive call may wait its whole timeout, then the loop may sleep for the longest of its delays.
+        var period = transport.ReceiveTimeout + Options.EmptyDelay + Options.ErrorDelay + Options.MessageDelay;
         while (!stop.IsCancellationRequested)
         {
+            Beat("IPS receive", period);
             try
             {
                 IncomingReceiveResponse response;
@@ -37,6 +44,7 @@ public sealed class IncomingReceiveWorker(
                 }
 
                 var receipt = CreateReceipt(response);
+                using var receiving = WorkScope.Begin(Logger, "receive", receipt.Sequence, ("MessageType", receipt.MessageType));
                 await PersistReceiptAsync(receipt, work);
                 await AcknowledgeAsync(receipt, stop);
                 await Task.Delay(Options.MessageDelay, Time, stop);
@@ -48,6 +56,7 @@ public sealed class IncomingReceiveWorker(
             catch (Exception error)
             {
                 Logger.LogError(error, "IPS receive failed; polling will retry");
+                PaymentMetrics.ErrorLogged(nameof(IncomingReceiveWorker));
                 await Task.Delay(Options.ErrorDelay, Time, stop);
             }
         }
@@ -84,13 +93,18 @@ public sealed class IncomingReceiveWorker(
             await using var scope = scopes.CreateAsyncScope();
             var client = scope.ServiceProvider.GetRequiredService<IIncomingAckClient>();
             var response = await client.AcknowledgeAsync(receipt.ParticipantBic, receipt.Sequence.Value, token);
-            if (response.HttpStatusCode is < 200 or >= 300)
+            var acknowledged = response.HttpStatusCode is >= 200 and < 300;
+            PaymentMetrics.Acknowledged(acknowledged ? "ok" : "http_error");
+            if (!acknowledged)
             {
+                PaymentMetrics.ErrorLogged("IncomingAcknowledgement");
                 Logger.LogWarning("IPS acknowledgement of sequence {Sequence} returned HTTP {Status}", receipt.Sequence, response.HttpStatusCode);
             }
         }
         catch (Exception error) when (error is not OperationCanceledException || !token.IsCancellationRequested)
         {
+            PaymentMetrics.Acknowledged("failed");
+            PaymentMetrics.ErrorLogged("IncomingAcknowledgement");
             Logger.LogWarning(error, "IPS acknowledgement of sequence {Sequence} failed; redelivery will repeat it", receipt.Sequence);
         }
     }
@@ -101,7 +115,8 @@ public sealed class IncomingReceiveWorker(
         {
             try
             {
-                await receipts.RegisterAsync(receipt, cancellationToken);
+                var registered = await receipts.RegisterAsync(receipt, cancellationToken);
+                PaymentMetrics.ReceiptReceived(receipt.MessageType, redelivery: !registered.Created);
                 return;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -111,6 +126,9 @@ public sealed class IncomingReceiveWorker(
             catch (Exception error)
             {
                 Logger.LogError(error, "Receipt commit failed; retrying before the next IPS receive");
+                PaymentMetrics.ErrorLogged(nameof(IncomingReceiveWorker));
+                // A SQL outage is a stall of its own that readiness should report, but the receive loop is still alive and retrying.
+                Beat("IPS receive", Options.ErrorDelay + Options.ErrorDelay);
                 await Task.Delay(Options.ErrorDelay, Time, cancellationToken);
             }
         }

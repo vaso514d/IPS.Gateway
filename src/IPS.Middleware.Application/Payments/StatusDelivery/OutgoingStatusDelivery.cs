@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Diagnostics;
 
 namespace IPS.Middleware.Application.Payments.StatusDelivery;
 
@@ -59,6 +60,7 @@ public sealed class OutgoingStatusDelivery(
         }
 
         await unitOfWork.SaveAsync(persistence.Token);
+        PaymentMetrics.CallbackDelivered(CallbackResult(retry.State));
         return Result(retry.State);
     }
 
@@ -77,6 +79,7 @@ public sealed class OutgoingStatusDelivery(
         }
 
         await unitOfWork.SaveAsync(cancellationToken);
+        PaymentMetrics.CallbackDelivered("abandoned");
         return Result(retry.State);
     }
 
@@ -94,6 +97,13 @@ public sealed class OutgoingStatusDelivery(
             return $"{exception.GetType().Name}: {exception.Message}";
         }
     }
+
+    private static string CallbackResult(StatusDeliveryState state) => state switch
+    {
+        StatusDeliveryState.Delivered => "delivered",
+        StatusDeliveryState.Exhausted => "exhausted",
+        _ => "failed"
+    };
 
     private static StatusDeliveryResult Result(StatusDeliveryState state) => state switch
     {

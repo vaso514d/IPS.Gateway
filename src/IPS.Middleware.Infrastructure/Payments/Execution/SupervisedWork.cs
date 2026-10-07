@@ -1,3 +1,5 @@
+using IPS.Middleware.Application.Diagnostics;
+using IPS.Middleware.Infrastructure.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace IPS.Middleware.Infrastructure.Payments.Execution;
@@ -35,6 +37,7 @@ internal sealed class SupervisedWork<TKey>(int capacity, ILogger logger) where T
 
     private async Task ObserveAsync(TKey key, Func<Task> action)
     {
+        using var scope = WorkScope.Begin(logger, "outgoing", key);
         try
         {
             await action();
@@ -46,6 +49,7 @@ internal sealed class SupervisedWork<TKey>(int capacity, ILogger logger) where T
         catch (Exception error)
         {
             logger.LogError(error, "Outgoing work {WorkId} failed; committed SQL evidence remains recoverable", key);
+            PaymentMetrics.ErrorLogged("OutgoingWork");
         }
         finally
         {

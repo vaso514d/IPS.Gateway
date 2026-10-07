@@ -1,5 +1,6 @@
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Domain;
+using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Persistence.Events;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
@@ -64,6 +65,7 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
 
         foreach (var pending in pendingEvents)
         {
+            CommittedEventMetrics.Record(pending.Aggregate, pending.Events);
             pending.Aggregate.AcknowledgeCommittedEvents(pending.Events.Select(occurrence => occurrence.EventId).ToArray());
         }
 

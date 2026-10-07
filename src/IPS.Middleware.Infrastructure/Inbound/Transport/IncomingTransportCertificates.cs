@@ -7,7 +7,7 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
 // A distinct type per direction, so incoming and outgoing certificates are configured and owned independently.
 public sealed class IncomingTransportCertificates(IncomingTransportSettings settings, Pacs008SigningPolicy policy, TimeProvider time)
-    : ISigningCertificateSource, IDisposable
+    : ISigningCertificateSource, ICertificateExpirySource, IDisposable
 {
     private readonly TransportCertificates _certificates =
         new(settings.SigningCertificate, settings.Ips, settings.Cbs, settings.IpsSignatureTrust, policy, time);
@@ -15,6 +15,8 @@ public sealed class IncomingTransportCertificates(IncomingTransportSettings sett
     public IReadOnlyCollection<X509Certificate2> IpsSignatureTrust => _certificates.IpsSignatureTrust;
 
     public ValueTask<X509Certificate2?> GetCurrentAsync(CancellationToken token) => _certificates.GetCurrentAsync(token);
+
+    public IReadOnlyList<CertificateExpiry> Expiries() => _certificates.Expiries("incoming");
 
     public void Dispose() => _certificates.Dispose();
 

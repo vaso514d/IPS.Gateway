@@ -18,6 +18,7 @@ using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Events;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
+using IPS.Middleware.IntegrationTests.Diagnostics;
 using IPS.Middleware.IntegrationTests.Payments;
 using IPS.Middleware.IntegrationTests.Transport;
 using Microsoft.AspNetCore.Http;
@@ -31,6 +32,7 @@ namespace IPS.Middleware.IntegrationTests.Inbound;
 
 // A pacs.009 from IPS is verified, stored once, handed to the core system and recovered if the core does not answer.
 // Real SQL and independently Java-signed IPS fixtures; the core system is a simulator.
+[Collection("Metrics")]
 public sealed class IncomingTransferTests
 {
     private const string Participant = "BAGAGE22";
@@ -662,6 +664,7 @@ public sealed class IncomingTransferTests
     [Fact]
     public async Task Worker_acknowledges_recalls_and_cancellations_after_storing_them_and_leaves_other_unsupported_types_unacknowledged()
     {
+        using var probe = new MetricsProbe();
         await using var core = await ProcessingHarness.CreateAsync();
         // The unsupported type comes first, so an acknowledgement of it would show before the recalls'. The first
         // acknowledgement fails and sequence 11 is delivered again, which must be acknowledged again and stored once.
@@ -711,6 +714,12 @@ public sealed class IncomingTransferTests
         }
 
         Assert.Equal(["11", "11", "12", "14"], acknowledgements);
+        // Five messages arrived, one of them a redelivery; the first acknowledgement failed and the other three succeeded.
+        Assert.Equal(1, probe.Of("ips.incoming.receipts").Count(measured => (bool)measured.Tags["redelivery"]!));
+        Assert.Equal(
+            new Dictionary<string, long> { ["camt.029"] = 1, ["camt.055"] = 1, ["camt.056"] = 2, ["other"] = 1 },
+            probe.CountBy("ips.incoming.receipts", "message_type"));
+        Assert.Equal(new Dictionary<string, long> { ["http_error"] = 1, ["ok"] = 3 }, probe.CountBy("ips.incoming.acknowledgements", "result"));
         await using var check = core.Database.Session();
         Assert.Equal(1, await check.Context.Set<InboundJournalEntry>().Where(entry => entry.Sequence == 11).Select(entry => entry.DuplicateCount).SingleAsync());
     }

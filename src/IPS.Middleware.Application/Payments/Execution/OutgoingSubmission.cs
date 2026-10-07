@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Diagnostics;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
@@ -25,6 +26,7 @@ public sealed class OutgoingSubmission(IOutgoingExecution execution, OutgoingExe
         var accepted = await execution.AcceptAsync(request, json, token);
         if (accepted.Intake is not { } intake)
         {
+            PaymentMetrics.ValidationRejected(request.GetType().Name);
             return new(null, false, accepted.Errors);
         }
 
