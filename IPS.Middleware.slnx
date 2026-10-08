@@ -44,6 +44,12 @@
     <File Path="docs/diagrams/preview.html" />
     <File Path="docs/diagrams/README.md" />
   </Folder>
+  <Folder Name="/docs/nbg/">
+    <File Path="docs/nbg/GE_IPS_Inception_Report_Annex_C_Security_v.1.00 1_For Participants.pdf" />
+    <File Path="docs/nbg/GE_IPS_Inception_Report_Annex_D_IPS-Participant_Interface_v.1.02, 15.06.26.pdf" />
+    <File Path="docs/nbg/GE_IPS_Inception_Report_Annex_E_Proxy-Participant_Interface_v.1.00.pdf" />
+    <File Path="docs/nbg/GE_IPS_Participant_API_Integration_v.1.00.pdf" />
+  </Folder>
   <Folder Name="/docs/research/">
     <File Path="docs/research/pacs008-xml-validation-design.md" />
   </Folder>

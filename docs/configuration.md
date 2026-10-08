@@ -58,7 +58,7 @@ Review 004c.2 binds `Payments:Incoming:Composition:ContinuationDelay` as a posit
 
 ## Incoming workers
 
-Set `Payments:Incoming:Workers:Enabled=true` only alongside complete enabled transport configuration, `ConnectionStrings:Middleware`, and `Payments:Incoming:Protocol:IpsBic`. Protocol settings also accept `ServiceLevelCode` (INST) and `RemittanceMethod` (Uri). Settings/certificates are loaded at startup and require restart to change. The host never creates or migrates its database. Disabled workers do not resolve persistence or remote clients; ordinary liveness still needs no external services.
+Set `Payments:Incoming:Workers:Enabled=true` only alongside complete enabled transport configuration, `ConnectionStrings:Middleware`, and `Payments:Incoming:Protocol:IpsBic`. Protocol settings also accept `ServiceLevelCode` (INST) and `RemittanceMethod` (Uri). Settings/certificates are loaded at startup and require restart to change. The host creates or migrates its database only when `Database:MigrateOnStartup` is true (see [Database migration](#database-migration)). Disabled workers do not resolve persistence or remote clients; ordinary liveness still needs no external services.
 
 Every instance runs one receive worker, one concurrent processing dispatcher, one reply/retry dispatcher, and one CBS follow-up scheduler. Each instance may poll independently. SQL claims and rowversion, not dequeue order, decide ownership. Two bounded ID-only channels provide notifications; SQL discovery rebuilds their contents at startup and every Scheduling:DiscoveryInterval (default one second). Processing discovery excludes stored replies; reply discovery includes unsent envelopes. A retry never runs before its stored due time; actual dispatch can be later according to discovery cadence and available capacity.
 
@@ -72,7 +72,7 @@ Payments:Outgoing:StatusDelivery defaults to AttemptsPerRound=3, MaxRounds=0 (un
 
 ## Outgoing transport (Review 2c.2a)
 
-Payments:Outgoing:Transport:Enabled defaults false. Enabling validates configuration and loads certificates without starting outgoing endpoints or workers. It requires a participant BIC, usable ConnectionStrings:Middleware (server and database), IPS and CBS base URLs, signature trust and signing credentials or explicit Development unsigned policy. Production requires IPS mutual TLS. Startup does not contact SQL/remote services or migrate a database.
+Payments:Outgoing:Transport:Enabled defaults false. Enabling validates configuration and loads certificates without starting outgoing endpoints or workers. It requires a participant BIC, usable ConnectionStrings:Middleware (server and database), IPS and CBS base URLs, signature trust and signing credentials or explicit Development unsigned policy. Production requires IPS mutual TLS. Startup does not contact SQL/remote services or migrate a database unless `Database:MigrateOnStartup` is true.
 
 MessagePath defaults to Message; CallbackPath defaults to /api/ips/transactions/status/receive; IpsVersion defaults to 1. The initial IPS send uses UTF-8 XML, participant/version/keep-alive headers, and no possible-duplicate header. Non-success responses reach the journal interpreter unchanged. The callback uses the frozen existing DTO and idempotency key; no transport retry is enabled.
 
@@ -104,3 +104,7 @@ The first investigation identity freezes its absolute deadline from the accepted
 ## Readiness and diagnostics (010)
 
 `GET /health/ready` returns only `Healthy`, `Degraded` (HTTP 200) or `Unhealthy` (HTTP 503); what failed is logged. It checks the database (reachable and every migration applied, only when an enabled feature uses it), the supervised workers (running, progressing within `WorkerStallFactor` times their period plus `WorkerPassAllowance` for one pass of the loop, not draining) and the loaded certificates (Degraded within `CertificateWarning` of expiry, Unhealthy once expired). `/health/live` is unchanged. The meter `IPS.Middleware` carries counters, one HTTP duration histogram and backlog gauges refreshed from SQL every `SnapshotInterval`; attach OpenTelemetry or another listener in the host to export them. `Diagnostics:BacklogSnapshot` turns the SQL snapshot off.
+
+## Database migration
+
+`Database:MigrateOnStartup` defaults to false: the host then never creates or changes its database, and the schema is applied with the EF CLI (`dotnet ef database update --project src/IPS.Middleware.Infrastructure --startup-project src/IPS.Middleware.Api --connection "<connection string>"`). When true, startup requires `ConnectionStrings:Middleware`, creates the database if it is missing and applies every pending migration before any request is served or worker starts; a failed migration stops startup. EF Core holds a SQL Server application lock while migrating, so instances starting together apply each migration once. The `Local` launch profile sets it to true; the shipped `appsettings.json` leaves it off. The migrations are a fresh-database chain (see the migration ledger): an existing database created from an older, rewritten chain must be recreated rather than migrated.
