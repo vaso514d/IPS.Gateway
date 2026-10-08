@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
@@ -7,10 +8,9 @@ using System.Xml;
 namespace IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 
 // Verifies the IPS enveloped signature profile only: one ds:Signature in AppHdr/Sgntr, C14N1.1 SignedInfo,
-// a whole-document reference with enveloped + C14N1.0 transforms, SHA-256 and ECDSA-SHA256, signed by a
-// certificate byte-identical to a trusted IPS certificate that is within its validity period at the given time.
-// Anything else is untrusted; a matched certificate outside its validity period is reported as such, before the
-// cryptographic checks.
+// a whole-document reference with enveloped + C14N1.0 transforms, SHA-256 and ECDSA-SHA256, signed by a trusted IPS
+// certificate that is within its validity period at the given time. Anything else is untrusted; a signature that verifies
+// with a trusted certificate outside its validity period is reported as such.
 internal static class IpsSignatureVerifier
 {
     private const string Ds = SignedXml.XmlDsigNamespaceUrl;
@@ -53,24 +53,11 @@ internal static class IpsSignatureVerifier
             return Untrusted;
         }
 
-        var presented = Convert.FromBase64String(Text(signature, "ds:KeyInfo/ds:X509Data/ds:X509Certificate", names));
-        var certificate = trusted.FirstOrDefault(candidate => candidate.RawData.AsSpan().SequenceEqual(presented));
-        if (certificate is null)
+        // Annex C 2.6: IPS does not embed its certificate; the signature names it by issuer and serial number.
+        var candidates = Candidates(signature, names, trusted);
+        if (candidates.Count == 0)
         {
             return Untrusted;
-        }
-
-        using var key = certificate.GetECDsaPublicKey();
-        if (key is null)
-        {
-            return Untrusted;
-        }
-
-        if (!IsValidAt(certificate, at))
-        {
-            // Dates first and compact: the stored hold reason is short, and the period matters more than the subject.
-            return new IpsSignatureCheck.OutsideValidity(string.Create(CultureInfo.InvariantCulture,
-                $"valid {certificate.NotBefore.ToUniversalTime():yyyy-MM-dd'T'HH':'mm':'ss'Z'} to {certificate.NotAfter.ToUniversalTime():yyyy-MM-dd'T'HH':'mm':'ss'Z'}, {certificate.Subject}"));
         }
 
         // The enveloped-signature transform removes ds:Signature; the reference covers the rest of the document.
@@ -83,11 +70,66 @@ internal static class IpsSignatureVerifier
             return Untrusted;
         }
 
-        var verified = key.VerifyData(SignedInfoCanonicalization.Canonicalize(signedInfo),
-            Convert.FromBase64String(Text(signature, "ds:SignatureValue", names)),
-            HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-        return verified ? Trusted : Untrusted;
+        var canonicalSignedInfo = SignedInfoCanonicalization.Canonicalize(signedInfo);
+        var signatureValue = Convert.FromBase64String(Text(signature, "ds:SignatureValue", names));
+        foreach (var certificate in candidates)
+        {
+            using var key = certificate.GetECDsaPublicKey();
+            if (key is null || !key.VerifyData(canonicalSignedInfo, signatureValue, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
+            {
+                continue;
+            }
+
+            // Dates first and compact: the stored hold reason is short, and the period matters more than the subject.
+            return IsValidAt(certificate, at)
+                ? Trusted
+                : new IpsSignatureCheck.OutsideValidity(string.Create(CultureInfo.InvariantCulture,
+                    $"valid {certificate.NotBefore.ToUniversalTime():yyyy-MM-dd'T'HH':'mm':'ss'Z'} to {certificate.NotAfter.ToUniversalTime():yyyy-MM-dd'T'HH':'mm':'ss'Z'}, {certificate.Subject}"));
+        }
+
+        return Untrusted;
     }
+
+    // An embedded certificate must be one of ours byte for byte; otherwise X509IssuerSerial picks it; a signature that names
+    // no certificate is tried against every trusted one, as the central system does with a participant's list (Annex C 2.2).
+    private static IReadOnlyList<X509Certificate2> Candidates(XmlElement signature, XmlNamespaceManager names, IReadOnlyCollection<X509Certificate2> trusted)
+    {
+        if (signature.SelectSingleNode("ds:KeyInfo/ds:X509Data/ds:X509Certificate", names) is { } embedded)
+        {
+            var presented = Convert.FromBase64String(embedded.InnerText);
+            return trusted.Where(candidate => candidate.RawData.AsSpan().SequenceEqual(presented)).ToArray();
+        }
+
+        if (signature.SelectSingleNode("ds:KeyInfo/ds:X509Data/ds:X509IssuerSerial", names) is XmlElement issuerSerial)
+        {
+            var issuer = Text(issuerSerial, "ds:X509IssuerName", names);
+            var serial = BigInteger.Parse(Text(issuerSerial, "ds:X509SerialNumber", names).Trim(), NumberStyles.None, CultureInfo.InvariantCulture);
+            return trusted.Where(candidate => SerialOf(candidate) == serial && SameName(candidate.IssuerName, issuer)).ToArray();
+        }
+
+        return trusted.ToArray();
+    }
+
+    private static BigInteger SerialOf(X509Certificate2 certificate) =>
+        new(certificate.SerialNumberBytes.Span, isUnsigned: true, isBigEndian: true);
+
+    // The issuer is text (RFC 2253 in Java, comma-space separated in .NET); compare attribute by attribute, ignoring
+    // spacing and case, rather than encodings that differ between producers.
+    private static bool SameName(X500DistinguishedName certificateIssuer, string issuer)
+    {
+        try
+        {
+            return Attributes(certificateIssuer).SequenceEqual(Attributes(new X500DistinguishedName(issuer)));
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<string> Attributes(X500DistinguishedName name) => name.EnumerateRelativeDistinguishedNames()
+        .Select(attribute => attribute.GetSingleElementType().Value + "=" + attribute.GetSingleElementValue()?.Trim().ToUpperInvariant())
+        .Order(StringComparer.Ordinal);
 
     private static bool IsValidAt(X509Certificate2 certificate, DateTimeOffset at) =>
         certificate.NotBefore.ToUniversalTime() <= at && at <= certificate.NotAfter.ToUniversalTime();

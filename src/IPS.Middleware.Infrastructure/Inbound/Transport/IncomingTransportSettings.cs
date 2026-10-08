@@ -30,6 +30,8 @@ public sealed class IncomingTransportSettings
     public string ReversalPath { get; init; } = TransactionRestApiRoutes.ReceiveStatus;
     public TimeSpan ReceiveTimeout { get; init; } = TimeSpan.FromSeconds(10);
     public CertificateSettings? SigningCertificate { get; init; }
+    // Optional (decision 012d): when IPS certificates are configured every IPS signature is verified with them;
+    // when none are, signatures are not checked.
     public CertificateSettings[] IpsSignatureTrust { get; init; } = [];
 
     public void Validate(bool development)
@@ -69,11 +71,6 @@ public sealed class IncomingTransportSettings
         if (Ips.ConnectionLimit < 2 || Cbs.ConnectionLimit < 3)
         {
             throw new InvalidOperationException("IPS requires a receive reservation; CBS requires two follow-up reservations.");
-        }
-
-        if (IpsSignatureTrust.Length == 0)
-        {
-            throw new InvalidOperationException("IPS signature trust certificates are required.");
         }
 
         if (!development && Ips.ClientCertificate is null)

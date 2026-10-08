@@ -13,6 +13,8 @@ public sealed class OutgoingTransportSettings
     public string MessagePath { get; init; } = "Message";
     public string CallbackPath { get; init; } = TransactionRestApiRoutes.ReceiveStatus;
     public CertificateSettings? SigningCertificate { get; init; }
+    // Optional (decision 012d): when IPS certificates are configured every IPS signature is verified with them;
+    // when none are, signatures are not checked.
     public CertificateSettings[] IpsSignatureTrust { get; init; } = [];
 
     public void Validate(bool development)
@@ -37,11 +39,6 @@ public sealed class OutgoingTransportSettings
         foreach (var path in new[] { MessagePath, CallbackPath })
         {
             TransportPath.Validate(path);
-        }
-
-        if (IpsSignatureTrust.Length == 0)
-        {
-            throw new InvalidOperationException("IPS signature trust certificates are required.");
         }
 
         if (!development && Ips.ClientCertificate is null)

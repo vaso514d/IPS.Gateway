@@ -184,6 +184,8 @@ public sealed class IncomingHttpClientTests
     [InlineData(false, false, true, "pfx")]
     [InlineData(false, false, true, "pem")]
     [InlineData(false, false, true, "encrypted-pem")]
+    [InlineData(false, false, true, "inline-pkcs12")]
+    [InlineData(false, false, true, "inline-pem")]
     [InlineData(true, false, false, "pfx")]
     [InlineData(false, true, false, "pfx")]
     public async Task Tls_requires_trusted_chain_matching_hostname_and_client_identity(bool wrongHost, bool untrusted, bool succeeds, string source)
@@ -191,7 +193,13 @@ public sealed class IncomingHttpClientTests
         using var certificates = new TransportCertificates();
         await using var server = await HttpSimulator.StartAsync(context => context.Response.WriteAsync("verified"),
             wrongHost ? certificates.Leaf(true, true) : certificates.Server, certificates.Client);
-        using var services = Services(Settings(server.Url, certificates, tls: true, untrusted: untrusted, tlsIdentity: source == "pfx" ? certificates.Identity : certificates.SavePem(source == "encrypted-pem")));
+        using var services = Services(Settings(server.Url, certificates, tls: true, untrusted: untrusted, tlsIdentity: source switch
+        {
+            "pfx" => certificates.Identity,
+            "inline-pkcs12" => certificates.InlinePkcs12(),
+            "inline-pem" => certificates.InlinePem(encrypted: false, separateKey: true),
+            _ => certificates.SavePem(source == "encrypted-pem")
+        }));
         var call = services.GetRequiredService<IIncomingReplyClient>().SendAsync(Participant, "<test/>", default);
         if (succeeds)
         {

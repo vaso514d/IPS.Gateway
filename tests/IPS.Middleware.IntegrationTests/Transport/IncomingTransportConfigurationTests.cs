@@ -29,6 +29,79 @@ public sealed class IncomingTransportConfigurationTests
         Assert.True(publicKey.VerifyData(new byte[] { 1, 2, 3 }, signature, HashAlgorithmName.SHA256));
     }
 
+    [Theory]
+    [InlineData("pkcs12")]
+    [InlineData("pkcs12-unprotected")]
+    [InlineData("pem-with-key")]
+    [InlineData("pem-separate-key")]
+    [InlineData("pem-encrypted-key")]
+    public void A_certificate_written_into_configuration_loads_with_its_private_key(string source)
+    {
+        using var fixture = new TransportCertificates();
+        var settings = source switch
+        {
+            "pkcs12" => fixture.InlinePkcs12(),
+            "pkcs12-unprotected" => fixture.InlinePkcs12(password: null),
+            "pem-with-key" => fixture.InlinePem(encrypted: false, separateKey: false),
+            "pem-separate-key" => fixture.InlinePem(encrypted: false, separateKey: true),
+            _ => fixture.InlinePem(encrypted: true, separateKey: true)
+        };
+
+        using var loaded = settings.Load(true, DateTimeOffset.UtcNow);
+
+        Assert.Equal(fixture.Client.RawData, loaded.RawData);
+        using var key = loaded.GetECDsaPrivateKey()!;
+        using var publicKey = fixture.Client.GetECDsaPublicKey()!;
+        Assert.True(publicKey.VerifyData(new byte[] { 1, 2, 3 }, key.SignData([1, 2, 3], HashAlgorithmName.SHA256), HashAlgorithmName.SHA256));
+    }
+
+    [Fact]
+    public void A_trust_certificate_written_into_configuration_is_public_only()
+    {
+        using var fixture = new TransportCertificates();
+        using var trusted = new CertificateSettings { Pem = fixture.Root.ExportCertificatePem() }.Load(false, DateTimeOffset.UtcNow);
+        Assert.Equal(fixture.Root.RawData, trusted.RawData);
+        Assert.False(trusted.HasPrivateKey);
+        var withKey = fixture.InlinePem(encrypted: false, separateKey: true);
+        Assert.Throws<InvalidOperationException>(() => withKey.Load(false, DateTimeOffset.UtcNow));
+    }
+
+    [Fact]
+    public void Configured_certificate_text_is_checked()
+    {
+        using var fixture = new TransportCertificates();
+        var now = DateTimeOffset.UtcNow;
+        var pkcs12 = fixture.InlinePkcs12();
+        Assert.Contains("not valid base64", Assert.Throws<InvalidOperationException>(() =>
+            new CertificateSettings { Pkcs12Base64 = "not base64!" }.Load(true, now)).Message, StringComparison.Ordinal);
+        Assert.ThrowsAny<CryptographicException>(() => new CertificateSettings { Pkcs12Base64 = pkcs12.Pkcs12Base64, Password = "wrong" }.Load(true, now));
+        Assert.Throws<InvalidOperationException>(() => pkcs12.Load(true, now.AddYears(1)));
+        Assert.Throws<InvalidOperationException>(() => new CertificateSettings { Pkcs12Base64 = pkcs12.Pkcs12Base64, Path = fixture.Identity.Path }.Load(true, now));
+        Assert.Throws<InvalidOperationException>(() => new CertificateSettings { Pem = fixture.Client.ExportCertificatePem(), Pkcs12Base64 = pkcs12.Pkcs12Base64 }.Load(true, now));
+        Assert.Throws<InvalidOperationException>(() => new CertificateSettings { Pkcs12Base64 = pkcs12.Pkcs12Base64, KeyPem = "key" }.Load(true, now));
+        Assert.Throws<InvalidOperationException>(() => new CertificateSettings { Pem = fixture.Client.ExportCertificatePem(), KeyPath = "key.pem" }.Load(true, now));
+        Assert.Throws<InvalidOperationException>(() => new CertificateSettings().Load(true, now));
+        Assert.ThrowsAny<CryptographicException>(() => new CertificateSettings { Pem = fixture.Client.ExportCertificatePem() }.Load(true, now));
+    }
+
+    [Fact]
+    public async Task Enabled_host_reads_certificates_from_configuration_text()
+    {
+        using var fixture = new TransportCertificates();
+        var signing = fixture.InlinePkcs12();
+        var settings = HostSettings(fixture);
+        settings["Payments:Incoming:Transport:SigningCertificate:Pkcs12Base64"] = signing.Pkcs12Base64;
+        settings["Payments:Incoming:Transport:SigningCertificate:Password"] = signing.Password;
+        settings.Remove("Payments:Incoming:Transport:IpsSignatureTrust:0:Path");
+        settings["Payments:Incoming:Transport:IpsSignatureTrust:0:Pem"] = fixture.Client.ExportCertificatePem();
+        using var factory = new ConfiguredHost(settings);
+        using var http = factory.CreateClient();
+        Assert.Equal("Healthy", await http.GetStringAsync("/health/live"));
+        var certificates = factory.Services.GetRequiredService<IncomingTransportCertificates>();
+        Assert.Equal(fixture.Client.RawData, (await certificates.GetCurrentAsync(default))!.RawData);
+        Assert.Equal(fixture.Client.RawData, Assert.Single(certificates.IpsSignatureTrust).RawData);
+    }
+
     [Fact]
     public void Pfx_public_pem_and_missing_store_thumbprint_are_checked()
     {
