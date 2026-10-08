@@ -6,7 +6,7 @@ Status: specification on codex/payment-initiation, stacked on the 012c follow-up
 - p95 at most 1 s and p99 at most 2 s, measured against the simulators;
 - no lost or duplicated payment over a sustained run.
 
-On 2026-10-08 the owner approved this specification with the recommended option of each decision at the end: a 100 ms simulated IPS delay, a 10-minute measured window, the API run as projects, and the report committed under `docs/performance/`. Implemented on 2026-10-08 (see the implementation notes and the [baseline](../performance/2026-10-08-0858-baseline.md)); awaiting review and the owner's approval. Implemented and reviewed ([review evidence](../reviews/013-measured-performance.md)); the baseline verdict is fail, and commit approval is pending.
+On 2026-10-08 the owner approved this specification with the recommended option of each decision at the end: a 100 ms simulated IPS delay, a 10-minute measured window, the API run as projects, and the report committed under `docs/performance/`. Implemented on 2026-10-08 (see the implementation notes and the baseline (removed from the tree; in git history at 2190e81)); awaiting review and the owner's approval. Implemented and reviewed ([review evidence](../reviews/013-measured-performance.md)); the baseline verdict is fail, and commit approval is pending.
 
 ## Scope
 
@@ -123,7 +123,7 @@ Not in scope:
   - **Not met:** settlement p95 65.1 s and p99 85.5 s (p50 389 ms); 2,106 accepted payments never reached the IPS, all reported NotSent; 2,189 5xx (2,101 were 504, 88 were 500); 7 duplicate callbacks.
   - **Met:** lag p99 15.8 ms, readiness and nothing due.
   - That run was unsigned and had no breakdowns or logs. The reviews asked for the evidence above, and the run below replaces it.
-- **Baseline: fail** ([report](../performance/2026-10-08-0858-baseline.md), 2026-10-08 08:58 UTC, signed, 10 minutes at 50 per second on two instances).
+- **Baseline: fail** (report (removed from the tree; in git history at 2190e81), 2026-10-08 08:58 UTC, signed, 10 minutes at 50 per second on two instances).
   - **Met:** no duplicate send; generator lag p99 42.1 ms (max 655 ms).
   - **Settlement:** p95 558.6 s and p99 567.7 s. Only 16,202 of the 30,000 measured payments settled before the drain ended.
   - **Lost:** 13,285 payments got no callback within the drain, which ran out with 13,589 payments not final.

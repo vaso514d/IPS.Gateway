@@ -104,8 +104,8 @@ Part 1 (diagnosis, corrections, the concurrency measurement) and part 2 (the fin
 ### Diagnosis (before the corrections)
 
 Two runs of 3 minutes at 50 per second, two signed instances, concurrency 8, `--Diagnose --CollectLogs`, with the binaries before the corrections (the logging change was already in `appsettings.json`):
-- shipped timings: [report](../performance/2026-10-08-0943-diagnosis-before.md);
-- the AppHost's test timings of 013: [report](../performance/2026-10-08-0954-diagnosis-before-test-timings.md). This run was added because the first showed neither the deadlock nor a 500.
+- shipped timings: report (removed from the tree; in git history at 2190e81);
+- the AppHost's test timings of 013: report (removed from the tree; in git history at 2190e81). This run was added because the first showed neither the deadlock nor a 500.
 
 | | Shipped timings | Test timings (013) |
 |---|---|---|
@@ -229,7 +229,7 @@ Two runs of 3 minutes at 50 per second, two signed instances, concurrency 8, `--
 
 The owner chose 32 if feasible, so the baseline ran at 32. Settings: 50 per second, two signed instances, shipped timings, log collection off. `--Diagnose` was on, for comparability with the concurrency runs and to explain a failure.
 
-| Target | First run, 11:04 ([report](../performance/2026-10-08-1104-baseline.md)) | Rerun after the journal fix, 11:32 ([report](../performance/2026-10-08-1132-baseline.md)) |
+| Target | First run, 11:04 (report (removed from the tree; in git history at 2190e81)) | Rerun after the journal fix, 11:32 ([report](../performance/2026-10-08-1132-baseline.md)) |
 |---|---|---|
 | Settlement p95 / p99 | 365.8 s / 496.4 s, **fail** | 587.9 ms pass / 2,361.1 ms **fail** |
 | Lost (no final callback) | 5,662, **fail** | 0, pass |

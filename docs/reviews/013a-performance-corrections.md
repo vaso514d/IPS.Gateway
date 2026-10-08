@@ -96,3 +96,19 @@ Recorded for the owner:
 - **p99.** The 10-minute p99 target is not met (2.36 s), and its cause is open.
 - **Indicative only.** One machine, simulators, the API as projects; an unrelated `kind` container was running.
 - **Callback retries.** After a core outage, callback retries drain slowly.
+
+## 30-minute run (2026-10-08 12:10 UTC, after the commit)
+
+The [report](../performance/2026-10-08-1210-baseline.md) used the same conditions as the 10-minute baseline: 50 requests per second, two instances, signed, shipped timings, concurrency 32.
+
+- **Passed.**
+  - All 90,600 requests were answered 200, with response p95 978 ms and p99 3.7 s.
+  - Nothing was lost, there were no 5xx responses, and no duplicate was without an unknown outcome before it.
+  - Readiness was Healthy throughout, and nothing was left due after the drain.
+- **Failed.**
+  - Settlement p95 was 1.26 s and p99 59.9 s.
+  - 120 payments were NotSent (TM01/1015), all in one minute.
+- **The pattern.**
+  - 24 of the 30 measured minutes had a settlement p95 between 356 and 830 ms. Six minutes, 3 to 7 minutes apart, rose to between 2.2 and 71 s, while responses stayed fast.
+  - The reading: a periodic stall of the whole stack, possibly disk I/O in the Docker SQL container on this machine. After it, callbacks drain slowly: 8 per instance at once, and a callback that finds no free slot waits for the 5-second discovery sweep.
+  - Both are proposed separately (013b); nothing was changed here.
