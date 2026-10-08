@@ -5,7 +5,7 @@ namespace IPS.Middleware.Performance;
 
 // What one run does. The defaults are the owner's baseline (013): one minute at 10 requests per second to warm up, ten minutes at
 // 50 per second measured, up to two minutes for the last callbacks, two instances and a 100 ms simulated IPS; since 013a the
-// shipped timings and execution concurrency, without the instances' logs and without the database diagnosis.
+// shipped timings and execution concurrency.
 // Concurrency null means the shipped value; Timings Test reproduces the AppHost's fast test timings of 013; Label names the
 // report files.
 internal sealed record RunOptions(
@@ -18,8 +18,6 @@ internal sealed record RunOptions(
     TimeSpan IpsDelay,
     string Output,
     int? Concurrency = null,
-    bool CollectLogs = false,
-    bool Diagnose = false,
     string Label = "baseline",
     string Timings = "Shipped")
 {
@@ -33,8 +31,6 @@ internal sealed record RunOptions(
         TimeSpan.Parse(configuration["IpsDelay"] ?? "00:00:00.100", CultureInfo.InvariantCulture),
         Path.GetFullPath(configuration["Output"] ?? Path.Combine(Repository.Root, "docs", "performance")),
         configuration["Concurrency"] is { } concurrency ? int.Parse(concurrency, CultureInfo.InvariantCulture) : null,
-        bool.Parse(configuration["CollectLogs"] ?? "false"),
-        bool.Parse(configuration["Diagnose"] ?? "false"),
         configuration["Label"] ?? "baseline",
         configuration["Timings"] ?? "Shipped");
 }

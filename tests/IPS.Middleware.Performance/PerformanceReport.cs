@@ -9,7 +9,6 @@ internal sealed record RunConfiguration(
     int ShippedConcurrency,
     string Timings,
     bool Signed,
-    bool LogsCollected,
     int WarmUpRate,
     TimeSpan WarmUp,
     int Rate,
@@ -39,9 +38,6 @@ internal sealed record PerformanceReport(
     IReadOnlyList<MinuteOutcome> Timeline,
     DrainResult Drain,
     IReadOnlyList<ReadinessSample> Readiness,
-    IReadOnlyList<InstanceLogSummary> Logs,
-    DatabaseDiagnosis? Diagnosis,
-    Machine Machine,
     RunConfiguration Configuration,
     IReadOnlyList<SettingDifference> Settings)
 {
@@ -50,14 +46,11 @@ internal sealed record PerformanceReport(
     internal static PerformanceReport Create(
         DateTimeOffset startedAtUtc,
         RunConfiguration configuration,
-        Machine machine,
         IReadOnlyList<SentPayment> payments,
         SimulatorRecord received,
         ILookup<string, DeliveryRecord> deliveries,
         DrainResult drain,
         IReadOnlyList<ReadinessSample> readiness,
-        IReadOnlyList<InstanceLogSummary> logs,
-        DatabaseDiagnosis? diagnosis,
         IReadOnlyList<SettingDifference> settings)
     {
         var traffic = IpsTraffic.Of(received.Messages);
@@ -92,9 +85,6 @@ internal sealed record PerformanceReport(
             MinuteOutcome.Of(outcomes),
             drain,
             readiness,
-            logs,
-            diagnosis,
-            machine,
             configuration,
             settings);
     }

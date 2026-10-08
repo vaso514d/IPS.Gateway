@@ -45,8 +45,7 @@ internal sealed class LoadStack : IAsyncDisposable
             $"--Middleware:Timings={timings}"
         ], cancellationToken);
         // Writing every resource's log lines would cost the machine time under load; the orchestrator's warnings and errors still
-        // show, and the instances' own logs are counted by InstanceLogs. The AppHost's health checks fail while the containers
-        // start, and readiness during the run is sampled separately.
+        // show. The AppHost's health checks fail while the containers start, and readiness during the run is sampled separately.
         builder.Services.AddLogging(logging => logging
             .SetMinimumLevel(LogLevel.Warning)
             .AddFilter("Microsoft.Extensions.Diagnostics.HealthChecks", LogLevel.None));
@@ -77,8 +76,6 @@ internal sealed class LoadStack : IAsyncDisposable
             ?? throw new InvalidOperationException("The database has no connection string.");
 
     // What the instance writes from now on. Console logs are kept under the orchestrator's id of the running instance, not the name.
-    internal Task<InstanceLogs> LogsOfAsync(int number, CancellationToken cancellationToken) =>
-        InstanceLogs.StartAsync(_application.Services.GetRequiredService<ResourceLoggerService>(), State(number).ResourceId, number, cancellationToken);
 
     // The environment the AppHost gave the instance, as the orchestrator reports it.
     internal IReadOnlyList<EnvironmentVariableSnapshot> EnvironmentOf(int number) => State(number).Snapshot.EnvironmentVariables

@@ -22,17 +22,9 @@ internal static class PerformanceRun
         await using var stack = await LoadStack.StartAsync(options.Instances, concurrency, Signing, options.Timings, cancellationToken);
         var connectionString = await stack.ConnectionStringAsync(cancellationToken);
         await DelayIpsAsync(stack.Simulators, options.IpsDelay, cancellationToken);
-        var machine = await Machine.DescribeAsync(cancellationToken);
-        var logs = options.CollectLogs
-            ? await Task.WhenAll(Enumerable.Range(1, options.Instances).Select(number => stack.LogsOfAsync(number, cancellationToken)))
-            : [];
-        var waitsBefore = options.Diagnose ? await DatabaseDiagnosis.StartAsync(connectionString, cancellationToken) : null;
         var startedAtUtc = DateTimeOffset.UtcNow;
         using var stopSampling = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var sampling = Readiness.SampleAsync(stack.Probes, stopSampling.Token);
-        var connections = options.Diagnose
-            ? Connections.SampleAsync(connectionString, stopSampling.Token)
-            : Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
         IReadOnlyList<SentPayment> payments;
         DrainResult drain;
         try
@@ -47,16 +39,9 @@ internal static class PerformanceRun
         }
 
         var readiness = await sampling;
-        var connectionPeaks = Connections.Peaks(await connections);
-        var logSummaries = logs
-            .Select(instance => instance.Stop())
-            .ToArray();
         log.WriteLine($"{DateTimeOffset.UtcNow:HH:mm:ss} Collecting what the simulators received and the service recorded.");
         var received = await SimulatorRecord.ReadAsync(stack.Simulators, cancellationToken);
         var deliveries = await DeliveryRecords.ReadAsync(connectionString, cancellationToken);
-        var diagnosis = waitsBefore is null
-            ? null
-            : await DatabaseDiagnosis.ReadAsync(connectionString, startedAtUtc, waitsBefore, connectionPeaks, cancellationToken);
         var environments = Enumerable.Range(1, options.Instances)
             .Select(stack.EnvironmentOf)
             .ToArray();
@@ -67,7 +52,6 @@ internal static class PerformanceRun
             shippedConcurrency,
             options.Timings,
             Signing,
-            options.CollectLogs,
             options.WarmUpRate,
             options.WarmUp,
             options.Rate,
@@ -78,14 +62,11 @@ internal static class PerformanceRun
         return PerformanceReport.Create(
             startedAtUtc,
             configuration,
-            machine,
             payments,
             received,
             deliveries,
             drain,
             readiness,
-            logSummaries,
-            diagnosis,
             ServiceSettings.Differences(shipped, environments));
     }
 

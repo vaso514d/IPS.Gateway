@@ -12,9 +12,7 @@ using Microsoft.Extensions.Configuration;
 //   IpsDelay    delay of every simulated IPS answer (default 00:00:00.100)
 //   Output      directory of the report (default docs/performance in the repository)
 //   Concurrency outgoing execution concurrency of each instance (default the shipped value in appsettings.json)
-//   CollectLogs follow the instances' console logs and report their warnings and errors (default false: it loads the machine)
-//   Diagnose    turn on Query Store for the run's database and report the costliest queries and the deadlocks (default false)
-//   Label       the report files are <yyyy-MM-dd-HHmm>-<Label>.md and .json (default baseline)
+//   Label       the report file is <yyyy-MM-dd-HHmm>-<Label>.md (default baseline)
 //   Timings     Shipped runs the service with the timings of appsettings.json; Test with the AppHost's fast test timings, as 013
 //               did (default Shipped)
 // The exit code is 0 when every target is met, 1 when the report records a failed target and 2 when the run was stopped (Ctrl+C).

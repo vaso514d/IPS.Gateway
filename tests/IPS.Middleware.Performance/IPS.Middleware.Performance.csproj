@@ -11,8 +11,4 @@
     <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <!-- The opt-in smoke test runs the harness itself. -->
-    <InternalsVisibleTo Include="IPS.Middleware.AspireTests" />
-  </ItemGroup>
 </Project>

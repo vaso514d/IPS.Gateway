@@ -12,7 +12,6 @@
     </PackageReference>
     <PackageReference Include="Aspire.Hosting.Testing" />
     <ProjectReference Include="../IPS.Middleware.AppHost/IPS.Middleware.AppHost.csproj" />
-    <ProjectReference Include="../IPS.Middleware.Performance/IPS.Middleware.Performance.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
   </ItemGroup>
 </Project>

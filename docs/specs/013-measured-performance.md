@@ -139,3 +139,21 @@ Not in scope:
     The service also logs every SQL command at Information: 1.8 million info entries per instance during the run, which costs CPU on the shared machine.
   - **Not isolated:** this run collapsed in its first measured minute, where the first run held for four. Besides signing, the harness now parses every log line of both instances (3.6 million entries), the generator lag p99 rose from 15.8 to 42.1 ms, and a `kind` cluster was running on the machine. The two runs therefore do not isolate the cost of signing.
 - **Machine.** The harness, the AppHost orchestration (and its proxies), both API processes, the simulators and the SQL Server container share one machine, as the risks say. The report lists every container running at the start of the load; on the developer machine an unrelated `kind` cluster was running and was left alone.
+
+## Slimmed after 013a (2026-10-08)
+
+At the owner's request, the harness was cut from about 2,350 to about 1,530 lines.
+
+- **Removed:**
+  - the machine description and the per-process SQL connection probe;
+  - the API log collection (`--CollectLogs`) and the database diagnosis (`--Diagnose`: Query Store, deadlock graphs, waits);
+  - the JSON report;
+  - the opt-in smoke test (`IPS_PERF=1`) with its attribute and the Aspire test project's reference to the harness.
+- **Kept:**
+  - load, latency and correctness, including the duplicate check against the delivery records;
+  - readiness and the backlog after the drain;
+  - the per-instance and per-minute breakdown;
+  - the settings that differ from `appsettings.json`;
+  - the Markdown report.
+
+The removed code stays in history at 2190e81 for a future diagnosis. The report no longer has a machine section, a deviation from the Design above.

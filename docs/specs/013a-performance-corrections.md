@@ -279,3 +279,7 @@ The owner chose 32 if feasible, so the baseline ran at 32. Settings: 50 per seco
 - **Owner confirmations.** The owner is asked to confirm two things:
   - the immediate callback start after an attempt, a dispatch change beyond findings 5 and 7;
   - that the journal fix was made after the failed first baseline, against the rule that further changes are proposed separately.
+
+## Harness slimmed afterwards (2026-10-08)
+
+The `--Diagnose` and `--CollectLogs` options used for this slice's diagnosis were removed from the harness at the owner's request; they remain in history at 2190e81. The runs recorded above were made with them.
