@@ -4,6 +4,9 @@ namespace IPS.Middleware.Domain.Transactions;
 
 public sealed class OutgoingPayment : AggregateRoot
 {
+    // The message type of a recall request (camt.056), the only payment a creditor bank can refuse.
+    private const string RecallMessageType = "camt.056";
+
     private StateMachine<TransactionStatus, PaymentOperation>? _machine;
 
     private OutgoingPayment()
@@ -36,6 +39,7 @@ public sealed class OutgoingPayment : AggregateRoot
     public string? CurrentReasonCode { get; private set; }
     public int? CurrentIpsInternalCode { get; private set; }
     public string? CurrentDescription { get; private set; }
+    public DateTimeOffset? RecallRefusedAtUtc { get; private set; }
 
     public PaymentOutcome Current => new(
         CurrentStatus,
@@ -53,6 +57,8 @@ public sealed class OutgoingPayment : AggregateRoot
         or TransactionStatus.Uncertain
         or TransactionStatus.Investigating
         or TransactionStatus.Resending;
+
+    public bool IsRecall => MessageType == RecallMessageType;
 
     public static OutgoingPayment Receive(Guid id, string messageType, string clientReference, DateTimeOffset at) =>
         new(id, messageType, clientReference, at);
@@ -77,6 +83,24 @@ public sealed class OutgoingPayment : AggregateRoot
         }
 
         Observe(reported, source, at, details);
+    }
+
+    // The creditor bank's business answer to our recall, beside the technical IPS outcome, which stays as it is. No status
+    // callback follows: the core system receives the refusal itself. A recall is refused once; a repeated refusal is ignored.
+    public void RecordRecallRefusal(string? reasonCode, string messageId, string cancellationStatusId, DateTimeOffset at)
+    {
+        if (!IsRecall)
+        {
+            throw new InvalidOperationException("Only a recall can be refused by the creditor bank.");
+        }
+
+        if (RecallRefusedAtUtc is not null)
+        {
+            return;
+        }
+
+        RecallRefusedAtUtc = at.ToUniversalTime();
+        Raise(new RecallRefused(reasonCode, messageId, cancellationStatusId), RecallRefusedAtUtc.Value);
     }
 
     public void ScheduleConnectionRetry(DateTimeOffset at, PaymentDetails? details = null) =>

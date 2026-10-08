@@ -19,4 +19,8 @@ public interface ITransactionWorkRepository
 
     // Fence the row version for a change that does not touch ownership or scheduling.
     void StageObservation(OutgoingPayment payment);
+
+    // The same, but false while another owner holds a live claim: its commit would fail on the changed row version and
+    // discard the result of its work.
+    bool StageUnclaimedObservation(OutgoingPayment payment, DateTimeOffset now);
 }

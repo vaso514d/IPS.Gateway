@@ -105,7 +105,7 @@ public sealed class IncomingPain001Protocol(IpsSignatureTrust trust) : IIncoming
             ServiceLevelCode: Parties.Value(Parties.Child(type, "SvcLvl"), "Cd"),
             LocalInstrumentCode: Parties.Value(Parties.Child(type, "LclInstrm"), "Cd"),
             CategoryPurposeCode: Parties.Value(Parties.Child(type, "CtgyPurp"), "Cd"),
-            RequestedExecutionDate: ExecutionDate(Parties.Child(payment, "ReqdExctnDt")),
+            RequestedExecutionDate: RequestedExecutionDate.From(Parties.Child(payment, "ReqdExctnDt")),
             Debtor: debtor,
             UltimateDebtor: Parties.Ultimate(Parties.Child(payment, "UltmtDbtr")),
             InstructionId: Parties.Value(paymentId, "InstrId"),
@@ -116,21 +116,6 @@ public sealed class IncomingPain001Protocol(IpsSignatureTrust trust) : IIncoming
             UltimateCreditor: Parties.Ultimate(Parties.Child(transaction, "UltmtCdtr")),
             PurposeCode: Parties.Value(Parties.Child(transaction, "Purp"), "Cd"),
             Remittance: Parties.Remittance(Parties.Child(transaction, "RmtInf")));
-    }
-
-    // ReqdExctnDt is a date or a date-time. As in the source, a value that is not a plain yyyy-MM-dd date (an xs:date may carry a
-    // time zone) is left out rather than costing the core the initiation.
-    private static DateOnly? ExecutionDate(XElement? choice)
-    {
-        if (Parties.Value(choice, "Dt") is { } date)
-        {
-            return DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
-        }
-
-        return Parties.Value(choice, "DtTm") is { } dateTime
-            && DateTimeOffset.TryParse(dateTime, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
-                ? DateOnly.FromDateTime(parsed.DateTime)
-                : null;
     }
 
     private static string Required(string? value, string name) =>

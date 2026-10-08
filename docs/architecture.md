@@ -257,7 +257,7 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 ## Incoming recalls (007c)
 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
-- See [007c](specs/007c-incoming-recalls.md).
+- See [007c](specs/007c-incoming-recalls.md). Superseded by 012c: these messages are now verified and delivered.
 
 ## Aspire test environment (012)
 
@@ -301,7 +301,7 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 ## Incoming camt.055 (008c)
 
 - An incoming camt.055 (a PISP's cancellation request for a payment initiation; short type, `.12`, `.012` or `.08`) is acknowledged and archived exactly like the recalls of 007c: `PaymentMessageTypes.IsArchivedCancellation` names all three types once, `IncomingReceiptPreparation` completes the receipt as processed and `IncomingReceiveWorker` acknowledges it after the commit. Nothing is verified, delivered to the core or answered.
-- See [008c](specs/008c-incoming-camt055.md).
+- See [008c](specs/008c-incoming-camt055.md). Superseded by 012c: these messages are now verified and delivered.
 
 ## Outgoing camt.029 and the shared recall parts (007b)
 
@@ -340,3 +340,10 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Initial-record queries.** Queries for the initial exchange select records with neither an investigation nor a resend reference.
 - **Recovery.** Recovery keeps an expired Resending claim resumable, so the next owner records an abandoned submission itself.
 - **Runtime.** OutgoingRuntime routes each recovered payment by status: Pacs008Processing, OutgoingInvestigation or OutgoingResend. A separate sweep starts due investigations and resends. See [003a.3](specs/003a3-authorized-resend.md).
+
+## Incoming recalls, cancellations and recall refusals delivered to the core (012c)
+
+- **Three more transfer kinds.** An incoming camt.056 (a recall of a pacs.008 we received), camt.055 (a PISP's cancellation of a pain.001 we received) and camt.029 (a refusal of our recall) are `IncomingTransfer` kinds (`camt.056`, `camt.055`, `camt.029`; key = Assgnmt/Id). `IncomingCamt056Protocol`, `IncomingCamt055Protocol` and `IncomingCamt029Protocol` verify them like the other kinds: envelope and `MsgDefIdr`, trusted IPS signature at the receipt time, one transaction, schema (camt.055.001.12 is now embedded), and our participant as the receiving agent (camt.056 `CdtrAgt`, camt.055 and camt.029 `DbtrAgt`); a camt.029 must also be RJCR. `RecallReferenceReader` reads the parts they share into the recall input shapes. Anything else holds the receipt. `PaymentMessageTypes.IsIncomingTransfer` now names them, so `IncomingReceiptPreparation` no longer archives anything and the acknowledgement rule is unchanged.
+- **Matching a refusal.** `IncomingRecallRefusals` (Application) finds our camt.056 by `OrgnlGrpInf/OrgnlMsgId` (the outgoing `MessageId`) and requires its original end-to-end and transaction ids from `AcceptedCamt056`; a refusal without `OrgnlGrpInf`, naming no recall of ours, or with other ids is held. `IncomingTransferRegistration` stores a matched refusal with the recall's `ClientReference` and, for a new transfer, calls `OutgoingPayment.RecordRecallRefusal`, all in one unit-of-work commit fenced by the recall's row version. The domain records `RecallRefused` (`payment.recall-refused`: reason code, camt.029 message and cancellation status ids) once per recall (`RecallRefusedAtUtc`, migration `RecallRefusal`), only on a recall, with no state change and so no callback.
+- **Delivery.** `IncomingTransferProcessing` and its recovery are unchanged. `IncomingCbsClient` posts the existing Contracts DTOs to `Camt056SubmissionPath`, `Camt055SubmissionPath` and `Camt029SubmissionPath` (Idempotency-Key = the key) and asks the status with `messageKind` `Camt056`, `Camt055` or `Camt029`. Contracts 1.1.0-preview.1 adds the three `IClientPaymentReceiver` methods, the `Receive` routes and `IpsMessageKind.Camt055`.
+- See [012c](specs/012c-recall-delivery.md).

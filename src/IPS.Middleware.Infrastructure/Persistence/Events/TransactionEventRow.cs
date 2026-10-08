@@ -77,6 +77,7 @@ internal static class EventRegistry
         PaymentProcessingFailed => "payment.processing-failed",
         PaymentOutcomeObserved { Conflicting: true } => "payment.outcome-conflict-observed",
         PaymentOutcomeObserved => "payment.outcome-observed",
+        RecallRefused => "payment.recall-refused",
         PaymentStateChanged change => change.Operation switch
         {
             PaymentOperation.BeginSending => "payment.sending-started",

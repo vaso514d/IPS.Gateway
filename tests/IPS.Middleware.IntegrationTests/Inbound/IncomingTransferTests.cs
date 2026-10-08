@@ -18,6 +18,7 @@ using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Events;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
+using IPS.Middleware.Infrastructure.Repositories.Payments;
 using IPS.Middleware.IntegrationTests.Diagnostics;
 using IPS.Middleware.IntegrationTests.Payments;
 using IPS.Middleware.IntegrationTests.Transport;
@@ -716,6 +717,7 @@ public sealed class IncomingTransferTests
         await using var core = await ProcessingHarness.CreateAsync();
         // The unsupported type comes first, so an acknowledgement of it would show before the recalls'. The first
         // acknowledgement fails and sequence 11 is delivered again, which must be acknowledged again and stored once.
+        // Since 012c the recalls are verified; these unsigned stand-ins are held, and acknowledged all the same.
         var deliveries = new ConcurrentQueue<(string Sequence, string Type)>([("13", "camt.053"), ("11", "camt.056"), ("11", "camt.056"), ("12", "camt.029"), ("14", "camt.055")]);
         var acknowledgements = new ConcurrentQueue<string?>();
         var acknowledgementCalls = 0;
@@ -754,7 +756,7 @@ public sealed class IncomingTransferTests
             {
                 await using var session = core.Database.Session();
                 var statuses = await session.Context.Set<InboundJournalEntry>().OrderBy(entry => entry.Sequence).Select(entry => entry.Status).ToListAsync();
-                return statuses.SequenceEqual([InboundProcessingStatus.Processed, InboundProcessingStatus.Processed, InboundProcessingStatus.Held, InboundProcessingStatus.Processed]);
+                return statuses.SequenceEqual([InboundProcessingStatus.Held, InboundProcessingStatus.Held, InboundProcessingStatus.Held, InboundProcessingStatus.Held]);
             });
             await EventuallyAsync(() => Task.FromResult(acknowledgements.Count >= 4));
         }
@@ -1174,9 +1176,11 @@ public sealed class IncomingTransferTests
         var handler = new IncomingTransferRegistration(
             [new IncomingPacs009Protocol(trust), new IncomingPacs004Protocol(trust), new IncomingPain001Protocol(trust)],
             new IncomingTransferRepository(session.Context),
+            new IncomingRecallRefusals(new OutgoingPaymentRepository(session.Context), new PaymentPreparationRepository(session.Context), new TransactionWorkRepository(session.Context)),
             new InboundWorkRepository(session.Context),
             session.Unit,
             new IncomingReconciliationOptions(),
+            new IncomingCompositionOptions(),
             core.Clock);
         return (await handler.ProcessAsync(claim, receipt, default), journalId);
     }

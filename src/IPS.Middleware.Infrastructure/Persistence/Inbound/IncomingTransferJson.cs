@@ -11,6 +11,9 @@ internal static class IncomingTransferJson
         IncomingPacs009 pacs009 => IncomingPaymentJson.Write(pacs009),
         IncomingPacs004 pacs004 => IncomingPaymentJson.Write(pacs004),
         IncomingPain001 pain001 => IncomingPaymentJson.Write(pain001),
+        IncomingCamt056 camt056 => IncomingPaymentJson.Write(camt056),
+        IncomingCamt055 camt055 => IncomingPaymentJson.Write(camt055),
+        IncomingCamt029 camt029 => IncomingPaymentJson.Write(camt029),
         _ => throw new ArgumentOutOfRangeException(nameof(content), content.GetType().Name, "No stored form for this transfer content.")
     };
 
@@ -19,6 +22,9 @@ internal static class IncomingTransferJson
         PaymentMessageTypes.Pacs009 => IncomingPaymentJson.Read<IncomingPacs009>(json),
         PaymentMessageTypes.Pacs004 => IncomingPaymentJson.Read<IncomingPacs004>(json),
         PaymentMessageTypes.Pain001 => IncomingPaymentJson.Read<IncomingPain001>(json).Frozen(),
+        PaymentMessageTypes.Camt056 => IncomingPaymentJson.Read<IncomingCamt056>(json).Frozen(),
+        PaymentMessageTypes.Camt055 => IncomingPaymentJson.Read<IncomingCamt055>(json).Frozen(),
+        PaymentMessageTypes.Camt029 => IncomingPaymentJson.Read<IncomingCamt029>(json).Frozen(),
         _ => throw new NotSupportedException($"Incoming transfer kind {kind} is not supported.")
     };
 }

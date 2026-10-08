@@ -11,6 +11,7 @@ public sealed class SimulatorState
 
     public ConcurrentQueue<ReceivedMessage> Messages { get; } = new();
     public ConcurrentQueue<string> Callbacks { get; } = new();
+    public ConcurrentQueue<ReceivedCoreDelivery> CoreDeliveries { get; } = new();
     public ConcurrentQueue<ReceivedProxyCall> ProxyCalls { get; } = new();
 
     // The next IPS answers are RJCT instead of ACCP.
@@ -38,6 +39,7 @@ public sealed class SimulatorState
     {
         Messages.Clear();
         Callbacks.Clear();
+        CoreDeliveries.Clear();
         ProxyCalls.Clear();
         Reject = false;
         RejectProxy = false;
@@ -53,6 +55,8 @@ public sealed class SimulatorState
 }
 
 public sealed record ReceivedMessage(string Xml, bool PossibleDuplicate, string? Version, string? Channel, DateTimeOffset ReceivedAtUtc);
+
+public sealed record ReceivedCoreDelivery(string Message, string Body, string? IdempotencyKey, DateTimeOffset ReceivedAtUtc);
 
 public sealed record ReceivedProxyCall(string Operation, string Xml, string? Channel, DateTimeOffset ReceivedAtUtc);
 

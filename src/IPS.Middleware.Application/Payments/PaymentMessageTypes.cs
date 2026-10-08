@@ -41,16 +41,26 @@ public static class PaymentMessageTypes
     // A message that names its definition (the header of the message itself) rather than a short type.
     public static bool IsPain001Definition(string definition) => definition is Pain001Definition or Pain001RegistryDefinition;
 
-    // Received from IPS and handed to the core system by the incoming transfer engine.
-    public static bool IsIncomingTransfer(string messageType) => IsPacs009(messageType) || IsPacs004(messageType) || IsPain001(messageType);
+    public static bool IsCamt056(string messageType) => messageType is Camt056 or Camt056Definition;
+
+    public static bool IsCamt029(string messageType) => messageType is Camt029 or Camt029Definition;
+
+    // The registry also spells the definition camt.055.001.012 and names the older camt.055.001.08; only version 12 is read.
+    public static bool IsCamt055(string messageType) => messageType is Camt055 or Camt055Definition or Camt055Spelled012 or Camt055Spelled08;
+
+    public static bool IsCamt055Definition(string definition) => definition is Camt055Definition or Camt055Spelled012;
+
+    // Received from IPS and handed to the core system by the incoming transfer engine: a pacs.009, a return, a payment
+    // initiation, a recall request, a refusal of our recall, or a cancellation request for a payment initiation.
+    public static bool IsIncomingTransfer(string messageType) =>
+        IsPacs009(messageType)
+        || IsPacs004(messageType)
+        || IsPain001(messageType)
+        || IsCamt056(messageType)
+        || IsCamt029(messageType)
+        || IsCamt055(messageType);
 
     public static bool IsPacs002(string messageType) => messageType is Pacs002 or Pacs002Definition;
-
-    // An incoming recall request or refusal, or a cancellation request for a payment initiation (the registry also spells its
-    // definition camt.055.001.012 and camt.055.001.08), is only acknowledged and archived; nothing is delivered to the core system.
-    public static bool IsArchivedCancellation(string messageType) =>
-        messageType is Camt056 or Camt056Definition or Camt029 or Camt029Definition
-            or Camt055 or Camt055Definition or Camt055Spelled012 or Camt055Spelled08;
 
     public static bool IsOutgoing(string messageType) => Outgoing.Contains(messageType);
 

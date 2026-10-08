@@ -11,12 +11,18 @@ namespace IPS.MiidleWear.Contracts.Camt056;
 /// BIC), #3 Assgne (IPS BIC), #7 OrgnlMsgNmId ("pacs.008.001.12"), #12 CxlRsnInf/Orgtr AnyBIC (= DbtrAgt, the
 /// participant), #15 ClrSys "IPS", #16 SvcLvl, #17 LclInstrm, #19 CdtrRefInf/Tp/CdOrPrtry/Cd "SCOR".
 /// </para>
+/// <para>
+/// The same shape is delivered to the core system at <see cref="Camt056RestApiRoutes.Receive"/> for an incoming recall of a
+/// pacs.008 this bank received: every field is filled from the received message as IPS forwarded it, the creditor agent is
+/// this participant, and <see cref="ClientReference"/> is empty.
+/// </para>
 /// </summary>
 public sealed record Camt056RecallRequestDto
 {
     /// <summary>
     /// REQUIRED. The core system's unique id for this transaction — unique across every message type. The idempotency
     /// key: a repeated request with the same value returns the existing transaction instead of sending again.
+    /// Empty on a delivered (incoming) camt.056, whose idempotency key is <see cref="Id"/>.
     /// </summary>
     [JsonPropertyName("ClientReference")]
     public string? ClientReference { get; init; }
@@ -208,4 +214,7 @@ public static class Camt056RestApiRoutes
 {
     /// <summary>Implemented by the gateway; called by external clients to send a camt.056 recall request to IPS.</summary>
     public const string Send = "/api/ips/camt056/send";
+
+    /// <summary>Implemented by the core system; called by the gateway for an incoming camt.056 recall request.</summary>
+    public const string Receive = "/api/ips/camt056/receive";
 }

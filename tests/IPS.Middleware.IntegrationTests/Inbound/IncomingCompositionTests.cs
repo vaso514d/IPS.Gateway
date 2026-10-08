@@ -17,6 +17,7 @@ using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
+using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using IPS.Middleware.Infrastructure.UnitOfWork;
@@ -152,22 +153,26 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     [InlineData("camt.055.001.12")]
     [InlineData("camt.055.001.012")]
     [InlineData("camt.055.001.08")]
-    public async Task A_recall_or_cancellation_is_archived_without_a_payment_a_reply_or_any_remote_call(string type)
+    // 012c: recalls and cancellations are no longer archived unread; an unverifiable one is held like any other transfer.
+    public async Task An_unverifiable_recall_or_cancellation_is_held_without_a_payment_a_transfer_a_reply_or_any_remote_call(string type)
     {
         await using var h = await Harness.CreateAsync(fixture);
         var id = await h.SeedAsync(1, rawXml: "<archived recall />", type: type);
 
         var result = await h.RunAsync(id);
 
-        Assert.Equal(IncomingCompositionStatus.Terminal, result.Status);
+        Assert.Equal(IncomingCompositionStatus.Held, result.Status);
         var state = (await h.Execution.ReadAsync(id, default))!;
-        Assert.Equal(InboundProcessingStatus.Processed, state.Status);
+        Assert.Equal(InboundProcessingStatus.Held, state.Status);
         Assert.Null(state.PaymentId);
         Assert.False(state.HasReply);
         Assert.Empty(h.Core.Submissions);
         Assert.Empty(h.Reply.Messages);
         await using var db = h.Database.Context();
-        Assert.Equal("<archived recall />", (await new InboundReceiptRepository(db).ReadAsync(id, default))!.Receipt.RawXml);
+        var stored = (await new InboundReceiptRepository(db).ReadAsync(id, default))!;
+        Assert.Equal("<archived recall />", stored.Receipt.RawXml);
+        Assert.NotNull(stored.HoldReason);
+        Assert.False(await db.Set<IncomingTransferMetadata>().AnyAsync());
     }
 
     [Fact]
@@ -503,6 +508,9 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddSingleton<IStatusReportProtocol>(new StatusReportProtocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
             services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs009Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
             services.AddSingleton<IIncomingTransferProtocol>(new IncomingPacs004Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingCamt056Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingCamt055Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
+            services.AddSingleton<IIncomingTransferProtocol>(new IncomingCamt029Protocol(new IpsSignatureTrust([fixture.Input.Certificate], h.Time)));
             services.AddIncomingComposition();
             configure?.Invoke(services);
             h.Services = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

@@ -12,7 +12,8 @@ public enum IpsMessageKind
     Camt056 = 4,
     Camt029 = 5,
     Pain002 = 6,
-    Pain001 = 7
+    Pain001 = 7,
+    Camt055 = 8
 }
 
 /// <summary>

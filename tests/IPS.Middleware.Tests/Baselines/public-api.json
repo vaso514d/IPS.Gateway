@@ -10,6 +10,9 @@
     "members": [
       "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task ReceiveTransactionStatusAsync (IPS.MiidleWear.Contracts.Transactions.TransactionStatusDto status nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/transactions/status/receive\u0022)Summary=\u0022Receive the status of a transaction the core system sent.\u0022,Tag=\u0022Transactions\u0022",
       "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E GetPaymentStatusAsync (IPS.MiidleWear.Contracts.Transactions.InboundPaymentStatusQueryDto query nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNullable/Nullable\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022GET\u0022,\u0022/api/ips/payments/status\u0022)Summary=\u0022Return the outcome of an incoming payment (404 when it was never received).\u0022,Tag=\u0022Transactions\u0022",
+      "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceiveCamt029Async (IPS.MiidleWear.Contracts.Camt029.Camt029ResolutionOfInvestigationDto refusal nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/camt029/receive\u0022)MessageType=\u0022camt.029\u0022,Summary=\u0022Receive an incoming camt.029 refusal of a recall the core system sent.\u0022,Tag=\u0022Recall\u0022",
+      "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceiveCamt055Async (IPS.MiidleWear.Contracts.Camt055.Camt055CancellationRequestDto cancellation nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/camt055/receive\u0022)MessageType=\u0022camt.055\u0022,Summary=\u0022Receive an incoming camt.055 cancellation request for a payment initiation.\u0022,Tag=\u0022PaymentInitiation\u0022",
+      "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceiveCamt056Async (IPS.MiidleWear.Contracts.Camt056.Camt056RecallRequestDto recall nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/camt056/receive\u0022)MessageType=\u0022camt.056\u0022,Summary=\u0022Receive an incoming camt.056 recall request (answer to the recall: pacs.004 or camt.029).\u0022,Tag=\u0022Recall\u0022",
       "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceivePacs004Async (IPS.MiidleWear.Contracts.Pacs004.Pacs004PaymentReturnRequestDto payment nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/pacs004/receive\u0022)MessageType=\u0022pacs.004\u0022,Summary=\u0022Receive an inbound pacs.004 payment return.\u0022,Tag=\u0022Pacs004\u0022",
       "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceivePacs008Async (IPS.MiidleWear.Contracts.Pacs008.Pacs008InstantPaymentRequestDto payment nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/pacs008/receive\u0022)MessageType=\u0022pacs.008\u0022,Summary=\u0022Receive an inbound pacs.008 (same shape as the send request, plus debtor.participantBic) and return the final posting result.\u0022,Tag=\u0022Pacs008\u0022",
       "method static=False,abstract=True,virtual=True,final=False System.Threading.Tasks.Task\u003CIPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto\u003E ReceivePacs009Async (IPS.MiidleWear.Contracts.Pacs009.Pacs009PaymentRequestDto payment nullable=NotNull/NotNull , System.Threading.CancellationToken cancellationToken nullable=NotNull/NotNull ) returnNullable=NotNull/NotNull\u003CNotNull/NotNull\u003E IPS.MiidleWear.Contracts.Routing.RestEndpointAttribute(\u0022POST\u0022,\u0022/api/ips/pacs009/receive\u0022)MessageType=\u0022pacs.009\u0022,Summary=\u0022Receive an inbound pacs.009 FI-to-FI credit transfer.\u0022,Tag=\u0022Pacs009\u0022",
@@ -148,6 +151,7 @@
     "interfaces": [],
     "attributes": [],
     "members": [
+      "field System.String Receive = \u0022/api/ips/camt029/receive\u0022 ",
       "field System.String Send = \u0022/api/ips/camt029/send\u0022 "
     ]
   },
@@ -404,6 +408,18 @@
       "property System.Nullable\u003CSystem.Text.Json.JsonElement\u003E PostalAddress[] nullable=Nullable/Nullable (get_PostalAddress:static=False,abstract=False,virtual=False,final=False, set_PostalAddress:static=False,abstract=False,virtual=False,final=False) System.Text.Json.Serialization.JsonPropertyNameAttribute(\u0022PostalAddress\u0022)",
       "property System.String Id[] nullable=Nullable/Nullable (get_Id:static=False,abstract=False,virtual=False,final=False, set_Id:static=False,abstract=False,virtual=False,final=False) System.Text.Json.Serialization.JsonPropertyNameAttribute(\u0022Id\u0022)",
       "property System.String Name[] nullable=Nullable/Nullable (get_Name:static=False,abstract=False,virtual=False,final=False, set_Name:static=False,abstract=False,virtual=False,final=False) System.Text.Json.Serialization.JsonPropertyNameAttribute(\u0022Name\u0022)"
+    ]
+  },
+  {
+    "name": "IPS.MiidleWear.Contracts.Camt055.Camt055RestApiRoutes",
+    "kind": "class",
+    "isAbstract": true,
+    "isSealed": true,
+    "baseType": "System.Object",
+    "interfaces": [],
+    "attributes": [],
+    "members": [
+      "field System.String Receive = \u0022/api/ips/camt055/receive\u0022 "
     ]
   },
   {
@@ -676,6 +692,7 @@
     "interfaces": [],
     "attributes": [],
     "members": [
+      "field System.String Receive = \u0022/api/ips/camt056/receive\u0022 ",
       "field System.String Send = \u0022/api/ips/camt056/send\u0022 "
     ]
   },
@@ -2167,6 +2184,7 @@
     ],
     "members": [
       "field IPS.MiidleWear.Contracts.Transactions.IpsMessageKind Camt029 = 5 ",
+      "field IPS.MiidleWear.Contracts.Transactions.IpsMessageKind Camt055 = 8 ",
       "field IPS.MiidleWear.Contracts.Transactions.IpsMessageKind Camt056 = 4 ",
       "field IPS.MiidleWear.Contracts.Transactions.IpsMessageKind Pacs004 = 3 ",
       "field IPS.MiidleWear.Contracts.Transactions.IpsMessageKind Pacs008 = 1 ",

@@ -9,6 +9,13 @@ namespace IPS.MiidleWear.Contracts.Camt055;
 /// pain.013 message, or as a Request for Status Update (RFSU) on an already-submitted cancellation.
 /// A single TxInf occurrence is enforced by IPS, so this DTO is flattened the same way the other
 /// contract-only models in this solution are.
+/// <para>
+/// Delivered to the core system at <see cref="Camt055RestApiRoutes.Receive"/> for an incoming camt.055.001.12 about a
+/// pain.001 this bank received; the debtor agent is this participant. Every field is filled from the received message;
+/// date-times are given in UTC, <see cref="Camt055OriginalTransactionReferenceDto.RequestedExecutionDate"/> as a date at
+/// midnight, and <see cref="Camt055PartyDto.PostalAddress"/> in the shape of the camt.056 postal address
+/// (StreetName, BuildingNumber, PostCode, TownName, CountrySubDivision, Country, AddressLines). Idempotency-Key = <see cref="MsgId"/>.
+/// </para>
 /// </summary>
 public sealed record Camt055CancellationRequestDto
 {
@@ -155,4 +162,10 @@ public sealed record Camt055AccountDto
 {
     [JsonPropertyName("IBAN")]
     public string? Iban { get; init; }
+}
+
+public static class Camt055RestApiRoutes
+{
+    /// <summary>Implemented by the core system; called by the gateway for an incoming camt.055 cancellation request.</summary>
+    public const string Receive = "/api/ips/camt055/receive";
 }

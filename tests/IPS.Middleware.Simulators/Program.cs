@@ -2,7 +2,7 @@ using System.Security.Cryptography.X509Certificates;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Simulators;
 
-// Test support only: a stand-in for IPS, the CBS callback and the Proxy Solution, with a control API under /_sim. It is not part
+// Test support only: a stand-in for IPS, the CBS callback and recall receive routes and the Proxy Solution, with a control API under /_sim. It is not part
 // of the deployable service.
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<SimulatorState>();
@@ -55,6 +55,17 @@ app.MapPost("/api/ips/transactions/status/receive", async (HttpContext context) 
     return Results.NoContent();
 });
 
+// CBS: the incoming recall, cancellation and recall refusal deliveries (012c). The core takes each one (ACCP).
+foreach (var message in new[] { "camt056", "camt055", "camt029" })
+{
+    app.MapPost("/api/ips/" + message + "/receive", async (HttpContext context) =>
+    {
+        var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
+        state.CoreDeliveries.Enqueue(new(message, body, context.Request.Headers["Idempotency-Key"], DateTimeOffset.UtcNow));
+        return Results.Json(new { status = "ACCP" });
+    });
+}
+
 // Proxy Solution: the three management operations.
 foreach (var operation in new[] { "register", "update", "remove" })
 {
@@ -71,6 +82,7 @@ app.MapGet("/_sim/received", () => new
 {
     Messages = state.Messages.ToArray(),
     Callbacks = state.Callbacks.ToArray(),
+    CoreDeliveries = state.CoreDeliveries.ToArray(),
     ProxyCalls = state.ProxyCalls.ToArray()
 });
 app.MapPost("/_sim/behaviour", (Behaviour behaviour) =>

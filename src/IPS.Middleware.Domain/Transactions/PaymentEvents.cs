@@ -68,6 +68,9 @@ public sealed record PaymentOutcomeObserved(
     StatusSource Source,
     PaymentDetails Details) : DomainEvent;
 
+// The creditor bank refused our recall with a camt.029: its reason code and the camt.029's message and cancellation status ids.
+public sealed record RecallRefused(string? ReasonCode, string MessageId, string CancellationStatusId) : DomainEvent;
+
 public sealed class PaymentTransitionException(TransactionStatus state, PaymentOperation operation)
     : InvalidOperationException($"Payment operation {operation} is not valid in state {state}.")
 {

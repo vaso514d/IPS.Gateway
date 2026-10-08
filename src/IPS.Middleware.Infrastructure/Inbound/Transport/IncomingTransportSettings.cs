@@ -1,4 +1,7 @@
 using IPS.Middleware.Infrastructure.Transport;
+using IPS.MiidleWear.Contracts.Camt029;
+using IPS.MiidleWear.Contracts.Camt055;
+using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
@@ -20,6 +23,9 @@ public sealed class IncomingTransportSettings
     public string Pain001SubmissionPath { get; init; } = Pain001RestApiRoutes.Receive;
     public string Pacs004SubmissionPath { get; init; } = Pacs004RestApiRoutes.Receive;
     public string Pacs009SubmissionPath { get; init; } = Pacs009RestApiRoutes.Receive;
+    public string Camt056SubmissionPath { get; init; } = Camt056RestApiRoutes.Receive;
+    public string Camt055SubmissionPath { get; init; } = Camt055RestApiRoutes.Receive;
+    public string Camt029SubmissionPath { get; init; } = Camt029RestApiRoutes.Receive;
     public string StatusPath { get; init; } = TransactionRestApiRoutes.PaymentStatus;
     public string ReversalPath { get; init; } = TransactionRestApiRoutes.ReceiveStatus;
     public TimeSpan ReceiveTimeout { get; init; } = TimeSpan.FromSeconds(10);
@@ -45,7 +51,12 @@ public sealed class IncomingTransportSettings
 
         Ips.Validate(development);
         Cbs.Validate(development);
-        foreach (var path in new[] { MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, Pacs004SubmissionPath, Pain001SubmissionPath, StatusPath, ReversalPath })
+        string[] paths =
+        [
+            MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, Pacs004SubmissionPath, Pain001SubmissionPath,
+            Camt056SubmissionPath, Camt055SubmissionPath, Camt029SubmissionPath, StatusPath, ReversalPath
+        ];
+        foreach (var path in paths)
         {
             TransportPath.Validate(path);
         }

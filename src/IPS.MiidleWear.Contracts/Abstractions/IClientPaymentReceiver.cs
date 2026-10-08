@@ -1,3 +1,6 @@
+using IPS.MiidleWear.Contracts.Camt029;
+using IPS.MiidleWear.Contracts.Camt055;
+using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
@@ -49,6 +52,39 @@ public interface IClientPaymentReceiver
     Task<Pacs008PaymentResultDto> ReceivePain001Async(Pain001PaymentInitiationDto initiation, CancellationToken cancellationToken);
 
     /// <summary>
+    /// An incoming camt.056: another participant asks this bank (the creditor's bank) to return a pacs.008 it received
+    /// (Annex D §3.2.4). IPS has already been acknowledged (MessageAck). The answer only says whether the core system took
+    /// the request (ACCP) or could not (RJCT) — it is <b>not</b> the answer to the recall. That one the core system sends
+    /// itself through <see cref="IGatewayApi"/>: a pacs.004 return accepts it, a camt.029 refuses it.
+    /// Idempotency-Key = id (Assgnmt/Id); status query messageKind = Camt056, reference = id.
+    /// </summary>
+    [RestEndpoint("POST", Camt056RestApiRoutes.Receive, Tag = "Recall", MessageType = "camt.056",
+        Summary = "Receive an incoming camt.056 recall request (answer to the recall: pacs.004 or camt.029).")]
+    Task<Pacs008PaymentResultDto> ReceiveCamt056Async(Camt056RecallRequestDto recall, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// An incoming camt.055: a PISP asks this bank to cancel a pain.001 payment initiation it received, or asks for the
+    /// status of an earlier cancellation request (Annex D §3.2.13). IPS has already been acknowledged (MessageAck). The
+    /// answer only says whether the core system took the request (ACCP) or could not (RJCT) — it is <b>not</b> the answer
+    /// to the PISP. Idempotency-Key = msgId (Assgnmt/Id); status query messageKind = Camt055, reference = msgId.
+    /// </summary>
+    [RestEndpoint("POST", Camt055RestApiRoutes.Receive, Tag = "PaymentInitiation", MessageType = "camt.055",
+        Summary = "Receive an incoming camt.055 cancellation request for a payment initiation.")]
+    Task<Pacs008PaymentResultDto> ReceiveCamt055Async(Camt055CancellationRequestDto cancellation, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// An incoming camt.029: the creditor's bank refused (RJCR) a camt.056 recall this core system sent (Annex D §3.2.5).
+    /// The gateway delivers it only after matching it to that recall; clientReference is the recall's clientReference.
+    /// The recall's own transaction status does not change (it stays the IPS verdict). The answer only says whether the
+    /// core system took the refusal (ACCP) or could not (RJCT). The creditor's bank may refuse the same recall again with
+    /// another camt.029 (a different id); each is delivered under its own id, so several can share one clientReference.
+    /// Idempotency-Key = id (Assgnmt/Id of the camt.029); status query messageKind = Camt029, reference = id.
+    /// </summary>
+    [RestEndpoint("POST", Camt029RestApiRoutes.Receive, Tag = "Recall", MessageType = "camt.029",
+        Summary = "Receive an incoming camt.029 refusal of a recall the core system sent.")]
+    Task<Pacs008PaymentResultDto> ReceiveCamt029Async(Camt029ResolutionOfInvestigationDto refusal, CancellationToken cancellationToken);
+
+    /// <summary>
     /// The gateway posts the status of a transaction the core system sent (final, or ManualReview) — the answer to
     /// the 202 "Processing" it got. Any 2xx counts as delivered. The same clientReference + status can arrive more
     /// than once (retries, several gateway nodes), so the core system must treat it idempotently
@@ -68,7 +104,8 @@ public interface IClientPaymentReceiver
     /// The gateway asks what the core system did with an incoming payment whose receive call got no answer (timeout,
     /// broken connection). Returns the same result the receive call would have returned: ACCP or RJCT when the core
     /// system processed it, <c>Status = "PDNG"</c> while it is still processing, and <c>404</c> when it never
-    /// received the payment (the gateway then posts it again with the same Idempotency-Key — pacs.009/004 only).
+    /// received the payment (the gateway then posts it again with the same Idempotency-Key — every type except pacs.008:
+    /// pacs.009, pacs.004, pain.001, camt.056, camt.055 and camt.029).
     /// </summary>
     [RestEndpoint("GET", TransactionRestApiRoutes.PaymentStatus, Tag = "Transactions",
         Summary = "Return the outcome of an incoming payment (404 when it was never received).")]

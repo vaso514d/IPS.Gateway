@@ -262,5 +262,144 @@
       ]
     },
     "expected": "{\u0022accountHolderIdentifier\u0022:\u002201000000000\u0022,\u0022accountHolderType\u0022:\u0022Individual\u0022,\u0022accountIdentifier\u0022:\u0022GE00TEST00000000000000\u0022,\u0022accountCurrency\u0022:\u0022GEL\u0022,\u0022keepAccountActive\u0022:true,\u0022authorizedPersonIdsToRemove\u0022:[\u0022PERSON-1\u0022]}"
+  },
+  {
+    "name": "camt056 delivered recall request",
+    "type": "IPS.MiidleWear.Contracts.Camt056.Camt056RecallRequestDto",
+    "input": {
+      "Id": "IN-RCL-1",
+      "CreDtTm": "2026-10-08T09:00:00\u002B00:00",
+      "RecallId": "IN-CXL-1",
+      "OriginalMessageId": "P008-MSG-1",
+      "OriginalEndToEndId": "E2E-RCL-1",
+      "OriginalTransactionId": "TX-RCL-1",
+      "OriginalCurrency": "GEL",
+      "OriginalAmount": 150.25,
+      "OriginalSettlementDate": "2026-10-07",
+      "ReasonCode": "DUPL",
+      "OriginalTransaction": {
+        "SettlementDate": "2026-10-07",
+        "RemittanceInformation": {
+          "Unstructured": "Invoice 9",
+          "CreditorReference": {
+            "Issuer": "ISS",
+            "Reference": "REF-9"
+          }
+        },
+        "Debtor": {
+          "Name": "Original Payer",
+          "PostalAddress": {
+            "TownName": "Tbilisi",
+            "Country": "GE",
+            "AddressLines": [
+              "Rustaveli 1"
+            ]
+          },
+          "Type": 1,
+          "Id": "01001",
+          "Account": "GE95TB0000000123456789"
+        },
+        "DebtorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "BAGAGE22",
+          "Name": "Bank of Georgia"
+        },
+        "Creditor": {
+          "Name": "Original Payee",
+          "Account": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022Id\u0022:\u0022IN-RCL-1\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T09:00:00\u002B00:00\u0022,\u0022RecallId\u0022:\u0022IN-CXL-1\u0022,\u0022OriginalMessageId\u0022:\u0022P008-MSG-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-RCL-1\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-RCL-1\u0022,\u0022OriginalCurrency\u0022:\u0022GEL\u0022,\u0022OriginalAmount\u0022:150.25,\u0022OriginalSettlementDate\u0022:\u00222026-10-07\u0022,\u0022ReasonCode\u0022:\u0022DUPL\u0022,\u0022OriginalTransaction\u0022:{\u0022SettlementDate\u0022:\u00222026-10-07\u0022,\u0022RemittanceInformation\u0022:{\u0022Unstructured\u0022:\u0022Invoice 9\u0022,\u0022CreditorReference\u0022:{\u0022Issuer\u0022:\u0022ISS\u0022,\u0022Reference\u0022:\u0022REF-9\u0022}},\u0022Debtor\u0022:{\u0022Name\u0022:\u0022Original Payer\u0022,\u0022PostalAddress\u0022:{\u0022TownName\u0022:\u0022Tbilisi\u0022,\u0022Country\u0022:\u0022GE\u0022,\u0022AddressLines\u0022:[\u0022Rustaveli 1\u0022]},\u0022Type\u0022:1,\u0022Id\u0022:\u002201001\u0022,\u0022Account\u0022:\u0022GE95TB0000000123456789\u0022},\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022,\u0022Name\u0022:\u0022Bank of Georgia\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Original Payee\u0022,\u0022Account\u0022:\u0022GE29NB0000000101904917\u0022}}}"
+  },
+  {
+    "name": "camt055 delivered cancellation request",
+    "type": "IPS.MiidleWear.Contracts.Camt055.Camt055CancellationRequestDto",
+    "input": {
+      "MsgId": "IN-CNCL-1",
+      "AssignerBIC": "PISPGE22",
+      "AssigneeBIC": "NBGEGE22",
+      "CreDtTm": "2026-10-08T09:30:00Z",
+      "PaymentCancellationId": "PCXL-1",
+      "OriginalPaymentInformationId": "PMTINF-1",
+      "OriginalGroupInformation": {
+        "OriginalMessageId": "PAIN001-MSG-1",
+        "OriginalMessageNameId": "pain.001.001.12",
+        "OriginalCreationDateTime": "2026-10-08T09:00:00Z"
+      },
+      "CancellationId": "CXL-1",
+      "OriginalInstructionId": "INS-1",
+      "OriginalEndToEndId": "PISP-E2E-1",
+      "CancellationReason": {
+        "OriginatorName": "PISP LLC",
+        "OriginatorBIC": "PISPGE22",
+        "ReasonCode": "CUST",
+        "AdditionalInformation": "Customer asked"
+      },
+      "OriginalTransaction": {
+        "Currency": "GEL",
+        "Amount": 25.5,
+        "RequestedExecutionDate": "2026-10-08T00:00:00",
+        "ServiceLevelCode": "INST",
+        "LocalInstrumentCode": "INST",
+        "CategoryPurposeCode": "OTHR",
+        "RemittanceInformationUnstructured": "Invoice 77",
+        "DebtorAgent": {
+          "BICFI": "BAGAGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "Creditor": {
+          "Name": "Receiver LLC",
+          "Id": "400000002",
+          "PostalAddress": {
+            "TownName": "Tbilisi",
+            "Country": "GE"
+          }
+        },
+        "CreditorAccount": {
+          "IBAN": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022MsgId\u0022:\u0022IN-CNCL-1\u0022,\u0022AssignerBIC\u0022:\u0022PISPGE22\u0022,\u0022AssigneeBIC\u0022:\u0022NBGEGE22\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T09:30:00Z\u0022,\u0022PaymentCancellationId\u0022:\u0022PCXL-1\u0022,\u0022OriginalPaymentInformationId\u0022:\u0022PMTINF-1\u0022,\u0022OriginalGroupInformation\u0022:{\u0022OriginalMessageId\u0022:\u0022PAIN001-MSG-1\u0022,\u0022OriginalMessageNameId\u0022:\u0022pain.001.001.12\u0022,\u0022OriginalCreationDateTime\u0022:\u00222026-10-08T09:00:00Z\u0022},\u0022CancellationId\u0022:\u0022CXL-1\u0022,\u0022OriginalInstructionId\u0022:\u0022INS-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022PISP-E2E-1\u0022,\u0022CancellationReason\u0022:{\u0022OriginatorName\u0022:\u0022PISP LLC\u0022,\u0022OriginatorBIC\u0022:\u0022PISPGE22\u0022,\u0022ReasonCode\u0022:\u0022CUST\u0022,\u0022AdditionalInformation\u0022:\u0022Customer asked\u0022},\u0022OriginalTransaction\u0022:{\u0022Currency\u0022:\u0022GEL\u0022,\u0022Amount\u0022:25.5,\u0022RequestedExecutionDate\u0022:\u00222026-10-08T00:00:00\u0022,\u0022ServiceLevelCode\u0022:\u0022INST\u0022,\u0022LocalInstrumentCode\u0022:\u0022INST\u0022,\u0022CategoryPurposeCode\u0022:\u0022OTHR\u0022,\u0022RemittanceInformationUnstructured\u0022:\u0022Invoice 77\u0022,\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Receiver LLC\u0022,\u0022Id\u0022:\u0022400000002\u0022,\u0022PostalAddress\u0022:{\u0022TownName\u0022:\u0022Tbilisi\u0022,\u0022Country\u0022:\u0022GE\u0022}},\u0022CreditorAccount\u0022:{\u0022IBAN\u0022:\u0022GE29NB0000000101904917\u0022}}}"
+  },
+  {
+    "name": "camt029 delivered refusal of our recall",
+    "type": "IPS.MiidleWear.Contracts.Camt029.Camt029ResolutionOfInvestigationDto",
+    "input": {
+      "ClientReference": "CBS-RCL-1",
+      "Id": "IN-RJCR-1",
+      "CreDtTm": "2026-10-08T10:00:00\u002B00:00",
+      "CancellationStatusId": "IN-CXLSTS-1",
+      "OriginalMessageId": "RCL-OUT-1",
+      "OriginalEndToEndId": "E2E-OUT-1",
+      "OriginalTransactionId": "TX-OUT-1",
+      "ReasonCode": "NOAS",
+      "AdditionalInformation": "No answer from customer",
+      "OriginalTransaction": {
+        "Currency": "GEL",
+        "Amount": 100,
+        "SettlementDate": "2026-10-07",
+        "Debtor": {
+          "Name": "Our Payer",
+          "Account": "GE95TB0000000123456789"
+        },
+        "DebtorAgent": {
+          "BICFI": "BAGAGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "Creditor": {
+          "Name": "Their Payee",
+          "Account": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-RCL-1\u0022,\u0022Id\u0022:\u0022IN-RJCR-1\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T10:00:00\u002B00:00\u0022,\u0022CancellationStatusId\u0022:\u0022IN-CXLSTS-1\u0022,\u0022OriginalMessageId\u0022:\u0022RCL-OUT-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-OUT-1\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-OUT-1\u0022,\u0022ReasonCode\u0022:\u0022NOAS\u0022,\u0022AdditionalInformation\u0022:\u0022No answer from customer\u0022,\u0022OriginalTransaction\u0022:{\u0022Currency\u0022:\u0022GEL\u0022,\u0022Amount\u0022:100,\u0022SettlementDate\u0022:\u00222026-10-07\u0022,\u0022Debtor\u0022:{\u0022Name\u0022:\u0022Our Payer\u0022,\u0022Account\u0022:\u0022GE95TB0000000123456789\u0022},\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Their Payee\u0022,\u0022Account\u0022:\u0022GE29NB0000000101904917\u0022}}}"
   }
 ]

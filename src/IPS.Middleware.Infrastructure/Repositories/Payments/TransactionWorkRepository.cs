@@ -74,6 +74,17 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         db.RequireCurrentVersion(payment);
     }
 
+    public bool StageUnclaimedObservation(OutgoingPayment payment, DateTimeOffset now)
+    {
+        if (PersistedMetadata(payment).IsClaimLive(now))
+        {
+            return false;
+        }
+
+        db.RequireCurrentVersion(payment);
+        return true;
+    }
+
     // Unowned Sending is preparation released for retry; recovery turns abandoned submissions into Uncertain.
     private static Expression<Func<OutgoingPaymentMetadata, bool>> IsDue(TransactionStatus status, DateTimeOffset now) =>
         x => x.Payment.CurrentStatus == status

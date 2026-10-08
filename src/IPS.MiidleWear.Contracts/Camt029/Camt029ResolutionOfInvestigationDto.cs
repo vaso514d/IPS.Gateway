@@ -13,12 +13,19 @@ namespace IPS.MiidleWear.Contracts.Camt029;
 /// "RJCR", #12 CxlStsRsnInf/Orgtr AnyBIC (= CdtrAgt, the participant), #17 SttlmMtd "CLRG", #18 ClrSys "IPS",
 /// #19 SvcLvl, #20 LclInstrm, #22 CdtrRefInf/Tp/CdOrPrtry/Cd "SCOR".
 /// </para>
+/// <para>
+/// The same shape is delivered to the core system at <see cref="Camt029RestApiRoutes.Receive"/> when another participant
+/// refuses a camt.056 recall this core system sent: every field is filled from the received message, the debtor agent is
+/// this participant, and <see cref="ClientReference"/> is that of the refused recall.
+/// </para>
 /// </summary>
 public sealed record Camt029ResolutionOfInvestigationDto
 {
     /// <summary>
     /// REQUIRED. The core system's unique id for this transaction — unique across every message type. The idempotency
     /// key: a repeated request with the same value returns the existing transaction instead of sending again.
+    /// On a delivered (incoming) camt.029: the clientReference of the core system's camt.056 recall that it refuses; the
+    /// idempotency key is then <see cref="Id"/>.
     /// </summary>
     [JsonPropertyName("ClientReference")]
     public string? ClientReference { get; init; }
@@ -35,7 +42,7 @@ public sealed record Camt029ResolutionOfInvestigationDto
     [JsonPropertyName("CancellationStatusId")]
     public string? CancellationStatusId { get; init; }
 
-    /// <summary>TxInfAndSts/OrgnlGrpInf/OrgnlMsgId (#7): Assgnmt/Id of the camt.056 being answered.</summary>
+    /// <summary>TxInfAndSts/OrgnlGrpInf/OrgnlMsgId (#7): Assgnmt/Id of the camt.056 being answered (on a delivered camt.029: the core's recall Id).</summary>
     [JsonPropertyName("OriginalMessageId")]
     public string? OriginalMessageId { get; init; }
 
@@ -111,4 +118,7 @@ public static class Camt029RestApiRoutes
 {
     /// <summary>Implemented by the gateway; called by external clients to send a camt.029 negative answer to a recall.</summary>
     public const string Send = "/api/ips/camt029/send";
+
+    /// <summary>Implemented by the core system; called by the gateway for an incoming camt.029 refusal of the core's recall.</summary>
+    public const string Receive = "/api/ips/camt029/receive";
 }

@@ -31,6 +31,9 @@ public static class IncomingHttpRegistration
         services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPacs009Protocol(SignatureTrust(sp)));
         services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPacs004Protocol(SignatureTrust(sp)));
         services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingPain001Protocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingCamt056Protocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingCamt055Protocol(SignatureTrust(sp)));
+        services.AddTransient<IIncomingTransferProtocol>(sp => new IncomingCamt029Protocol(SignatureTrust(sp)));
         services.AddTransient<IncomingCbsClient>();
         services.AddTransient<IIncomingTransferCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());
         services.AddTransient<IIncomingCoreClient>(sp => sp.GetRequiredService<IncomingCbsClient>());

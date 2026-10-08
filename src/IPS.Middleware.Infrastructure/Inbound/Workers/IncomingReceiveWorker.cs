@@ -125,8 +125,7 @@ public sealed class IncomingReceiveWorker(
     {
         sequence = receipt.Sequence ?? 0;
         var acknowledgedType = PaymentMessageTypes.IsPacs002(receipt.MessageType)
-            || PaymentMessageTypes.IsIncomingTransfer(receipt.MessageType)
-            || PaymentMessageTypes.IsArchivedCancellation(receipt.MessageType);
+            || PaymentMessageTypes.IsIncomingTransfer(receipt.MessageType);
         return acknowledgedType && sequence > 0;
     }
 
