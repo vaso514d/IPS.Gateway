@@ -16,6 +16,7 @@ using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Inbound.Workers;
+using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
 using IPS.Middleware.Infrastructure.Persistence.Events;
@@ -169,6 +170,25 @@ public sealed class IncomingRecallTests
         var receipt = await ReadReceiptAsync(core, journalId);
         Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
         Assert.Contains(reason, receipt.HoldReason);
+        await AssertNothingStoredOrRecordedAsync(core, recallId);
+    }
+
+    // camt.029 can also carry transactions inside an original payment information block (OrgnlPmtInfAndSts). Such a message
+    // is schema-valid, so a nested transaction must count rather than be ignored beside the direct one, or instead of it.
+    [Theory]
+    [InlineData("beside")]
+    [InlineData("only")]
+    public async Task A_refusal_with_a_transaction_nested_in_an_original_payment_information_block_is_held(string nesting)
+    {
+        await using var core = await ProcessingHarness.CreateAsync();
+        var recallId = await AcceptedRecallAsync(core);
+        var xml = await SignedAsync(core, UnsignedRefusal(nesting: nesting));
+        Pacs008Schema.ValidateCamt029(xml);
+
+        var (result, journalId) = await ApplyAsync(core, xml, Refusal);
+
+        Assert.Equal(IncomingCompositionStatus.Held, result.Status);
+        Assert.Equal("camt.029 must answer exactly one transaction.", (await ReadReceiptAsync(core, journalId)).HoldReason);
         await AssertNothingStoredOrRecordedAsync(core, recallId);
     }
 
@@ -563,7 +583,8 @@ public sealed class IncomingRecallTests
         string status = "RJCR",
         string ourBic = Participant,
         int transactions = 1,
-        string definition = "camt.029.001.13")
+        string definition = "camt.029.001.13",
+        string nesting = "")
     {
         var group = originalMessageId is null
             ? string.Empty
@@ -580,9 +601,15 @@ public sealed class IncomingRecallTests
         var confirmation = status == "RJCR" ? "RJCR" : "CNCL";
         var document =
             $"<camt:RsltnOfInvstgtn>{Assignment(id, Other, "2026-10-04T10:00:00Z")}<camt:Sts><camt:Conf>{confirmation}</camt:Conf></camt:Sts>" +
-            $"<camt:CxlDtls>{string.Concat(Enumerable.Repeat(transaction, transactions))}</camt:CxlDtls></camt:RsltnOfInvstgtn>";
+            $"<camt:CxlDtls>{Nested(nesting)}{(nesting == "only" ? string.Empty : string.Concat(Enumerable.Repeat(transaction, transactions)))}</camt:CxlDtls></camt:RsltnOfInvstgtn>";
         return Envelope(definition, id, "urn:iso:std:iso:20022:tech:xsd:camt.029.001.13", document);
     }
+
+    // A second refusal inside an original payment information block, which the schema places before the direct transactions.
+    private static string Nested(string nesting) => nesting == string.Empty
+        ? string.Empty
+        : "<camt:OrgnlPmtInfAndSts><camt:OrgnlPmtInfId>PMTINF-2</camt:OrgnlPmtInfId><camt:TxInfAndSts><camt:CxlStsId>CXLSTS-IN-2</camt:CxlStsId>" +
+            $"<camt:OrgnlEndToEndId>{RecalledEndToEndId}</camt:OrgnlEndToEndId><camt:TxCxlSts>RJCR</camt:TxCxlSts></camt:TxInfAndSts></camt:OrgnlPmtInfAndSts>";
 
     // A PISP's cancellation of a pain.001 we received: we are the debtor's agent.
     private static string UnsignedCancellation(

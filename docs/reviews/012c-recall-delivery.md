@@ -97,3 +97,13 @@ Recorded as accepted:
 - **Not checked against a real IPS.** Real traffic may or may not fill `OrgnlGrpInf` in a camt.029; without it the refusal is held.
 - **Key collisions.** The transfer key excludes the sending bank, so two banks reusing an Assgnmt/Id within the window produce a held conflict.
 - **Answering a camt.055 is not built.** That needs a camt.029 CNCL/RJCR about a pain.001.
+
+## Follow-up after commit (2026-10-08)
+
+- **Verification of 4f9f3a5.**
+  - The recall, transfer and composition classes passed 168/168.
+  - The full run: unit 487/487; integration 1074/1091. The 17 failures were timeouts and cancellations in outgoing-payment classes that 012c does not touch. They happened while Docker Desktop was starting during the run. Rerun on their own, all 17 passed (23/23 with their theory siblings). The Aspire tests were skipped in that run, because Docker was not running when it started.
+- **Defect found by an external check (P2).** `IncomingCamt029Protocol` counted only the transactions directly under `CxlDtls`. The camt.029.001.13 schema also allows `CxlDtls/OrgnlPmtInfAndSts/TxInfAndSts`. A signed, schema-valid refusal with a second transaction nested there was read as Ready, and the nested one was ignored; the specification requires such a message to be held.
+  - **Fix.** Every `TxInfAndSts` in the message is counted. Exactly one is allowed, and it must be the direct transaction of the only `CxlDtls`.
+  - **Regression test.** One case has the nested transaction beside the direct one, and another has only the nested one. Both messages are checked as schema-valid first, then held with "camt.029 must answer exactly one transaction."
+  - **The other readers.** camt.056.001.11 has no nested transaction level (`TxInf` sits only directly under `Undrlyg`). camt.055.001.12's only transaction level, `OrgnlPmtInfAndCxl/TxInf`, was already counted in full. So neither has the gap.

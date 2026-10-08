@@ -53,21 +53,24 @@ public sealed class IncomingCamt029Protocol(IpsSignatureTrust trust) : IIncoming
                 return Hold("Untrusted message signature.");
             }
 
+            // Every transaction in the message counts, including one nested in an original payment information block
+            // (OrgnlPmtInfAndSts), so a second answer cannot hide there; the one supported is the direct transaction of the
+            // only cancellation details, as Annex D 3.2.5 shows it.
             var resolution = body.Element(Camt + "RsltnOfInvstgtn");
             var details = resolution?.Elements(Camt + "CxlDtls").ToArray() ?? [];
-            var transactions = details.Length == 1 ? details[0].Elements(Camt + "TxInfAndSts").ToArray() : [];
-            if (resolution is null || transactions.Length != 1)
+            var transactions = resolution?.Descendants(Camt + "TxInfAndSts").ToArray() ?? [];
+            if (resolution is null || details is not [var detail] || transactions is not [var transaction] || transaction.Parent != detail)
             {
                 return Hold("camt.029 must answer exactly one transaction.");
             }
 
-            if (!IsRefusal(resolution, transactions[0]))
+            if (!IsRefusal(resolution, transaction))
             {
                 return Hold("Only a refusal (RJCR) of a recall is supported.");
             }
 
             Pacs008Schema.ValidateCamt029(xml);
-            return new IncomingTransferReadResult.Ready(Map(resolution.Element(Camt + "Assgnmt")!, transactions[0]).Frozen());
+            return new IncomingTransferReadResult.Ready(Map(resolution.Element(Camt + "Assgnmt")!, transaction).Frozen());
         }
         catch (UnsupportedRecallContent unsupported)
         {
