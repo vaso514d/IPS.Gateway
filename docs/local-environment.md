@@ -20,7 +20,7 @@ Docker must be running (Docker Desktop on Windows). From the repository root:
 dotnet run --project tests/IPS.Middleware.AppHost
 ```
 
-The dashboard URL is printed (set `ASPNETCORE_URLS`, `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL` and `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` for a run outside an IDE). Options, as arguments or configuration: `--Middleware:Instances=2` for two API instances sharing the database, `--Middleware:Container=true` to run the API from its image.
+The dashboard URL is printed (set `ASPNETCORE_URLS`, `ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL` and `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` for a run outside an IDE). Options, as arguments or configuration: `--Middleware:Instances=2` for two API instances sharing the database, `--Middleware:Container=true` to run the API from its image, `--Middleware:Concurrency=8` for the outgoing execution concurrency of each instance (default 4, a small limit so that instances share recovered work; the shipped default is 8), `--Middleware:Signing=true` to sign outgoing messages with a generated key instead of sending them unsigned (the simulated IPS does not verify the signature).
 
 ## Run the tests
 
@@ -28,15 +28,31 @@ The dashboard URL is printed (set `ASPNETCORE_URLS`, `ASPIRE_DASHBOARD_OTLP_ENDP
 dotnet test tests/IPS.Middleware.AspireTests
 ```
 
-The tests start the same AppHost through `Aspire.Hosting.Testing`. They cover: ready and live, a pain.002 and a pacs.008 send with their callback, a rejecting IPS, a lost reply recovered by one flagged resend of the same bytes, the Proxy operations (accept and reject), validation errors that never reach the simulators, two instances sharing 40 payments, and the service running from its container image. Without Docker every Aspire test is skipped with the reason; the other test projects do not need Docker and still use LocalDB.
+The tests start the same AppHost through `Aspire.Hosting.Testing`. They cover: ready and live, a pain.002 and a pacs.008 send with their callback, a rejecting IPS, a lost reply recovered by one flagged resend of the same bytes, the Proxy operations (accept and reject), validation errors that never reach the simulators, two instances sharing 40 payments, and the service running from its container image. Without Docker every Aspire test is skipped with the reason; the other test projects do not need Docker and still use LocalDB. The performance smoke test is skipped unless `IPS_PERF=1` is set (see below).
 
 ## Simulator control API
 
-On the simulators' plain endpoint: `GET /_sim/received` (messages with the possible-duplicate flag and protocol version, callbacks, proxy calls), `POST /_sim/behaviour` with any of `reject`, `rejectProxy`, `delayMilliseconds`, `block`, `loseNext`, `answerUnresolved`, `POST /_sim/release` and `POST /_sim/reset`.
+On the simulators' plain endpoint: `GET /_sim/received` (messages with the possible-duplicate flag, protocol version and receive time, callbacks with their body and receive time, core deliveries, proxy calls), `POST /_sim/behaviour` with any of `reject`, `rejectProxy`, `delayMilliseconds`, `block`, `loseNext`, `answerUnresolved`, `POST /_sim/release` and `POST /_sim/reset`.
+
+## Measure performance
+
+`tests/IPS.Middleware.Performance` measures the outgoing pacs.008 path on this stack against the owner's targets ([013](specs/013-measured-performance.md)). It starts the AppHost itself (two API instances as projects at the shipped execution concurrency of 8, signing on), sets the simulated IPS delay, warms up, sends on a fixed schedule round-robin over the instances, drains, checks what the simulators received and writes `docs/performance/<yyyy-MM-dd-HHmm>-baseline.md` and `.json` (named by the start of the load, so a run never overwrites an earlier report). Besides the verdict per target, the report breaks the outcomes down by instance and by minute, lists the API's answers and the final statuses with their reason codes, and counts the instances' log entries with their most frequent warnings and errors. Docker must be running; nothing else heavy should run on the machine during the measurement. The baseline takes about 15 minutes:
+
+```
+dotnet run --project tests/IPS.Middleware.Performance --configuration Release
+```
+
+Options, as `--Name=value`: `Rate` (requests per second measured, default 50), `Duration` (default `00:10:00`), `WarmUpRate` (default 10), `WarmUp` (default `00:01:00`, not measured), `Drain` (longest wait for the last callbacks, default `00:02:00`), `Instances` (default 2), `IpsDelay` (default `00:00:00.100`) and `Output` (the report directory, default `docs/performance`). For example `-- --Rate=10 --Duration=00:01:00 --Output=$env:TEMP\perf` for a short look. The exit code is 0 when every target is met, 1 when the report records a failed target (it says which and why) and 2 when the run is stopped with Ctrl+C, which still shuts the stack down.
+
+The opt-in smoke test runs the same harness with a 15-second warm-up and 30 seconds at 10 requests per second on two instances and checks correctness only (every response 200, nothing lost, left unsent or sent twice, readiness Healthy, no work left due; duplicate callbacks are written to the test output, not asserted), in about a minute and a half:
+
+```
+$env:IPS_PERF = "1"; dotnet test tests/IPS.Middleware.AspireTests --filter "FullyQualifiedName~PerformanceSmokeTests"
+```
 
 ## Notes
 
-The generated certificates and their passwords are written to a temporary directory for the run and deleted when the AppHost stops; only the public certificates are mounted into a container. The passwords are visible in the Aspire dashboard and in `docker inspect`, which is acceptable for throwaway files. The API image is configured as Development by the AppHost and is meant for local and test runs only. The container build publishes the API on the host first, so it needs no NuGet access of its own (which also works behind a TLS-inspecting proxy).
+The generated certificates and their passwords are written to a temporary directory for the run and deleted when the AppHost stops (the certificates are valid for a year, beyond the readiness check's 30-day expiry warning, so the stack reports Healthy); only the public certificates are mounted into a container. The passwords are visible in the Aspire dashboard and in `docker inspect`, which is acceptable for throwaway files. The API image is configured as Development by the AppHost and is meant for local and test runs only. The container build publishes the API on the host first, so it needs no NuGet access of its own (which also works behind a TLS-inspecting proxy).
 
 ## Limits
 

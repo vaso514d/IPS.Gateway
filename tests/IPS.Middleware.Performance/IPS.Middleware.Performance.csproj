@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <ProjectReference Include="../IPS.Middleware.AppHost/IPS.Middleware.AppHost.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The opt-in smoke test runs the harness itself. -->
+    <InternalsVisibleTo Include="IPS.Middleware.AspireTests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,3133 @@
+{
+  "startedAtUtc": "2026-10-08T08:58:33.6106238+00:00",
+  "finishedAtUtc": "2026-10-08T09:11:56.5838768+00:00",
+  "passed": false,
+  "targets": [
+    {
+      "name": "Settlement latency p95",
+      "limit": "<= 1000 ms",
+      "observed": "558613.1 ms (16202 samples)",
+      "passed": false
+    },
+    {
+      "name": "Settlement latency p99",
+      "limit": "<= 2000 ms",
+      "observed": "567671.1 ms (16202 samples)",
+      "passed": false
+    },
+    {
+      "name": "Lost payments (accepted, no final callback)",
+      "limit": "0",
+      "observed": "13285 (without a callback 13285, callbacks but none final 0)",
+      "passed": false
+    },
+    {
+      "name": "Accepted payments not sent to IPS",
+      "limit": "0",
+      "observed": "22389 (never received by the simulated IPS 22389, reported NotSent 9104)",
+      "passed": false
+    },
+    {
+      "name": "Duplicate sends",
+      "limit": "0",
+      "observed": "0 (flagged possible-duplicate resends of the same bytes, allowed: 0)",
+      "passed": true
+    },
+    {
+      "name": "Duplicate callbacks",
+      "limit": "0",
+      "observed": "9",
+      "passed": false
+    },
+    {
+      "name": "5xx responses",
+      "limit": "0",
+      "observed": "23301 (504: 22399; requests without a response: 0)",
+      "passed": false
+    },
+    {
+      "name": "Every response is 200 or 504",
+      "limit": "0 others",
+      "observed": "902 others (504: 22399, 200: 7299, 500: 902)",
+      "passed": false
+    },
+    {
+      "name": "Readiness Healthy throughout",
+      "limit": "every sample of every instance",
+      "observed": "287 of 322 samples Healthy, 2 of 2 instances sampled",
+      "passed": false
+    },
+    {
+      "name": "Generator lag p99",
+      "limit": "<= 50 ms",
+      "observed": "42.1 ms (30000 samples)",
+      "passed": true
+    },
+    {
+      "name": "Work due after the drain (ips.backlog.due)",
+      "limit": "0",
+      "observed": "202 (outgoing_payments 0, incoming_payments 0, incoming_transfers 0, inbound_receipts 0, callbacks 202)",
+      "passed": false
+    }
+  ],
+  "settlement": {
+    "samples": 16202,
+    "min": 235.253,
+    "mean": 294061.54334170534,
+    "p50": 469531.2993,
+    "p95": 558613.1196,
+    "p99": 567671.0898,
+    "max": 569299.7813
+  },
+  "response": {
+    "samples": 30000,
+    "min": 228.3963,
+    "mean": 17042.902262026564,
+    "p50": 21266.2105,
+    "p95": 22089.2986,
+    "p99": 22822.3977,
+    "max": 24233.3851
+  },
+  "lag": {
+    "samples": 30000,
+    "min": -2.1355,
+    "mean": 9.706039093333361,
+    "p50": 8.0536,
+    "p95": 22.0518,
+    "p99": 42.0946,
+    "max": 655.1328
+  },
+  "throughput": {
+    "plannedRate": 50,
+    "sentPerSecond": 50,
+    "callbacksPerSecond": 11.57,
+    "executionSlots": 16,
+    "maxInFlight": 1084,
+    "arrivalsAtFullSlots": 29928
+  },
+  "correctness": {
+    "sent": 30600,
+    "responses": {
+      "504": 22399,
+      "200": 7299,
+      "500": 902
+    },
+    "answers": {
+      "504 Processing": 22399,
+      "200 Accepted": 7297,
+      "500 System.InvalidOperationException: An exception has been raised that is likely due to a transient failure. Consider enabling transient error resiliency by adding": 894,
+      "500 Microsoft.Data.SqlClient.SqlException (0x80131904): A severe error occurred on the current command.  The results, if any, should be discarded.": 7,
+      "200 NotSent TM01/1015": 2,
+      "500 System.InvalidOperationException: Operation cancelled by user.": 1
+    },
+    "accepted": 29698,
+    "serverErrors": 23301,
+    "gatewayTimeouts": 22399,
+    "neitherOkNorTimeout": 902,
+    "unanswered": 0,
+    "notReceivedByIps": 22389,
+    "reportedNotSent": 9104,
+    "acceptedNotSent": 22389,
+    "withoutCallback": 13285,
+    "withoutFinalStatus": 0,
+    "lost": 13285,
+    "finalStatuses": {
+      "no final callback": 13798,
+      "NotSent TM01/1015": 9493,
+      "Accepted": 7309
+    },
+    "duplicateSends": 0,
+    "flaggedResends": 0,
+    "duplicateCallbacks": 9,
+    "investigations": 0,
+    "investigatedPayments": 0,
+    "otherMessages": {},
+    "unmatchedMessages": 0,
+    "unmatchedCallbacks": 0,
+    "examples": [
+      {
+        "reference": "perf-5f1eb51e7e32",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent"
+        ],
+        "description": "perf-5f1eb51e7e32: sent 08:59:56.320 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-b34ea8a398b2",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent"
+        ],
+        "description": "perf-b34ea8a398b2: sent 08:59:56.398 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-f82d1ac9d675",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent"
+        ],
+        "description": "perf-f82d1ac9d675: sent 08:59:56.535 to middleware-1, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-45718d808972",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent"
+        ],
+        "description": "perf-45718d808972: sent 08:59:56.566 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-a2a7cb5ec355",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent"
+        ],
+        "description": "perf-a2a7cb5ec355: sent 08:59:56.704 to middleware-1, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-ce49a6a8c0de",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-ce49a6a8c0de: sent 08:59:56.017 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-4947fdaef0b6",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-4947fdaef0b6: sent 08:59:56.046 to middleware-2, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015]"
+      },
+      {
+        "reference": "perf-6997b1e471fe",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-6997b1e471fe: sent 09:04:17.398 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks []"
+      },
+      {
+        "reference": "perf-729561b62e5e",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-729561b62e5e: sent 09:04:17.554 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks []"
+      },
+      {
+        "reference": "perf-1b9533fff938",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-1b9533fff938: sent 09:04:17.578 to middleware-1, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks []"
+      },
+      {
+        "reference": "perf-41eaa8d98d9c",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-41eaa8d98d9c: sent 09:04:17.608 to middleware-2, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks []"
+      },
+      {
+        "reference": "perf-d435420e5543",
+        "problems": [
+          "not answered 200",
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-d435420e5543: sent 09:04:17.623 to middleware-1, answered 504 Processing, IPS sends 0 (flagged 0), investigations 0, callbacks []"
+      },
+      {
+        "reference": "perf-5e548a7130b6",
+        "problems": [
+          "reported twice"
+        ],
+        "description": "perf-5e548a7130b6: sent 08:59:54.723 to middleware-2, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted, Accepted]"
+      },
+      {
+        "reference": "perf-72d6675656c2",
+        "problems": [
+          "reported twice"
+        ],
+        "description": "perf-72d6675656c2: sent 09:00:19.456 to middleware-1, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted, Accepted]"
+      },
+      {
+        "reference": "perf-a239eae3f537",
+        "problems": [
+          "reported twice"
+        ],
+        "description": "perf-a239eae3f537: sent 09:03:28.521 to middleware-2, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted, Accepted]"
+      },
+      {
+        "reference": "perf-f615db2f6469",
+        "problems": [
+          "reported twice"
+        ],
+        "description": "perf-f615db2f6469: sent 09:04:01.924 to middleware-2, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted, Accepted]"
+      },
+      {
+        "reference": "perf-fe8e1af003ff",
+        "problems": [
+          "reported twice"
+        ],
+        "description": "perf-fe8e1af003ff: sent 09:07:11.419 to middleware-1, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted, Accepted]"
+      }
+    ]
+  },
+  "instances": [
+    {
+      "instance": 1,
+      "sent": 15300,
+      "responses": {
+        "504": 11232,
+        "200": 3648,
+        "500": 420
+      },
+      "acceptedNotSent": 11226,
+      "lost": 6653,
+      "duplicateCallbacks": 3,
+      "firstFailureAtUtc": "2026-10-08T08:59:56.017459+00:00"
+    },
+    {
+      "instance": 2,
+      "sent": 15300,
+      "responses": {
+        "504": 11167,
+        "200": 3651,
+        "500": 482
+      },
+      "acceptedNotSent": 11163,
+      "lost": 6632,
+      "duplicateCallbacks": 6,
+      "firstFailureAtUtc": "2026-10-08T08:59:56.0468761+00:00"
+    }
+  ],
+  "timeline": [
+    {
+      "fromUtc": "2026-10-08T08:58:33.618772+00:00",
+      "phase": "WarmUp",
+      "sent": 600,
+      "ok": 600,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 0,
+      "duplicateCallbacks": 0,
+      "settlementP95": 414.3085
+    },
+    {
+      "fromUtc": "2026-10-08T08:59:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 2007,
+      "gatewayTimeouts": 956,
+      "serverErrors": 37,
+      "otherAnswers": 0,
+      "notSent": 958,
+      "duplicateCallbacks": 2,
+      "settlementP95": 567759.5196
+    },
+    {
+      "fromUtc": "2026-10-08T09:00:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 906,
+      "gatewayTimeouts": 2000,
+      "serverErrors": 94,
+      "otherAnswers": 0,
+      "notSent": 2000,
+      "duplicateCallbacks": 0,
+      "settlementP95": 557068.0832
+    },
+    {
+      "fromUtc": "2026-10-08T09:01:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 765,
+      "gatewayTimeouts": 2136,
+      "serverErrors": 100,
+      "otherAnswers": 0,
+      "notSent": 2136,
+      "duplicateCallbacks": 0,
+      "settlementP95": 527425.7219
+    },
+    {
+      "fromUtc": "2026-10-08T09:02:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 770,
+      "gatewayTimeouts": 2135,
+      "serverErrors": 94,
+      "otherAnswers": 0,
+      "notSent": 2129,
+      "duplicateCallbacks": 1,
+      "settlementP95": 503373.0189
+    },
+    {
+      "fromUtc": "2026-10-08T09:03:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 313,
+      "gatewayTimeouts": 2601,
+      "serverErrors": 87,
+      "otherAnswers": 0,
+      "notSent": 2601,
+      "duplicateCallbacks": 1,
+      "settlementP95": 475017.8118
+    },
+    {
+      "fromUtc": "2026-10-08T09:04:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 389,
+      "gatewayTimeouts": 2500,
+      "serverErrors": 111,
+      "otherAnswers": 0,
+      "notSent": 2500,
+      "duplicateCallbacks": 0,
+      "settlementP95": 5313.0217
+    },
+    {
+      "fromUtc": "2026-10-08T09:05:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 507,
+      "gatewayTimeouts": 2382,
+      "serverErrors": 111,
+      "otherAnswers": 0,
+      "notSent": 2382,
+      "duplicateCallbacks": 0,
+      "settlementP95": 3489.6547
+    },
+    {
+      "fromUtc": "2026-10-08T09:06:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 407,
+      "gatewayTimeouts": 2502,
+      "serverErrors": 90,
+      "otherAnswers": 0,
+      "notSent": 2498,
+      "duplicateCallbacks": 5,
+      "settlementP95": 7918.9402
+    },
+    {
+      "fromUtc": "2026-10-08T09:07:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 332,
+      "gatewayTimeouts": 2583,
+      "serverErrors": 85,
+      "otherAnswers": 0,
+      "notSent": 2583,
+      "duplicateCallbacks": 0,
+      "settlementP95": 5599.4762
+    },
+    {
+      "fromUtc": "2026-10-08T09:08:33.618772+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 303,
+      "gatewayTimeouts": 2604,
+      "serverErrors": 93,
+      "otherAnswers": 0,
+      "notSent": 2602,
+      "duplicateCallbacks": 0,
+      "settlementP95": 6379.2068
+    }
+  ],
+  "drain": {
+    "took": "00:02:00.6162997",
+    "completed": false,
+    "backlog": {
+      "due": [
+        {
+          "kind": "outgoing_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_transfers",
+          "count": 0
+        },
+        {
+          "kind": "inbound_receipts",
+          "count": 0
+        },
+        {
+          "kind": "callbacks",
+          "count": 202
+        }
+      ],
+      "notFinalPayments": 13589,
+      "pendingCallbacks": 209
+    }
+  },
+  "readiness": [
+    {
+      "atUtc": "2026-10-08T08:58:33.6121784+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:33.6128537+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:38.6129153+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:38.6130087+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:43.6249797+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:43.6250782+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:48.6267713+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:48.6268379+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:53.6142055+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:53.6142793+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:58.6148228+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:58:58.6149015+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:03.6127768+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:03.6128766+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:08.6202183+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:08.6202984+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:13.6131325+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:13.6132268+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:18.6250698+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:18.6251686+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:23.6260718+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:23.6261654+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:28.6252397+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:28.6253275+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:33.6221954+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:33.6222797+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:38.6120606+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:38.6121455+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:43.6145885+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:43.6146988+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:48.625112+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:48.6252161+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:53.6272813+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:53.6273607+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:58.6222433+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T08:59:58.6224106+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:03.6241213+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:03.6242377+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:08.6241142+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:08.6241626+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:13.6126135+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:13.612778+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:18.6178765+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:18.6180518+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:23.6192356+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:23.6193862+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:28.616144+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:28.6162783+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:33.6223961+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:33.6225582+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:38.6157344+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:38.6158003+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:43.6258334+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:43.6258941+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:48.6212416+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:48.6213654+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:53.6254094+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:53.625496+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:58.6122623+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:00:58.6123402+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:03.6258904+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:03.6259728+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:08.6266805+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:08.6267589+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:13.6212668+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:13.6213283+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:18.6199583+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:18.620036+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:23.6130275+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:23.6131295+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:28.614704+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:28.6148333+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:33.6232434+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:33.6232938+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:38.6146746+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:38.614728+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:43.620283+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:43.6203746+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:48.6253527+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:48.6254005+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:53.6266825+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:53.6267251+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:58.6211228+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:01:58.6212126+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:03.6265313+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:03.6266083+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:08.6248645+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:08.6256566+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:13.6150077+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:13.6150812+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:18.6153854+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:18.6155157+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:23.6226407+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:23.6227187+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:28.6182836+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:28.6186462+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:33.6165325+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:33.6166083+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:38.6128742+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:38.6129885+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:43.6232223+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:43.6233009+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:48.6160834+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:48.6161548+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:53.6289743+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:53.6290553+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:58.6143257+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:02:58.6144194+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:03.6195771+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:03.6196592+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:08.614874+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:08.6149656+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:13.621126+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:13.6212116+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:18.6210448+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:18.6211208+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:23.6118673+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:23.6119546+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:28.6148896+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:28.615005+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:33.6238218+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:33.6240918+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:38.6229+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:38.6230023+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:43.6179926+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:43.6180401+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:48.622291+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:48.6224014+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:53.6277635+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:53.6278493+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:03:58.6293111+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:03:58.629403+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:03.6216529+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:03.6217233+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:08.6265399+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:08.6265978+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:13.6263179+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:13.626409+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:18.6225589+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:18.6226476+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:23.6281738+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:23.6282719+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:28.6274397+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:28.6275265+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:33.6153706+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:33.6155137+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:38.6130605+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:38.6131553+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:43.6278703+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:43.6279346+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:48.6222466+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:48.6223216+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:04:53.6164002+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:53.6164913+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:58.6168343+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:04:58.6169537+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:03.6116936+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:03.6117365+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:08.6123138+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:08.6123836+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:13.6149022+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:13.6149903+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:18.6186795+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:18.6187711+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:23.626917+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:23.6270143+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:05:28.6215606+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:28.6216331+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:33.6153956+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:33.6154936+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:38.6269592+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:38.6270857+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:43.6206218+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:43.6207874+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:48.6110954+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:48.6111902+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:53.6232923+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:53.6233992+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:58.6482363+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:05:58.6483141+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:03.6187096+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:03.6187491+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:08.6251887+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:08.6252643+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:13.6197463+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:13.6198389+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:18.6160117+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:18.6160974+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:23.6146487+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:23.6147178+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:28.6183129+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:28.618625+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:33.6173305+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:33.6176767+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:38.6201497+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:38.6202255+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:43.6226369+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:43.6227061+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:48.6214523+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:48.6215552+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:53.6115198+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:53.6115721+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:58.6156381+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:06:58.6157174+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:03.6140579+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:03.6142686+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:08.6121473+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:08.6122206+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:13.6232527+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:13.6233289+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:18.712788+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:18.7128365+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:23.6172512+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:07:23.6173036+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:07:28.6262028+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:28.6262947+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:33.6250162+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:33.6251035+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:38.6147159+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:38.6147846+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:43.6254195+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:43.625513+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:48.6273776+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:48.6277667+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:53.6152642+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:53.6153476+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:07:58.6130353+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:07:58.6132064+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:03.626122+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:03.6262199+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:08.6184757+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:08.6185565+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:13.6123384+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:13.6124164+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:18.6241719+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:18.6242177+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:23.611844+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:23.612011+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:28.6217522+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:28.621802+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:33.6597209+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:33.6598361+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:38.6132925+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:38.6133705+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:43.6259931+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:43.626067+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:48.6264024+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:48.626546+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:08:53.6207849+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:53.6208677+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:58.6275007+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:08:58.6276157+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:09:03.6188396+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:09:03.6189113+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:09:08.6131359+00:00",
+      "instance": 1,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:09:08.6132317+00:00",
+      "instance": 2,
+      "statusCode": 503,
+      "answer": "Unhealthy",
+      "healthy": false
+    },
+    {
+      "atUtc": "2026-10-08T09:09:13.6579783+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:13.6580581+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:18.6234175+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:18.6234647+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:23.621449+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:23.6215896+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:28.619301+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:28.6194118+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:33.6275145+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:33.6276261+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:38.6245233+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:38.6246052+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:43.621205+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:43.6213324+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:48.6146401+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:48.6147283+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:53.6198333+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:53.6199693+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:58.6269343+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:09:58.6270617+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:03.6176754+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:03.6178003+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:08.6149032+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:08.6149893+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:13.612372+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:13.612468+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:18.611318+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:18.6114133+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:23.6169848+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:23.6170763+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:28.6184614+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:28.6185806+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:33.6169452+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:33.6170509+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:38.6152807+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:38.6154125+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:43.622553+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:43.6226404+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:48.6147317+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:48.6148327+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:53.6227945+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:53.6228733+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:58.6133051+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:10:58.6134289+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:03.6179897+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:03.6181466+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:08.6185814+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:08.61866+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:13.6271078+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:13.6272324+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:18.6147764+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:18.6148885+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:23.6254375+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:23.6255683+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:28.6159375+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:28.6160619+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:33.6231927+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:33.6232892+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:38.6208816+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:38.620969+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:43.6185633+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:43.6186716+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:48.6112832+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:48.6113878+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:53.6236472+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:11:53.6237562+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    }
+  ],
+  "logs": [
+    {
+      "instance": 1,
+      "entriesByLevel": {
+        "info": 1814675,
+        "fail": 462,
+        "warn": 7
+      },
+      "top": [
+        {
+          "level": "fail",
+          "template": "Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware: An unhandled ",
+          "count": 420,
+          "sample": "Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware: An unhandled exception has occurred while executing the request. | System.InvalidOperationException: An exception has been raised that is likely due to a transient failure. Consider enabling transient error resiliency by adding 'Enab"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService: Health ",
+          "count": 29,
+          "sample": "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService: Health check workers with status Unhealthy completed after 3.4376ms with message 'A worker is not running.'"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Database.Transaction: An error occurred using a tr",
+          "count": 8,
+          "sample": "Microsoft.EntityFrameworkCore.Database.Transaction: An error occurred using a transaction."
+        },
+        {
+          "level": "warn",
+          "template": "IPS.Middleware.Api.Diagnostics.WorkerHealthCheck: Readiness: OutgoingRuntime is ",
+          "count": 7,
+          "sample": "IPS.Middleware.Api.Diagnostics.WorkerHealthCheck: Readiness: OutgoingRuntime is Stalled: No progress in: Outgoing recovery discovery"
+        },
+        {
+          "level": "fail",
+          "template": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing work ",
+          "count": 2,
+          "sample": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing work 67ebbe13-1d0d-4e3c-9c8d-34eee7f698cc failed; committed SQL evidence remains recoverable | System.InvalidOperationException: An exception has been raised that is likely due to a transient failure. Consider enabling transi"
+        },
+        {
+          "level": "fail",
+          "template": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing recov",
+          "count": 1,
+          "sample": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing recovery discovery failed; the next sweep will retry | Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not respo"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Database.Command: Failed executing DbCommand (#,#m",
+          "count": 1,
+          "sample": "Microsoft.EntityFrameworkCore.Database.Command: Failed executing DbCommand (30,089ms) [Parameters=[@p='?' (DbType = Int32), @status='?' (DbType = Int32), @now='?' (DbType = DateTimeOffset)], CommandType='Text', CommandTimeout='30']"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Query: An exception occurred while iterating over ",
+          "count": 1,
+          "sample": "Microsoft.EntityFrameworkCore.Query: An exception occurred while iterating over the results of a query for context type 'IPS.Middleware.Infrastructure.Transactions.TransactionDbContext'. | Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prio"
+        }
+      ]
+    },
+    {
+      "instance": 2,
+      "entriesByLevel": {
+        "info": 1824610,
+        "fail": 526,
+        "warn": 7
+      },
+      "top": [
+        {
+          "level": "fail",
+          "template": "Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware: An unhandled ",
+          "count": 482,
+          "sample": "Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware: An unhandled exception has occurred while executing the request. | System.InvalidOperationException: An exception has been raised that is likely due to a transient failure. Consider enabling transient error resiliency by adding 'Enab"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService: Health ",
+          "count": 32,
+          "sample": "Microsoft.Extensions.Diagnostics.HealthChecks.DefaultHealthCheckService: Health check workers with status Unhealthy completed after 27.5214ms with message 'A worker is not running.'"
+        },
+        {
+          "level": "warn",
+          "template": "IPS.Middleware.Api.Diagnostics.WorkerHealthCheck: Readiness: OutgoingRuntime is ",
+          "count": 7,
+          "sample": "IPS.Middleware.Api.Diagnostics.WorkerHealthCheck: Readiness: OutgoingRuntime is Stalled: No progress in: Outgoing recovery discovery"
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Database.Transaction: An error occurred using a tr",
+          "count": 6,
+          "sample": "Microsoft.EntityFrameworkCore.Database.Transaction: An error occurred using a transaction."
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Query: An exception occurred while iterating over ",
+          "count": 2,
+          "sample": "Microsoft.EntityFrameworkCore.Query: An exception occurred while iterating over the results of a query for context type 'IPS.Middleware.Infrastructure.Transactions.TransactionDbContext'. | Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prio"
+        },
+        {
+          "level": "fail",
+          "template": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing callb",
+          "count": 1,
+          "sample": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing callback discovery failed; the next sweep will retry | Microsoft.Data.SqlClient.SqlException (0x80131904): Transaction (Process ID 268) was deadlocked on lock resources with another process and has been chosen as the deadlock"
+        },
+        {
+          "level": "fail",
+          "template": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing recov",
+          "count": 1,
+          "sample": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing recovery discovery failed; the next sweep will retry | Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not respo"
+        },
+        {
+          "level": "fail",
+          "template": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing work ",
+          "count": 1,
+          "sample": "IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime: Outgoing work 6209d3bd-8887-4b70-a5ce-dcfc9fa33797 failed; committed SQL evidence remains recoverable | Microsoft.Data.SqlClient.SqlException (0x80131904): Operation cancelled by user."
+        },
+        {
+          "level": "fail",
+          "template": "Microsoft.EntityFrameworkCore.Database.Command: Failed executing DbCommand (#,#m",
+          "count": 1,
+          "sample": "Microsoft.EntityFrameworkCore.Database.Command: Failed executing DbCommand (30,095ms) [Parameters=[@p='?' (DbType = Int32), @status='?' (DbType = Int32), @now='?' (DbType = DateTimeOffset)], CommandType='Text', CommandTimeout='30']"
+        }
+      ]
+    }
+  ],
+  "machine": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor",
+    "logicalProcessors": 16,
+    "memoryGiB": 63.2,
+    "operatingSystem": "Microsoft Windows 10.0.26200",
+    "runtime": ".NET 10.0.12",
+    "dockerVersion": "29.6.2",
+    "dockerCpus": 16,
+    "dockerMemoryGiB": 30.9,
+    "containers": [
+      "k8s-course-control-plane (kindest/node:v1.31.0)",
+      "sql-scqhwutf (mcr.microsoft.com/mssql/server:2022-latest)"
+    ]
+  },
+  "configuration": {
+    "instances": 2,
+    "apiRunAs": "projects",
+    "executionConcurrency": 8,
+    "signed": true,
+    "warmUpRate": 10,
+    "warmUp": "00:01:00",
+    "rate": 50,
+    "duration": "00:10:00",
+    "drainLimit": "00:02:00",
+    "ipsDelay": "00:00:00.1000000",
+    "readinessInterval": "00:00:05"
+  },
+  "settings": [
+    {
+      "key": "ASPNETCORE_ENVIRONMENT",
+      "shipped": null,
+      "usedByInstance": [
+        "Development",
+        "Development"
+      ]
+    },
+    {
+      "key": "ConnectionStrings:Middleware",
+      "shipped": null,
+      "usedByInstance": [
+        "(the AppHost's SQL Server container)",
+        "(the AppHost's SQL Server container)"
+      ]
+    },
+    {
+      "key": "LOGGING:CONSOLE:FORMATTERNAME",
+      "shipped": null,
+      "usedByInstance": [
+        "simple",
+        "simple"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:AttemptBudget",
+      "shipped": "00:00:35",
+      "usedByInstance": [
+        "00:00:22",
+        "00:00:22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:DiscoveryInterval",
+      "shipped": "00:00:01",
+      "usedByInstance": [
+        "00:00:00.200",
+        "00:00:00.200"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:HttpWait",
+      "shipped": "00:00:30",
+      "usedByInstance": [
+        "00:00:21",
+        "00:00:21"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Investigation:DiscoveryInterval",
+      "shipped": "00:00:05",
+      "usedByInstance": [
+        "00:00:00.200",
+        "00:00:00.200"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Pacs008:Ownership",
+      "shipped": "00:00:45",
+      "usedByInstance": [
+        "00:00:30",
+        "00:00:30"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Policy:Currencies:0:Code",
+      "shipped": null,
+      "usedByInstance": [
+        "GEL",
+        "GEL"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Protocol:IpsBic",
+      "shipped": "",
+      "usedByInstance": [
+        "NBGEGE22",
+        "NBGEGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:StatusDelivery:DiscoveryInterval",
+      "shipped": "00:00:05",
+      "usedByInstance": [
+        "00:00:00.200",
+        "00:00:00.200"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:62353",
+        "https://localhost:62353"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:62353",
+        "https://localhost:62353"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:RequestTimeout",
+      "shipped": "00:00:25",
+      "usedByInstance": [
+        "00:00:20",
+        "00:00:20"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsSignatureTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/ips-signing.pem",
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/ips-signing.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsVersion",
+      "shipped": "1",
+      "usedByInstance": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Password",
+      "shipped": null,
+      "usedByInstance": [
+        "(generated)",
+        "(generated)"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/signing/outgoing-signing.pfx",
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/signing/outgoing-signing.pfx"
+      ]
+    },
+    {
+      "key": "Proxy:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:62353",
+        "https://localhost:62353"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-214fee90a93d4a78b2928d2fb0a7cc80/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Proxy:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Proxy:ProxyBic",
+      "shipped": "",
+      "usedByInstance": [
+        "PROXGE22",
+        "PROXGE22"
+      ]
+    }
+  ]
+}

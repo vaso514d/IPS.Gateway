@@ -17,6 +17,8 @@ public sealed class DockerFactAttribute : FactAttribute
 
     internal static bool Available => Unavailable.Value is null;
 
+    internal static string? UnavailableReason => Unavailable.Value;
+
     private static string? Probe()
     {
         try
