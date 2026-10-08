@@ -1,7 +1,10 @@
+using System.Data.Common;
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Transactions;
@@ -171,6 +174,42 @@ public sealed class AggregateOwnershipTests
         Assert.Null(await discovery.Processing(Now).TryStartAsync(Guid.NewGuid(), Lease, default));
     }
 
+    // 013a: the stored dispatch priority and the status index give SQL the dispatch order, so a sweep reads the batch it returns
+    // instead of sorting every due payment.
+    [Fact]
+    public async Task Discovery_keeps_pacs008_first_then_oldest_through_the_stored_priority_that_the_status_index_orders()
+    {
+        await using var database = await SqlTestDatabase.CreateAsync();
+        var oldTransfer = await Intake(database, "old-transfer", "pacs.009", Now);
+        var newPayment = await Intake(database, "new-payment", "pacs.008", Now.AddSeconds(2));
+        var oldPayment = await Intake(database, "old-payment", "pacs.008", Now.AddSeconds(1));
+        var commands = new CommandTexts();
+        await using var discovery = database.Session(commands);
+        Assert.Equal(new[] { oldPayment, newPayment, oldTransfer },
+            await discovery.Work.FindDueAsync(TransactionStatus.Received, Now.AddSeconds(3), 10, default));
+        // One read of Transactions, in the order of the index: no CASE to sort by and no join of the row to itself.
+        var query = Assert.Single(commands.Texts);
+        Assert.Contains("ORDER BY [t].[DispatchPriority], [t].[CurrentStatusAtUtc], [t].[Id]", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("CASE", query, StringComparison.Ordinal);
+        Assert.DoesNotContain("JOIN", query, StringComparison.Ordinal);
+
+        await using var schema = database.Context();
+        Assert.Equal(new[] { "CurrentStatus", "DispatchPriority", "CurrentStatusAtUtc", "Id", "+ClaimToken", "+NextActionAtUtc" },
+            await IndexColumnsAsync(schema, "Transactions", "IX_Transactions_CurrentStatus_DispatchPriority_CurrentStatusAtUtc_Id"));
+        Assert.Equal(new[] { "ClaimExpiresAtUtc", "+ClaimToken", "+CurrentStatusAtUtc", "+DispatchPriority" },
+            await IndexColumnsAsync(schema, "Transactions", "IX_Transactions_ClaimExpiresAtUtc"));
+        Assert.Equal(new[] { "State", "NextAtUtc", "PaymentId", "Sequence", "+ClaimExpiresAtUtc", "+ClaimToken" },
+            await IndexColumnsAsync(schema, "OutgoingStatusDeliveries", "IX_OutgoingStatusDeliveries_State_NextAtUtc_PaymentId_Sequence"));
+        Assert.Equal(1, await schema.Database.SqlQuery<int>($"""
+            SELECT COUNT(*) AS [Value] FROM sys.computed_columns
+            WHERE object_id = OBJECT_ID(N'Transactions') AND name = N'DispatchPriority' AND is_persisted = 1
+            """).SingleAsync());
+        Assert.Equal("([NextActionAtUtc] IS NOT NULL)", await schema.Database.SqlQuery<string>($"""
+            SELECT filter_definition AS [Value] FROM sys.indexes
+            WHERE object_id = OBJECT_ID(N'Transactions') AND name = N'IX_Transactions_NextActionAtUtc'
+            """).SingleAsync());
+    }
+
     [Theory]
     [InlineData(TransactionStatus.Sending)]
     [InlineData(TransactionStatus.Investigating)]
@@ -276,9 +315,34 @@ public sealed class AggregateOwnershipTests
         }
     }
 
-    private static async Task<Guid> Intake(SqlTestDatabase database, string reference, string type = "pacs.008")
+    private static async Task<Guid> Intake(SqlTestDatabase database, string reference, string type = "pacs.008", DateTimeOffset? at = null)
     {
         await using var session = database.Session();
-        return (await session.Intake(Now).AcceptAsync(ValidatedIntakeRequest.Validate(type, reference, "{}").Request!, default)).Payment.Id;
+        return (await session.Intake(at ?? Now).AcceptAsync(ValidatedIntakeRequest.Validate(type, reference, "{}").Request!, default)).Payment.Id;
+    }
+
+    // Key columns in key order, then the included columns (marked +) by name.
+    private static async Task<List<string>> IndexColumnsAsync(TransactionDbContext schema, string table, string index) =>
+        await schema.Database.SqlQuery<string>($"""
+            SELECT CASE WHEN ic.is_included_column = 1 THEN '+' ELSE '' END + c.name AS [Value] FROM sys.indexes AS i
+            JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+            JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+            WHERE i.object_id = OBJECT_ID({table}) AND i.name = {index}
+            ORDER BY ic.is_included_column, ic.key_ordinal, c.name
+            """).ToListAsync();
+
+    private sealed class CommandTexts : DbCommandInterceptor
+    {
+        public List<string> Texts { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Texts.Add(command.CommandText);
+            return ValueTask.FromResult(result);
+        }
     }
 }

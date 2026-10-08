@@ -1,3 +1,4 @@
+using System.Data.Common;
 using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
@@ -58,6 +59,18 @@ public sealed class OutgoingJournalTests
         await harness.RecoverAsync(id);
         Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id))!.Status);
         Assert.Single(harness.Ips.Received);
+    }
+
+    // The 013a baseline: with TOP, SQL Server scanned the whole journal for a payment's one message once it had grown.
+    [Fact]
+    public async Task Processing_reads_the_journal_without_top()
+    {
+        await using var harness = await CreateAsync();
+        var id = await harness.AcceptAsync();
+        var commands = new JournalReads();
+        Assert.Equal(TransactionStatus.Accepted, (await harness.ProcessAsync(id, default, commands))!.Status);
+        Assert.NotEmpty(commands.Texts);
+        Assert.All(commands.Texts, text => Assert.DoesNotContain("TOP", text, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -152,6 +165,35 @@ public sealed class OutgoingJournalTests
             }
 
             return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class JournalReads : DbCommandInterceptor
+    {
+        public List<string> Texts { get; } = [];
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+        {
+            Record(command);
+            return result;
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Record(command);
+            return ValueTask.FromResult(result);
+        }
+
+        private void Record(DbCommand command)
+        {
+            if (command.CommandText.StartsWith("SELECT", StringComparison.Ordinal) && command.CommandText.Contains("FROM [OutgoingMessages]", StringComparison.Ordinal))
+            {
+                Texts.Add(command.CommandText);
+            }
         }
     }
 }

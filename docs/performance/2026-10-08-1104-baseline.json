@@ -1,0 +1,3327 @@
+{
+  "startedAtUtc": "2026-10-08T11:04:20.1373818+00:00",
+  "finishedAtUtc": "2026-10-08T11:17:54.5949947+00:00",
+  "passed": false,
+  "targets": [
+    {
+      "name": "Settlement latency p95",
+      "limit": "<= 1000 ms",
+      "observed": "365797.4 ms (24338 samples)",
+      "passed": false
+    },
+    {
+      "name": "Settlement latency p99",
+      "limit": "<= 2000 ms",
+      "observed": "496372.9 ms (24338 samples)",
+      "passed": false
+    },
+    {
+      "name": "Lost payments (accepted, no final callback)",
+      "limit": "0",
+      "observed": "5662 (without a callback 5662, callbacks but none final 0)",
+      "passed": false
+    },
+    {
+      "name": "Accepted payments not sent to IPS",
+      "limit": "0",
+      "observed": "10860 (never received by the simulated IPS 10860, reported NotSent 5891)",
+      "passed": false
+    },
+    {
+      "name": "Duplicate sends",
+      "limit": "0",
+      "observed": "0 (flagged possible-duplicate resends of the same bytes, allowed: 0)",
+      "passed": true
+    },
+    {
+      "name": "Duplicate callbacks without an unknown delivery outcome before them",
+      "limit": "0",
+      "observed": "0 (payments with more than one callback: 0)",
+      "passed": true
+    },
+    {
+      "name": "5xx responses",
+      "limit": "0",
+      "observed": "10453 (504: 10453; requests without a response: 0)",
+      "passed": false
+    },
+    {
+      "name": "Every response is 200 or 504",
+      "limit": "0 others",
+      "observed": "0 others (200: 20147, 504: 10453)",
+      "passed": true
+    },
+    {
+      "name": "Readiness Healthy throughout",
+      "limit": "every sample of every instance",
+      "observed": "326 of 326 samples Healthy, 2 of 2 instances sampled",
+      "passed": true
+    },
+    {
+      "name": "Generator lag p99",
+      "limit": "<= 50 ms",
+      "observed": "27.1 ms (30000 samples)",
+      "passed": true
+    },
+    {
+      "name": "Work due after the drain (ips.backlog.due)",
+      "limit": "0",
+      "observed": "5509 (outgoing_payments 0, incoming_payments 0, incoming_transfers 0, inbound_receipts 0, callbacks 5509)",
+      "passed": false
+    }
+  ],
+  "settlement": {
+    "samples": 24338,
+    "min": 247.7275,
+    "mean": 71118.82642436931,
+    "p50": 2555.0129,
+    "p95": 365797.4146,
+    "p99": 496372.9137,
+    "max": 554911.0849
+  },
+  "response": {
+    "samples": 30000,
+    "min": 227.4763,
+    "mean": 12300.393383593337,
+    "p50": 2739.4555,
+    "p95": 30352.3054,
+    "p99": 30951.6437,
+    "max": 37507.6048
+  },
+  "lag": {
+    "samples": 30000,
+    "min": -2.3938,
+    "mean": 8.51491877333333,
+    "p50": 8.096,
+    "p95": 17.1463,
+    "p99": 27.1274,
+    "max": 158.1259
+  },
+  "throughput": {
+    "plannedRate": 50,
+    "sentPerSecond": 50,
+    "callbacksPerSecond": 32.32,
+    "executionSlots": 64,
+    "maxInFlight": 1031,
+    "arrivalsAtFullSlots": 27307
+  },
+  "correctness": {
+    "sent": 30600,
+    "responses": {
+      "200": 20147,
+      "504": 10453
+    },
+    "answers": {
+      "200 Accepted": 19677,
+      "504 Processing": 10453,
+      "200 NotSent TM01/1015": 470
+    },
+    "accepted": 30600,
+    "serverErrors": 10453,
+    "gatewayTimeouts": 10453,
+    "neitherOkNorTimeout": 0,
+    "unanswered": 0,
+    "notReceivedByIps": 10860,
+    "reportedNotSent": 5891,
+    "acceptedNotSent": 10860,
+    "withoutCallback": 5662,
+    "withoutFinalStatus": 0,
+    "lost": 5662,
+    "finalStatuses": {
+      "Accepted": 19047,
+      "NotSent TM01/1015": 5891,
+      "no final callback": 5662
+    },
+    "duplicateSends": 0,
+    "flaggedResends": 0,
+    "duplicateCallbacks": 0,
+    "duplicateCallbacksWithoutUnknownOutcome": 0,
+    "investigations": 192,
+    "investigatedPayments": 48,
+    "otherMessages": {},
+    "unmatchedMessages": 0,
+    "unmatchedCallbacks": 0,
+    "examples": [
+      {
+        "reference": "perf-01e3d893168c",
+        "problems": [
+          "not answered 200"
+        ],
+        "description": "perf-01e3d893168c: sent 11:05:23.691 to middleware-2, answered 504 Processing, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted], deliveries [#6 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-6d16e81cbe35",
+        "problems": [
+          "not answered 200"
+        ],
+        "description": "perf-6d16e81cbe35: sent 11:05:24.228 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted], deliveries [#6 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-117f09a68bfd",
+        "problems": [
+          "not answered 200"
+        ],
+        "description": "perf-117f09a68bfd: sent 11:05:24.530 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 0, callbacks [Accepted], deliveries [#6 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-7456d584c5e8",
+        "problems": [
+          "not answered 200",
+          "lost"
+        ],
+        "description": "perf-7456d584c5e8: sent 11:05:24.561 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 4, callbacks [], deliveries []"
+      },
+      {
+        "reference": "perf-1cbe9f0d99d5",
+        "problems": [
+          "not answered 200",
+          "lost"
+        ],
+        "description": "perf-1cbe9f0d99d5: sent 11:05:24.585 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 4, callbacks [], deliveries []"
+      },
+      {
+        "reference": "perf-84d40943f012",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-84d40943f012: sent 11:05:28.238 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015], deliveries [#5 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-d2b46e393645",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-d2b46e393645: sent 11:05:28.316 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015], deliveries [#3 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-e0c8176616a6",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-e0c8176616a6: sent 11:05:28.346 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015], deliveries [#5 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-c015133154b4",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-c015133154b4: sent 11:05:28.547 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015], deliveries [#3 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-8222cd413088",
+        "problems": [
+          "accepted, not sent"
+        ],
+        "description": "perf-8222cd413088: sent 11:05:28.719 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [NotSent TM01/1015], deliveries [#5 Delivered after 1 attempts]"
+      },
+      {
+        "reference": "perf-e21a70b8b66d",
+        "problems": [
+          "not answered 200",
+          "lost"
+        ],
+        "description": "perf-e21a70b8b66d: sent 11:05:24.630 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 4, callbacks [], deliveries []"
+      },
+      {
+        "reference": "perf-d92cb7d5d5aa",
+        "problems": [
+          "not answered 200",
+          "lost"
+        ],
+        "description": "perf-d92cb7d5d5aa: sent 11:05:25.799 to middleware-1, answered 504 Processing, IPS sends 1 (flagged 0), investigations 4, callbacks [], deliveries []"
+      },
+      {
+        "reference": "perf-aab99bdd0898",
+        "problems": [
+          "not answered 200",
+          "lost"
+        ],
+        "description": "perf-aab99bdd0898: sent 11:05:25.979 to middleware-2, answered 504 Processing, IPS sends 1 (flagged 0), investigations 4, callbacks [], deliveries []"
+      }
+    ]
+  },
+  "instances": [
+    {
+      "instance": 1,
+      "sent": 15300,
+      "responses": {
+        "200": 9992,
+        "504": 5308
+      },
+      "acceptedNotSent": 5474,
+      "lost": 2872,
+      "duplicateCallbacks": 0,
+      "firstFailureAtUtc": "2026-10-08T11:05:24.2285706+00:00"
+    },
+    {
+      "instance": 2,
+      "sent": 15300,
+      "responses": {
+        "200": 10155,
+        "504": 5145
+      },
+      "acceptedNotSent": 5386,
+      "lost": 2790,
+      "duplicateCallbacks": 0,
+      "firstFailureAtUtc": "2026-10-08T11:05:23.6913376+00:00"
+    }
+  ],
+  "timeline": [
+    {
+      "fromUtc": "2026-10-08T11:04:20.1487286+00:00",
+      "phase": "WarmUp",
+      "sent": 600,
+      "ok": 600,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 0,
+      "duplicateCallbacks": 0,
+      "settlementP95": 354.4881
+    },
+    {
+      "fromUtc": "2026-10-08T11:05:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 2444,
+      "gatewayTimeouts": 556,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 852,
+      "duplicateCallbacks": 0,
+      "settlementP95": 323308.8855
+    },
+    {
+      "fromUtc": "2026-10-08T11:06:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 3001,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 87,
+      "duplicateCallbacks": 0,
+      "settlementP95": 479200.6946
+    },
+    {
+      "fromUtc": "2026-10-08T11:07:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 2999,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 35,
+      "duplicateCallbacks": 0,
+      "settlementP95": 18630.119
+    },
+    {
+      "fromUtc": "2026-10-08T11:08:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 1790,
+      "gatewayTimeouts": 1210,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1199,
+      "duplicateCallbacks": 0,
+      "settlementP95": 498877.5968
+    },
+    {
+      "fromUtc": "2026-10-08T11:09:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 1751,
+      "gatewayTimeouts": 1250,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1250,
+      "duplicateCallbacks": 0,
+      "settlementP95": 367419.927
+    },
+    {
+      "fromUtc": "2026-10-08T11:10:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 1878,
+      "gatewayTimeouts": 1121,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1121,
+      "duplicateCallbacks": 0,
+      "settlementP95": 322432.2628
+    },
+    {
+      "fromUtc": "2026-10-08T11:11:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 1656,
+      "gatewayTimeouts": 1345,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1345,
+      "duplicateCallbacks": 0,
+      "settlementP95": 283687.1599
+    },
+    {
+      "fromUtc": "2026-10-08T11:12:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 1516,
+      "gatewayTimeouts": 1484,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1484,
+      "duplicateCallbacks": 0,
+      "settlementP95": 248683.8306
+    },
+    {
+      "fromUtc": "2026-10-08T11:13:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 1340,
+      "gatewayTimeouts": 1659,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1659,
+      "duplicateCallbacks": 0,
+      "settlementP95": 213127.6742
+    },
+    {
+      "fromUtc": "2026-10-08T11:14:20.1487286+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 1172,
+      "gatewayTimeouts": 1828,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 1828,
+      "duplicateCallbacks": 0,
+      "settlementP95": 181144.39
+    }
+  ],
+  "drain": {
+    "took": "00:02:00.5887286",
+    "completed": false,
+    "backlog": {
+      "due": [
+        {
+          "kind": "outgoing_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_transfers",
+          "count": 0
+        },
+        {
+          "kind": "inbound_receipts",
+          "count": 0
+        },
+        {
+          "kind": "callbacks",
+          "count": 5509
+        }
+      ],
+      "notFinalPayments": 153,
+      "pendingCallbacks": 5509
+    }
+  },
+  "readiness": [
+    {
+      "atUtc": "2026-10-08T11:04:20.1395013+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:20.140308+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:25.1407342+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:25.1408504+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:30.1517267+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:30.1518252+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:35.1472537+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:35.1473321+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:40.1509421+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:40.1510083+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:45.1501826+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:45.1503278+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:50.1415104+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:50.1416043+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:55.1496205+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:04:55.1497113+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:00.1377167+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:00.1378498+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:05.1398595+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:05.1403406+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:10.1425971+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:10.1429115+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:15.1512725+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:15.1513495+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:20.1415554+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:20.1416978+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:25.1404246+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:25.1407218+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:30.1467489+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:30.1494533+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:35.1379822+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:35.138153+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:40.1418276+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:40.1420398+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:45.1509538+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:45.1513076+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:50.1527023+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:50.1528047+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:55.1465716+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:05:55.1468081+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:00.138421+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:00.1385317+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:05.14173+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:05.1420236+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:10.1497368+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:10.1498065+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:15.1424495+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:15.1425567+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:20.1400751+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:20.1401827+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:25.1388593+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:25.1391158+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:30.1405384+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:30.1406462+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:35.1495821+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:35.1496682+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:40.1483767+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:40.1484543+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:45.1396317+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:45.1396869+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:50.1461168+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:50.1461702+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:55.1403334+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:06:55.1404494+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:00.1371539+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:00.1372471+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:05.1497938+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:05.149898+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:10.149427+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:10.1494994+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:15.148639+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:15.14871+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:20.1478394+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:20.1479297+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:25.1471195+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:25.1472117+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:30.1442616+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:30.14438+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:35.1576683+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:35.1578143+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:40.1441461+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:40.1442383+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:45.148076+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:45.148185+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:50.1400995+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:50.1401983+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:55.1467736+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:07:55.1468533+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:00.1480824+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:00.1482855+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:05.1482401+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:05.1483124+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:10.1435993+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:10.143685+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:15.1433377+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:15.1434309+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:20.1374456+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:20.1375213+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:25.1524044+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:25.1525359+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:30.1473383+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:30.1474123+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:35.1422729+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:35.1423855+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:40.1407485+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:40.1429768+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:45.1762142+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:45.1763083+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:50.1448464+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:50.1449863+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:55.1382544+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:08:55.1384083+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:00.1373603+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:00.1374563+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:05.2230684+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:05.2232591+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:10.1536906+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:10.1538687+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:15.1386865+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:15.1388067+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:20.1409411+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:20.1410699+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:25.1484846+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:25.1503443+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:30.1561973+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:30.1563205+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:35.1439327+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:35.1444373+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:40.1448846+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:40.1450142+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:45.1439342+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:45.1439766+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:50.1430548+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:50.1431374+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:55.1420431+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:09:55.1422477+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:00.1468892+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:00.1469747+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:05.1434427+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:05.1435283+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:10.1484045+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:10.1484968+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:15.1479899+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:15.1480799+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:20.1439766+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:20.1440661+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:25.1505682+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:25.1506873+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:30.1437878+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:30.1438784+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:35.141557+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:35.1416721+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:40.1551533+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:40.1551971+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:45.1466056+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:45.1471233+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:50.1372763+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:50.1373594+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:55.1430684+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:10:55.1431565+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:00.1478358+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:00.1480636+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:05.1417664+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:05.1418958+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:10.1651362+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:10.1652191+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:15.1777329+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:15.1778114+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:20.1500054+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:20.1500795+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:25.1441052+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:25.1441989+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:30.1391726+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:30.1411391+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:35.1442644+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:35.1443464+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:40.1426873+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:40.1428556+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:45.1372632+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:45.1373524+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:50.1394228+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:50.1395427+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:55.1580549+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:11:55.1581132+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:00.1414723+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:00.1415582+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:05.1499116+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:05.1500046+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:10.1410841+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:10.1411809+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:15.1444399+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:15.1445971+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:20.1450661+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:20.1451532+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:25.1420341+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:25.1420921+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:30.1388976+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:30.1389997+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:35.1501366+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:35.1502194+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:40.1394048+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:40.1394872+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:45.1428716+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:45.142945+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:50.1488436+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:50.1489307+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:55.1382334+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:12:55.1383428+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:00.1393511+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:00.1397864+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:05.1382736+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:05.1383996+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:10.1401495+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:10.1401932+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:15.1422301+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:15.1423119+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:20.1490209+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:20.1493047+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:25.1440054+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:25.1440885+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:30.1518654+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:30.1519113+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:35.1431395+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:35.1432706+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:40.1432891+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:40.1433871+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:45.1552104+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:45.1552638+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:50.1527101+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:50.1527965+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:55.1517992+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:13:55.1518856+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:00.1525441+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:00.1527745+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:05.1381986+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:05.138261+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:10.1448686+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:10.1449538+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:15.1443724+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:15.1444601+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:20.1388986+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:20.1400874+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:25.1496091+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:25.1497436+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:30.1533671+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:30.1535425+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:35.1498312+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:35.1499167+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:40.1419474+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:40.1420329+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:45.1436642+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:45.1437484+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:50.1414784+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:50.1415577+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:55.1420509+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:14:55.1421304+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:00.1446242+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:00.1447111+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:05.1439491+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:05.1440876+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:10.1492925+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:10.1493645+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:15.1381547+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:15.1382247+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:20.1482912+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:20.1484107+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:25.1423874+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:25.1424844+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:30.1506508+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:30.1507382+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:35.1414366+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:35.1415542+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:40.1467176+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:40.1467828+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:45.1472326+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:45.1473455+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:50.1471514+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:50.1472275+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:55.1454532+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:15:55.1455363+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:00.1464689+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:00.1465669+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:05.1461045+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:05.1461915+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:10.1446653+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:10.1447478+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:15.1510231+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:15.1511197+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:20.1436857+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:20.1437783+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:25.1476162+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:25.1476963+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:30.1509118+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:30.1510894+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:35.1455051+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:35.1456093+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:40.1539075+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:40.1539821+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:45.1486092+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:45.1493855+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:50.1388927+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:50.1389886+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:55.1543035+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:16:55.1573157+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:00.1493863+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:00.1495094+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:05.1491542+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:05.1493915+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:10.1459993+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:10.1460975+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:15.1495526+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:15.1497481+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:20.1530557+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:20.153209+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:25.1475747+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:25.1476624+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:30.1444466+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:30.1448345+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:35.1457794+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:35.1459299+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:40.1429106+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:40.1429956+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:45.1394272+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:45.1395164+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:50.1389687+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T11:17:50.1390611+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    }
+  ],
+  "logs": [],
+  "diagnosis": {
+    "queries": [
+      {
+        "queryId": 17,
+        "executions": 59449,
+        "failed": 0,
+        "totalMilliseconds": 12776557.146,
+        "meanMilliseconds": 214.91626681693552,
+        "maxMilliseconds": 7601.597,
+        "cpuMilliseconds": 2728650.278,
+        "meanLogicalReads": 19973.56956382782,
+        "waitMilliseconds": {
+          "Lock": 6830050,
+          "CPU": 3205158,
+          "Buffer Latch": 20215,
+          "Buffer IO": 102,
+          "Latch": 40,
+          "Memory": 19
+        },
+        "text": "(@paymentId uniqueidentifier,@direction int)SELECT TOP(2) [o].[Id], [o].[Content], [o].[CreatedAtUtc], [o].[Direction], [o].[Disposition], [o].[Failure], [o].[HeadersJson], [o].[HttpStatusCode], [o].[InvestigationId], [o].[MessageDefinition], [o].[OriginatingMessageId], [o].[PaymentId], [o].[ProcessedAtUtc], [o].[ResendId], [o].[StartedAtUtc], [o].[Status], [o].[SubmissionOwner] FROM [OutgoingMessages] AS [o] WHERE [o].[InvestigationId] IS NULL AND [o].[ResendId] IS NULL AND [o].[PaymentId] = @paymentId AND [o].[Direction] = @direction",
+        "plan": "Top > Clustered Index Scan [OutgoingMessages].[PK_OutgoingMessages]"
+      },
+      {
+        "queryId": 14,
+        "executions": 30807,
+        "failed": 0,
+        "totalMilliseconds": 6089386.222,
+        "meanMilliseconds": 197.6624215924952,
+        "maxMilliseconds": 7624.173,
+        "cpuMilliseconds": 1750822.562,
+        "meanLogicalReads": 25803.43133054176,
+        "waitMilliseconds": {
+          "Lock": 2303086,
+          "CPU": 2036134,
+          "Buffer Latch": 3777,
+          "Buffer IO": 54,
+          "Memory": 13,
+          "Latch": 7
+        },
+        "text": "(@paymentId uniqueidentifier)SELECT TOP(2) [o].[Id], [o].[Content], [o].[CreatedAtUtc], [o].[Direction], [o].[Disposition], [o].[Failure], [o].[HeadersJson], [o].[HttpStatusCode], [o].[InvestigationId], [o].[MessageDefinition], [o].[OriginatingMessageId], [o].[PaymentId], [o].[ProcessedAtUtc], [o].[ResendId], [o].[StartedAtUtc], [o].[Status], [o].[SubmissionOwner] FROM [OutgoingMessages] AS [o] WHERE [o].[PaymentId] = @paymentId AND [o].[Direction] = 0 AND [o].[InvestigationId] IS NULL AND [o].[ResendId] IS NULL",
+        "plan": "Top > Clustered Index Scan [OutgoingMessages].[PK_OutgoingMessages]"
+      },
+      {
+        "queryId": 12,
+        "executions": 422594,
+        "failed": 1,
+        "totalMilliseconds": 775623.024,
+        "meanMilliseconds": 1.8353857934566038,
+        "maxMilliseconds": 6654.837,
+        "cpuMilliseconds": 40093.945,
+        "meanLogicalReads": 8.986135628996152,
+        "waitMilliseconds": {
+          "Lock": 726498,
+          "CPU": 5500,
+          "Buffer Latch": 3250,
+          "Latch": 137,
+          "Buffer IO": 136,
+          "Memory": 44
+        },
+        "text": "(@reference nvarchar(35))SELECT TOP(2) [t].[Id], [t].[AcceptedJson], [t].[ClaimExpiresAtUtc], [t].[ClaimToken], [t].[CurrentStatus], [t].[CurrentStatusAtUtc], [t].[Direction], [t].[DispatchPriority], [t].[MessageId], [t].[NextActionAtUtc], [t].[ProtocolTransactionId], [t].[RequestJson], [t].[RowVersion], [t].[UnsignedXml], [t0].[Id], [t0].[AggregateKind], [t0].[ClientReference], [t0].[CreatedAtUtc], [t0].[CurrentDescription], [t0].[CurrentIpsInternalCode], [t0].[CurrentReasonCode], [t0].[CurrentSequence], [t0].[CurrentSource], [t0].[CurrentStatus], [t0].[CurrentStatusAtUtc], [t0].[LastSequence], [t0].[MessageType], [t0].[RecallRefusedAtUtc], [t0].[RowVersion] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t0].[ClientReference] = @reference",
+        "plan": "Compute Scalar > Top > Compute Scalar > Nested Loops > Nested Loops > Index Seek [Transactions].[IX_Transactions_ClientReference] > Clustered Index Seek (lookup) [Transactions].[PK_Transactions] > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 6,
+        "executions": 2904,
+        "failed": 0,
+        "totalMilliseconds": 257085.22,
+        "meanMilliseconds": 88.52796831955922,
+        "maxMilliseconds": 2292.538,
+        "cpuMilliseconds": 1142.168,
+        "meanLogicalReads": 13.921831955922865,
+        "waitMilliseconds": {
+          "Lock": 255798,
+          "CPU": 86,
+          "Buffer Latch": 51,
+          "Buffer IO": 29,
+          "Latch": 2
+        },
+        "text": "(@status int,@now datetimeoffset(7),@p int)SELECT TOP(@p) [t].[Id] FROM [Transactions] AS [t] WHERE [t].[CurrentStatus] = @status AND [t].[ClaimToken] IS NULL AND ([t].[NextActionAtUtc] IS NULL OR [t].[NextActionAtUtc] <= @now) ORDER BY [t].[DispatchPriority], [t].[CurrentStatusAtUtc], [t].[Id]",
+        "plan": "Top > Compute Scalar > Index Seek [Transactions].[IX_Transactions_CurrentStatus_DispatchPriority_CurrentStatusAtUtc_Id]"
+      },
+      {
+        "queryId": 11,
+        "executions": 30976,
+        "failed": 0,
+        "totalMilliseconds": 23250.515,
+        "meanMilliseconds": 0.7505977208161158,
+        "maxMilliseconds": 234.113,
+        "cpuMilliseconds": 4457.909,
+        "meanLogicalReads": 21.74870867768595,
+        "waitMilliseconds": {
+          "Lock": 15444,
+          "Buffer Latch": 1804,
+          "Latch": 1005,
+          "Buffer IO": 258,
+          "CPU": 200,
+          "Preemptive": 113,
+          "Tran Log IO": 44,
+          "Memory": 1
+        },
+        "text": "(@p6 uniqueidentifier,@p7 varbinary(8),@p0 datetimeoffset(7),@p1 uniqueidentifier,@p2 int,@p3 int,@p4 datetimeoffset(7),@p5 int)UPDATE [Transactions] SET [ClaimExpiresAtUtc] = @p0, [ClaimToken] = @p1, [CurrentSequence] = @p2, [CurrentStatus] = @p3, [CurrentStatusAtUtc] = @p4, [LastSequence] = @p5 OUTPUT INSERTED.[DispatchPriority], INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p6 AND [RowVersion] = @p7",
+        "plan": "Compute Scalar > Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Top > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 8,
+        "executions": 30600,
+        "failed": 0,
+        "totalMilliseconds": 21810.594,
+        "meanMilliseconds": 0.7127645098039216,
+        "maxMilliseconds": 210.177,
+        "cpuMilliseconds": 14444.229,
+        "meanLogicalReads": 53.13532679738562,
+        "waitMilliseconds": {
+          "Memory": 2302,
+          "Buffer Latch": 2117,
+          "CPU": 1710,
+          "Latch": 1652,
+          "Buffer IO": 1488,
+          "Preemptive": 816,
+          "Tran Log IO": 197,
+          "Other Disk IO": 14
+        },
+        "text": "(@p2 uniqueidentifier,@p3 nvarchar(4000),@p4 datetimeoffset(7),@p5 uniqueidentifier,@p6 int,@p7 nvarchar(35),@p8 datetimeoffset(7),@p9 nvarchar(35),@p10 nvarchar(4000),@p11 nvarchar(4000),@p12 nvarchar(35),@p13 datetimeoffset(7),@p14 nvarchar(2000),@p15 int,@p16 nvarchar(35),@p17 int,@p18 int,@p19 int,@p20 datetimeoffset(7),@p21 int,@p22 nvarchar(16),@p23 datetimeoffset(7))INSERT INTO [Transactions] ([Id], [AcceptedJson], [ClaimExpiresAtUtc], [ClaimToken], [Direction], [MessageId], [NextActionAtUtc], [ProtocolTransactionId], [RequestJson], [UnsignedXml], [ClientReference], [CreatedAtUtc], [CurrentDescription], [CurrentIpsInternalCode], [CurrentReasonCode], [CurrentSequence], [CurrentSource], [CurrentStatus], [CurrentStatusAtUtc], [LastSequence], [MessageType], [RecallRefusedAtUtc]) OUTPUT INSERTED.[DispatchPriority], INSERTED.[RowVersion], INSERTED.[AggregateKind] VALUES (@p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22, @p23)",
+        "plan": "Compute Scalar > Assert > Nested Loops > Assert > Clustered Index Insert > Compute Scalar > Compute Scalar > Constant Scan > Index Seek [AggregateIdentities].[AK_AggregateIdentities_Id_Kind]"
+      },
+      {
+        "queryId": 20,
+        "executions": 39828,
+        "failed": 0,
+        "totalMilliseconds": 21554.01,
+        "meanMilliseconds": 0.5411773124435071,
+        "maxMilliseconds": 185.58,
+        "cpuMilliseconds": 14102.096,
+        "meanLogicalReads": 49.568067691071604,
+        "waitMilliseconds": {
+          "Latch": 3111,
+          "Buffer Latch": 1781,
+          "Memory": 1615,
+          "Buffer IO": 1367,
+          "CPU": 946,
+          "Preemptive": 621,
+          "Tran Log IO": 169,
+          "Other Disk IO": 8
+        },
+        "text": "(@p0 uniqueidentifier,@p1 nvarchar(4000),@p2 datetimeoffset(7),@p3 int,@p4 int,@p5 nvarchar(2000),@p6 nvarchar(4000),@p7 int,@p8 uniqueidentifier,@p9 nvarchar(35),@p10 uniqueidentifier,@p11 uniqueidentifier,@p12 datetimeoffset(7),@p13 uniqueidentifier,@p14 datetimeoffset(7),@p15 int,@p16 uniqueidentifier)INSERT INTO [OutgoingMessages] ([Id], [Content], [CreatedAtUtc], [Direction], [Disposition], [Failure], [HeadersJson], [HttpStatusCode], [InvestigationId], [MessageDefinition], [OriginatingMessageId], [PaymentId], [ProcessedAtUtc], [ResendId], [StartedAtUtc], [Status], [SubmissionOwner]) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16)",
+        "plan": "Assert > Nested Loops > Assert > Nested Loops > Nested Loops > Nested Loops > Assert > Clustered Index Insert > Compute Scalar > Compute Scalar > Constant Scan > Index Seek [OutgoingInvestigations].[AK_OutgoingInvestigations_Id_PaymentId] > Index Seek [OutgoingResends].[AK_OutgoingResends_Id_PaymentId] > Clustered Index Seek [Transactions].[PK_Transactions] > Index Seek [OutgoingMessages].[AK_OutgoingMessages_Id_PaymentId]"
+      },
+      {
+        "queryId": 9,
+        "executions": 81191,
+        "failed": 0,
+        "totalMilliseconds": 20042.931,
+        "meanMilliseconds": 0.24686148711064035,
+        "maxMilliseconds": 186.387,
+        "cpuMilliseconds": 13628.051,
+        "meanLogicalReads": 19.21554113140619,
+        "waitMilliseconds": {
+          "Latch": 3386,
+          "Buffer IO": 1508,
+          "CPU": 1025,
+          "Memory": 650,
+          "Preemptive": 448,
+          "Buffer Latch": 242,
+          "Tran Log IO": 148,
+          "Other Disk IO": 6
+        },
+        "text": "(@p0 int,@p1 uniqueidentifier,@p2 varchar(32),@p3 uniqueidentifier,@p4 nvarchar(100),@p5 datetimeoffset(7),@p6 nvarchar(4000),@p7 int)INSERT INTO [TransactionEvents] ([Sequence], [TransactionId], [AggregateKind], [EventId], [Name], [OccurredAtUtc], [PayloadJson], [SchemaVersion]) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7)",
+        "plan": "Assert > Nested Loops > Assert > Clustered Index Insert > Index Seek [AggregateIdentities].[AK_AggregateIdentities_Id_Kind]"
+      },
+      {
+        "queryId": 29,
+        "executions": 75331,
+        "failed": 0,
+        "totalMilliseconds": 16260.407,
+        "meanMilliseconds": 0.2158527963255499,
+        "maxMilliseconds": 234.429,
+        "cpuMilliseconds": 11930.43,
+        "meanLogicalReads": 7.498453491922316,
+        "waitMilliseconds": {
+          "Lock": 2846,
+          "CPU": 1292,
+          "Buffer Latch": 100,
+          "Latch": 44
+        },
+        "text": "(@key_PaymentId uniqueidentifier)SELECT TOP(2) [t].[Id], [t].[AcceptedJson], [t].[ClaimExpiresAtUtc], [t].[ClaimToken], [t].[CurrentStatus], [t].[CurrentStatusAtUtc], [t].[Direction], [t].[DispatchPriority], [t].[MessageId], [t].[NextActionAtUtc], [t].[ProtocolTransactionId], [t].[RequestJson], [t].[RowVersion], [t].[UnsignedXml], [t0].[Id], [t0].[AggregateKind], [t0].[ClientReference], [t0].[CreatedAtUtc], [t0].[CurrentDescription], [t0].[CurrentIpsInternalCode], [t0].[CurrentReasonCode], [t0].[CurrentSequence], [t0].[CurrentSource], [t0].[CurrentStatus], [t0].[CurrentStatusAtUtc], [t0].[LastSequence], [t0].[MessageType], [t0].[RecallRefusedAtUtc], [t0].[RowVersion] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t].[Id] = @key_PaymentId",
+        "plan": "Top > Nested Loops > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions] > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 23,
+        "executions": 39625,
+        "failed": 0,
+        "totalMilliseconds": 11250.002,
+        "meanMilliseconds": 0.28391172239747636,
+        "maxMilliseconds": 185.264,
+        "cpuMilliseconds": 9098.336,
+        "meanLogicalReads": 16.157577287066246,
+        "waitMilliseconds": {
+          "Latch": 849,
+          "Memory": 665,
+          "CPU": 584,
+          "Buffer Latch": 331,
+          "Lock": 329,
+          "Tran Log IO": 13,
+          "Buffer IO": 9
+        },
+        "text": "(@p15 uniqueidentifier,@p0 nvarchar(4000),@p1 datetimeoffset(7),@p2 int,@p3 int,@p4 nvarchar(2000),@p5 nvarchar(4000),@p6 int,@p7 uniqueidentifier,@p8 nvarchar(35),@p9 uniqueidentifier,@p10 datetimeoffset(7),@p11 uniqueidentifier,@p12 datetimeoffset(7),@p13 int,@p14 uniqueidentifier)UPDATE [OutgoingMessages] SET [Content] = @p0, [CreatedAtUtc] = @p1, [Direction] = @p2, [Disposition] = @p3, [Failure] = @p4, [HeadersJson] = @p5, [HttpStatusCode] = @p6, [InvestigationId] = @p7, [MessageDefinition] = @p8, [OriginatingMessageId] = @p9, [ProcessedAtUtc] = @p10, [ResendId] = @p11, [StartedAtUtc] = @p12, [Status] = @p13, [SubmissionOwner] = @p14 OUTPUT 1 WHERE [Id] = @p15",
+        "plan": "Compute Scalar > Sequence > Table Spool > Split > Assert > Nested Loops > Nested Loops > Assert > Compute Scalar > Clustered Index Update > Compute Scalar > Compute Scalar > Compute Scalar > Clustered Index Seek [OutgoingMessages].[PK_OutgoingMessages] > Index Seek [OutgoingInvestigations].[AK_OutgoingInvestigations_Id_PaymentId] > Index Seek [OutgoingResends].[AK_OutgoingResends_Id_PaymentId] > Assert > Nested Loops > Table Spool > Index Seek [OutgoingMessages].[AK_OutgoingMessages_Id_PaymentId] > Filter > Table Spool"
+      },
+      {
+        "queryId": 10,
+        "executions": 94678,
+        "failed": 0,
+        "totalMilliseconds": 9840.022,
+        "meanMilliseconds": 0.10393145186843829,
+        "maxMilliseconds": 247.273,
+        "cpuMilliseconds": 5199.777,
+        "meanLogicalReads": 5.998500179555968,
+        "waitMilliseconds": {
+          "Lock": 4087,
+          "CPU": 306,
+          "Buffer Latch": 181,
+          "Latch": 15
+        },
+        "text": "(@id uniqueidentifier)SELECT TOP(2) [t].[Id], [t].[AcceptedJson], [t].[ClaimExpiresAtUtc], [t].[ClaimToken], [t].[CurrentStatus], [t].[CurrentStatusAtUtc], [t].[Direction], [t].[DispatchPriority], [t].[MessageId], [t].[NextActionAtUtc], [t].[ProtocolTransactionId], [t].[RequestJson], [t].[RowVersion], [t].[UnsignedXml], [t0].[Id], [t0].[AggregateKind], [t0].[ClientReference], [t0].[CreatedAtUtc], [t0].[CurrentDescription], [t0].[CurrentIpsInternalCode], [t0].[CurrentReasonCode], [t0].[CurrentSequence], [t0].[CurrentSource], [t0].[CurrentStatus], [t0].[CurrentStatusAtUtc], [t0].[LastSequence], [t0].[MessageType], [t0].[RecallRefusedAtUtc], [t0].[RowVersion] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t].[Id] = @id",
+        "plan": "Top > Nested Loops > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions] > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 30,
+        "executions": 25145,
+        "failed": 0,
+        "totalMilliseconds": 9073.41,
+        "meanMilliseconds": 0.36084350765559753,
+        "maxMilliseconds": 415.68,
+        "cpuMilliseconds": 3040.862,
+        "meanLogicalReads": 7.385245575661165,
+        "waitMilliseconds": {
+          "Lock": 4864,
+          "Latch": 517,
+          "Buffer Latch": 362,
+          "CPU": 216,
+          "Preemptive": 58,
+          "Buffer IO": 36,
+          "Tran Log IO": 4
+        },
+        "text": "(@p3 uniqueidentifier,@p4 int,@p5 varbinary(8),@p0 int,@p1 datetimeoffset(7),@p2 uniqueidentifier)UPDATE [OutgoingStatusDeliveries] SET [Attempts] = @p0, [ClaimExpiresAtUtc] = @p1, [ClaimToken] = @p2 OUTPUT INSERTED.[RowVersion] WHERE [PaymentId] = @p3 AND [Sequence] = @p4 AND [RowVersion] = @p5",
+        "plan": "Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Compute Scalar > Clustered Index Seek [OutgoingStatusDeliveries].[PK_OutgoingStatusDeliveries]"
+      },
+      {
+        "queryId": 41,
+        "executions": 106,
+        "failed": 0,
+        "totalMilliseconds": 7529.825,
+        "meanMilliseconds": 71.03608490566037,
+        "maxMilliseconds": 438.292,
+        "cpuMilliseconds": 80.283,
+        "meanLogicalReads": 30.433962264150942,
+        "waitMilliseconds": {
+          "Lock": 7419,
+          "CPU": 18
+        },
+        "text": "(@now datetimeoffset(7))SELECT COUNT_BIG(*) FROM [OutgoingStatusDeliveries] AS [o] WHERE [o].[State] = 0 AND [o].[NextAtUtc] IS NOT NULL AND [o].[NextAtUtc] <= @now",
+        "plan": "Stream Aggregate > Index Seek [OutgoingStatusDeliveries].[IX_OutgoingStatusDeliveries_State_NextAtUtc_PaymentId_Sequence]"
+      },
+      {
+        "queryId": 28,
+        "executions": 75331,
+        "failed": 0,
+        "totalMilliseconds": 6785.179,
+        "meanMilliseconds": 0.0900715376139969,
+        "maxMilliseconds": 86.886,
+        "cpuMilliseconds": 4406.614,
+        "meanLogicalReads": 5.93459531932405,
+        "waitMilliseconds": {
+          "Lock": 1694,
+          "Buffer Latch": 325,
+          "CPU": 284,
+          "Latch": 19,
+          "Buffer IO": 13,
+          "Memory": 1
+        },
+        "text": "(@key_PaymentId uniqueidentifier,@key_Sequence int)SELECT TOP(2) [o].[PaymentId], [o].[Sequence], [o].[Attempts], [o].[ClaimExpiresAtUtc], [o].[ClaimToken], [o].[DeliveredAtUtc], [o].[LastFailure], [o].[NextAtUtc], [o].[PayloadJson], [o].[PayloadVersion], [o].[RowVersion], [o].[State] FROM [OutgoingStatusDeliveries] AS [o] WHERE EXISTS ( SELECT 1 FROM [Transactions] AS [t] WHERE [t].[Id] = [o].[PaymentId] AND [t].[CurrentSequence] = [o].[Sequence]) AND [o].[PaymentId] = @key_PaymentId AND [o].[Sequence] = @key_Sequence",
+        "plan": "Top > Nested Loops > Clustered Index Seek [OutgoingStatusDeliveries].[PK_OutgoingStatusDeliveries] > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 24,
+        "executions": 20092,
+        "failed": 0,
+        "totalMilliseconds": 6634.976,
+        "meanMilliseconds": 0.3302297431813657,
+        "maxMilliseconds": 147.672,
+        "cpuMilliseconds": 3343.981,
+        "meanLogicalReads": 19.303404340035836,
+        "waitMilliseconds": {
+          "Buffer Latch": 1942,
+          "Lock": 560,
+          "Buffer IO": 320,
+          "Latch": 246,
+          "CPU": 174,
+          "Preemptive": 93,
+          "Tran Log IO": 13,
+          "Memory": 3
+        },
+        "text": "(@p9 uniqueidentifier,@p10 varbinary(8),@p0 datetimeoffset(7),@p1 uniqueidentifier,@p2 datetimeoffset(7),@p3 nvarchar(2000),@p4 int,@p5 int,@p6 int,@p7 datetimeoffset(7),@p8 int)UPDATE [Transactions] SET [ClaimExpiresAtUtc] = @p0, [ClaimToken] = @p1, [NextActionAtUtc] = @p2, [CurrentDescription] = @p3, [CurrentSequence] = @p4, [CurrentSource] = @p5, [CurrentStatus] = @p6, [CurrentStatusAtUtc] = @p7, [LastSequence] = @p8 OUTPUT INSERTED.[DispatchPriority], INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p9 AND [RowVersion] = @p10",
+        "plan": "Compute Scalar > Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Top > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      }
+    ],
+    "deadlocks": [],
+    "deadlockSource": "system_health event files",
+    "waits": [
+      {
+        "waitType": "SOS_WORK_DISPATCHER",
+        "waitingTasks": 2194967,
+        "waitMilliseconds": 108660242
+      },
+      {
+        "waitType": "LCK_M_S",
+        "waitingTasks": 339696,
+        "waitMilliseconds": 10147258
+      },
+      {
+        "waitType": "PREEMPTIVE_OS_FLUSHFILEBUFFERS",
+        "waitingTasks": 226122,
+        "waitMilliseconds": 5426997
+      },
+      {
+        "waitType": "SOS_SCHEDULER_YIELD",
+        "waitingTasks": 822667,
+        "waitMilliseconds": 5338304
+      },
+      {
+        "waitType": "DISPATCHER_QUEUE_SEMAPHORE",
+        "waitingTasks": 28,
+        "waitMilliseconds": 4977789
+      },
+      {
+        "waitType": "SLEEP_TASK",
+        "waitingTasks": 3356,
+        "waitMilliseconds": 2058515
+      },
+      {
+        "waitType": "LOGMGR_QUEUE",
+        "waitingTasks": 152159,
+        "waitMilliseconds": 1607358
+      },
+      {
+        "waitType": "WRITELOG",
+        "waitingTasks": 239749,
+        "waitMilliseconds": 1486161
+      },
+      {
+        "waitType": "XE_DISPATCHER_WAIT",
+        "waitingTasks": 13,
+        "waitMilliseconds": 843325
+      },
+      {
+        "waitType": "QDS_PERSIST_TASK_MAIN_LOOP_SLEEP",
+        "waitingTasks": 15,
+        "waitMilliseconds": 840043
+      },
+      {
+        "waitType": "QDS_ASYNC_QUEUE",
+        "waitingTasks": 132,
+        "waitMilliseconds": 828851
+      },
+      {
+        "waitType": "XE_TIMER_EVENT",
+        "waitingTasks": 256,
+        "waitMilliseconds": 813590
+      }
+    ],
+    "connections": [
+      {
+        "process": "process 460",
+        "peak": 1
+      },
+      {
+        "process": "process 34356",
+        "peak": 100
+      },
+      {
+        "process": "process 71200",
+        "peak": 100
+      }
+    ]
+  },
+  "machine": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor",
+    "logicalProcessors": 16,
+    "memoryGiB": 63.2,
+    "operatingSystem": "Microsoft Windows 10.0.26200",
+    "runtime": ".NET 10.0.12",
+    "dockerVersion": "29.6.2",
+    "dockerCpus": 16,
+    "dockerMemoryGiB": 30.9,
+    "containers": [
+      "k8s-course-control-plane (kindest/node:v1.31.0)",
+      "sql-njuyqcka (mcr.microsoft.com/mssql/server:2022-latest)"
+    ]
+  },
+  "configuration": {
+    "instances": 2,
+    "apiRunAs": "projects",
+    "executionConcurrency": 32,
+    "shippedConcurrency": 32,
+    "timings": "Shipped",
+    "signed": true,
+    "logsCollected": false,
+    "warmUpRate": 10,
+    "warmUp": "00:01:00",
+    "rate": 50,
+    "duration": "00:10:00",
+    "drainLimit": "00:02:00",
+    "ipsDelay": "00:00:00.1000000",
+    "readinessInterval": "00:00:05"
+  },
+  "settings": [
+    {
+      "key": "ASPNETCORE_ENVIRONMENT",
+      "shipped": null,
+      "usedByInstance": [
+        "Development",
+        "Development"
+      ]
+    },
+    {
+      "key": "ConnectionStrings:Middleware",
+      "shipped": null,
+      "usedByInstance": [
+        "(the AppHost's SQL Server container)",
+        "(the AppHost's SQL Server container)"
+      ]
+    },
+    {
+      "key": "LOGGING:CONSOLE:FORMATTERNAME",
+      "shipped": null,
+      "usedByInstance": [
+        "simple",
+        "simple"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Policy:Currencies:0:Code",
+      "shipped": null,
+      "usedByInstance": [
+        "GEL",
+        "GEL"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Protocol:IpsBic",
+      "shipped": "",
+      "usedByInstance": [
+        "NBGEGE22",
+        "NBGEGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:61913",
+        "https://localhost:61913"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:61913",
+        "https://localhost:61913"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsSignatureTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/ips-signing.pem",
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/ips-signing.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsVersion",
+      "shipped": "1",
+      "usedByInstance": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Password",
+      "shipped": null,
+      "usedByInstance": [
+        "(generated)",
+        "(generated)"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/signing/outgoing-signing.pfx",
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/signing/outgoing-signing.pfx"
+      ]
+    },
+    {
+      "key": "Proxy:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:61913",
+        "https://localhost:61913"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-a2069c48b38a439f926a3380c557d8c7/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Proxy:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Proxy:ProxyBic",
+      "shipped": "",
+      "usedByInstance": [
+        "PROXGE22",
+        "PROXGE22"
+      ]
+    }
+  ]
+}

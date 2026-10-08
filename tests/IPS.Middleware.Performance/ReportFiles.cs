@@ -6,12 +6,14 @@ using System.Text.Json.Serialization;
 
 namespace IPS.Middleware.Performance;
 
-// Writes a run's report as <yyyy-MM-dd-HHmm>-baseline.md and .json, named by the start of the load so a later run never
-// overwrites an earlier one. The JSON holds every reported value and every readiness sample; the raw latency samples stay in
-// memory only.
+// Writes a run's report as <yyyy-MM-dd-HHmm>-<label>.md and .json, named by the start of the load so a later run never
+// overwrites an earlier one. The JSON holds every reported value, every readiness sample and every deadlock graph; the raw latency
+// samples stay in memory only.
 internal static class ReportFiles
 {
     private const int TopAnswers = 10;
+    private const int DeadlocksShown = 5;
+    private const int QueryTextShown = 600;
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
     // A file, not a web page: "<=" stays readable.
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -21,10 +23,14 @@ internal static class ReportFiles
         Converters = { new JsonStringEnumConverter() }
     };
 
-    internal static async Task<IReadOnlyList<string>> WriteAsync(PerformanceReport report, string directory, CancellationToken cancellationToken)
+    internal static async Task<IReadOnlyList<string>> WriteAsync(
+        PerformanceReport report,
+        string directory,
+        CancellationToken cancellationToken,
+        string label = "baseline")
     {
         Directory.CreateDirectory(directory);
-        var name = Path.Combine(directory, report.StartedAtUtc.ToString("yyyy-MM-dd-HHmm", Invariant) + "-baseline");
+        var name = Path.Combine(directory, report.StartedAtUtc.ToString("yyyy-MM-dd-HHmm", Invariant) + "-" + label);
         await File.WriteAllTextAsync(name + ".md", Markdown(report), cancellationToken);
         await File.WriteAllTextAsync(name + ".json", JsonSerializer.Serialize(report, Json) + "\n", cancellationToken);
         return [name + ".md", name + ".json"];
@@ -47,7 +53,8 @@ internal static class ReportFiles
         Correctness(text, report.Correctness);
         Instances(text, report.Instances);
         Timeline(text, report.Timeline);
-        Logs(text, report.Logs);
+        Logs(text, report);
+        Diagnosis(text, report.Diagnosis);
         Drain(text, report);
         Readiness(text, report);
         Machine(text, report.Machine);
@@ -122,6 +129,7 @@ internal static class ReportFiles
         text.AppendLine(Invariant, $"| Sent more than once other than as a flagged resend of the same bytes | {correctness.DuplicateSends} |");
         text.AppendLine(Invariant, $"| Flagged possible-duplicate resends of the same bytes (allowed) | {correctness.FlaggedResends} |");
         text.AppendLine(Invariant, $"| More than one callback | {correctness.DuplicateCallbacks} |");
+        text.AppendLine(Invariant, $"| More than one callback and more callbacks than recorded delivery attempts (no unknown outcome before the repeat) | {correctness.DuplicateCallbacksWithoutUnknownOutcome} |");
         text.AppendLine(Invariant, $"| Investigations (pacs.028) received by the simulated IPS / payments investigated | {correctness.Investigations} / {correctness.InvestigatedPayments} |");
         text.AppendLine(Invariant, $"| Other IPS messages by definition | {(correctness.OtherMessages.Count == 0 ? "none" : Join(correctness.OtherMessages))} |");
         text.AppendLine(Invariant, $"| IPS messages / callbacks for no payment of the run or unreadable | {correctness.UnmatchedMessages} / {correctness.UnmatchedCallbacks} |");
@@ -189,11 +197,19 @@ internal static class ReportFiles
         text.AppendLine();
     }
 
-    private static void Logs(StringBuilder text, IReadOnlyList<InstanceLogSummary> logs)
+    private static void Logs(StringBuilder text, PerformanceReport report)
     {
         text.AppendLine("## API logs during the run");
         text.AppendLine();
-        text.AppendLine("Entries each instance wrote from the start of the load to the end of the drain, from the orchestrator's log stream, by level; then the most frequent warnings and errors by template (category and first message line, numbers and identifiers normalised, at most 80 characters) with the first such entry.");
+        if (!report.Configuration.LogsCollected)
+        {
+            text.AppendLine("Not collected: the run did not follow the instances' logs (`--CollectLogs`), so they did not load the machine.");
+            text.AppendLine();
+            return;
+        }
+
+        var logs = report.Logs;
+        text.AppendLine("Warnings and errors each instance wrote from the start of the load to the end of the drain, from the orchestrator's log stream, by level (lower levels are skipped); then the most frequent by template (category and first message line, numbers and identifiers normalised, at most 80 characters) with the first such entry.");
         text.AppendLine();
         text.AppendLine("| Instance | Entries by level |");
         text.AppendLine("|---|---|");
@@ -223,6 +239,73 @@ internal static class ReportFiles
 
         text.AppendLine();
     }
+
+    private static void Diagnosis(StringBuilder text, DatabaseDiagnosis? diagnosis)
+    {
+        if (diagnosis is null)
+        {
+            return;
+        }
+
+        text.AppendLine("## Database diagnosis");
+        text.AppendLine();
+        text.AppendLine("Query Store captured every statement from the start of the load to the end of the drain. The costliest statements by total duration, with the plan each ran with most often (operators in tree order, with the table and index read); durations in milliseconds; failed executions were aborted (a command timeout or cancellation) or ended in an error; waits are Query Store's categories.");
+        text.AppendLine();
+        text.AppendLine("| Query | Executions (failed) | Total | Mean | Max | CPU | Mean logical reads | Waits | Statement | Plan |");
+        text.AppendLine("|---|---|---|---|---|---|---|---|---|---|");
+        foreach (var query in diagnosis.Queries)
+        {
+            var waits = string.Join(", ", query.WaitMilliseconds
+                .Take(3)
+                .Select(wait => string.Create(Invariant, $"{wait.Key} {wait.Value:0}")));
+            text.AppendLine(Invariant,
+                $"| {query.QueryId} | {query.Executions} ({query.Failed}) | {query.TotalMilliseconds:0} | {query.MeanMilliseconds:0.0} | {query.MaxMilliseconds:0} | {query.CpuMilliseconds:0} | {query.MeanLogicalReads:0} | {Cell(waits)} | `{Cell(Cut(query.Text, QueryTextShown))}` | {Cell(query.Plan)} |");
+        }
+
+        text.AppendLine();
+        text.AppendLine("The most SQL connections each client process held open on the database, sampled every 2 s from the start of the load to the end of the drain (a pooled connection stays open while idle; Max Pool Size is 100 by default):");
+        text.AppendLine();
+        text.AppendLine("| Process | Peak connections |");
+        text.AppendLine("|---|---|");
+        foreach (var peak in diagnosis.Connections)
+        {
+            text.AppendLine(Invariant, $"| {peak.Process} | {peak.Peak} |");
+        }
+
+        text.AppendLine();
+        text.AppendLine("Server waits over the run (the container serves only this database), the largest first:");
+        text.AppendLine();
+        text.AppendLine("| Wait type | Waits | Milliseconds |");
+        text.AppendLine("|---|---|---|");
+        foreach (var wait in diagnosis.Waits)
+        {
+            text.AppendLine(Invariant, $"| {wait.WaitType} | {wait.WaitingTasks} | {wait.WaitMilliseconds:0} |");
+        }
+
+        text.AppendLine();
+        text.AppendLine(Invariant, $"Deadlocks recorded by the {diagnosis.DeadlockSource} since the load started: {diagnosis.Deadlocks.Count}. The JSON report holds every graph.");
+        text.AppendLine();
+        foreach (var deadlock in diagnosis.Deadlocks.Take(DeadlocksShown))
+        {
+            text.AppendLine(Invariant, $"- {deadlock.AtUtc:HH:mm:ss.fff}:");
+            foreach (var resource in deadlock.Resources)
+            {
+                text.AppendLine(Invariant, $"  - {resource.Kind} on {resource.Object} {resource.Index}: owners {resource.Owners}; waiters {resource.Waiters}");
+            }
+
+            foreach (var process in deadlock.Processes)
+            {
+                text.AppendLine(Invariant, $"  - {process.Id}{(process.Victim ? " (victim)" : "")} waits {process.LockMode} on {process.WaitResource}: `{Cell(process.Statement)}`");
+            }
+        }
+
+        if (diagnosis.Deadlocks.Count > 0)
+        {
+            text.AppendLine();
+        }
+    }
+
+    private static string Cut(string value, int length) => value.Length <= length ? value : value[..length] + "...";
 
     private static void Drain(StringBuilder text, PerformanceReport report)
     {
@@ -296,7 +379,7 @@ internal static class ReportFiles
         text.AppendLine(Invariant, $"- {configuration.Instances} API instances run as {configuration.ApiRunAs}, sharing one SQL Server database; requests round-robin over them.");
         text.AppendLine(Invariant, $"- Warm-up: {configuration.WarmUp.TotalSeconds:0} s at {configuration.WarmUpRate} per second (not measured); measured: {configuration.Duration.TotalSeconds:0} s at {configuration.Rate} per second; drain limit {configuration.DrainLimit.TotalSeconds:0} s.");
         text.AppendLine(Invariant, $"- Simulated IPS: answers ACCP after {configuration.IpsDelay.TotalMilliseconds:0} ms without verifying the service's signature; the simulated core takes every callback at once.");
-        text.AppendLine(Invariant, $"- Execution concurrency {configuration.ExecutionConcurrency} per instance, the shipped default (the Aspire tests use 4).");
+        text.AppendLine(Invariant, $"- Execution concurrency {configuration.ExecutionConcurrency} per instance (shipped default {configuration.ShippedConcurrency}; the Aspire tests use 4); {(configuration.Timings == "Shipped" ? "the shipped timings of `appsettings.json`" : "the AppHost's test timings, as in 013")}.");
         text.AppendLine(configuration.Signed
             ? "- Outgoing messages signed with a generated ECDSA P-256 key (`Payments:Signing:AllowUnsignedInDevelopment` off)."
             : "- Outgoing messages unsigned (`Payments:Signing:AllowUnsignedInDevelopment` on).");

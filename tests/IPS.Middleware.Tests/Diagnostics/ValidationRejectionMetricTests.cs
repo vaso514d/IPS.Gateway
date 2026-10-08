@@ -25,7 +25,7 @@ public sealed class ValidationRejectionMetricTests
         };
         listener.SetMeasurementEventCallback<long>((_, _, tags, _) => counted.Add((string)tags[0].Value!));
         listener.Start();
-        var submission = new OutgoingSubmission(new Rejecting(), new OutgoingExecutionOptions(enabled: true), TimeProvider.System);
+        var submission = new OutgoingSubmission(new Rejecting(), new(), new OutgoingExecutionOptions(enabled: true), TimeProvider.System);
 
         var result = await submission.SubmitAsync(new Pain002Request(), "{}", default);
 

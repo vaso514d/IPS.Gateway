@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 
 namespace IPS.Middleware.Performance;
 
-// The AppHost's stack for one run (SQL Server container, simulators, API instances as projects), with plain HTTP clients: no
-// retry or resilience handler, so every request the generator makes reaches the service exactly once.
+// The AppHost's stack for one run (SQL Server container, simulators, API instances as projects) with the chosen timings, and
+// plain HTTP clients: no retry or resilience handler, so every request the generator makes reaches the service exactly once.
 internal sealed class LoadStack : IAsyncDisposable
 {
     private static readonly TimeSpan StartTimeout = TimeSpan.FromMinutes(5);
@@ -19,7 +19,8 @@ internal sealed class LoadStack : IAsyncDisposable
         var endpoints = Enumerable.Range(1, instances)
             .Select(number => application.GetEndpoint(Name(number), "http"))
             .ToArray();
-        // The API answers within its HttpWait (21 s in the AppHost); a request still open after a minute counts as unanswered.
+        // The API answers within its HttpWait (30 s shipped, 21 s in the test timings); a request still open after a minute counts as
+        // unanswered.
         Instances = endpoints
             .Select(endpoint => new HttpClient { BaseAddress = endpoint, Timeout = TimeSpan.FromMinutes(1) })
             .ToArray();
@@ -34,13 +35,14 @@ internal sealed class LoadStack : IAsyncDisposable
     internal IReadOnlyList<HttpClient> Probes { get; }
     internal HttpClient Simulators { get; }
 
-    internal static async Task<LoadStack> StartAsync(int instances, int concurrency, bool signing, CancellationToken cancellationToken)
+    internal static async Task<LoadStack> StartAsync(int instances, int concurrency, bool signing, string timings, CancellationToken cancellationToken)
     {
         var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.IPS_Middleware_AppHost>(
         [
             $"--Middleware:Instances={instances}",
             $"--Middleware:Concurrency={concurrency}",
-            $"--Middleware:Signing={signing}"
+            $"--Middleware:Signing={signing}",
+            $"--Middleware:Timings={timings}"
         ], cancellationToken);
         // Writing every resource's log lines would cost the machine time under load; the orchestrator's warnings and errors still
         // show, and the instances' own logs are counted by InstanceLogs. The AppHost's health checks fail while the containers

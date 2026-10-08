@@ -5,8 +5,8 @@ using System.Text.Json;
 
 namespace IPS.Middleware.Performance;
 
-// The 013 measurement: start the stack at the shipped execution concurrency with signed messages, warm up, measure, drain, then
-// check everything the simulators received against everything the generator sent.
+// The 013 measurement: start the stack with the shipped timings at the chosen execution concurrency with signed messages, warm up,
+// measure, drain, then check everything the simulators received against everything the generator sent and the service recorded.
 internal static class PerformanceRun
 {
     // A deployment signs every message, so the measurement includes signing; the simulated IPS does not verify the signature.
@@ -16,16 +16,23 @@ internal static class PerformanceRun
     internal static async Task<PerformanceReport> ExecuteAsync(RunOptions options, TextWriter log, CancellationToken cancellationToken)
     {
         var shipped = ServiceSettings.Shipped();
-        var concurrency = int.Parse(shipped["Payments:Outgoing:Execution:Concurrency"] ?? "", CultureInfo.InvariantCulture);
+        var shippedConcurrency = int.Parse(shipped["Payments:Outgoing:Execution:Concurrency"] ?? "", CultureInfo.InvariantCulture);
+        var concurrency = options.Concurrency ?? shippedConcurrency;
         log.WriteLine($"Starting the stack: {options.Instances} API instances at execution concurrency {concurrency}, signing {Signing}.");
-        await using var stack = await LoadStack.StartAsync(options.Instances, concurrency, Signing, cancellationToken);
+        await using var stack = await LoadStack.StartAsync(options.Instances, concurrency, Signing, options.Timings, cancellationToken);
         var connectionString = await stack.ConnectionStringAsync(cancellationToken);
         await DelayIpsAsync(stack.Simulators, options.IpsDelay, cancellationToken);
         var machine = await Machine.DescribeAsync(cancellationToken);
-        var logs = await Task.WhenAll(Enumerable.Range(1, options.Instances).Select(number => stack.LogsOfAsync(number, cancellationToken)));
+        var logs = options.CollectLogs
+            ? await Task.WhenAll(Enumerable.Range(1, options.Instances).Select(number => stack.LogsOfAsync(number, cancellationToken)))
+            : [];
+        var waitsBefore = options.Diagnose ? await DatabaseDiagnosis.StartAsync(connectionString, cancellationToken) : null;
         var startedAtUtc = DateTimeOffset.UtcNow;
         using var stopSampling = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var sampling = Readiness.SampleAsync(stack.Probes, stopSampling.Token);
+        var connections = options.Diagnose
+            ? Connections.SampleAsync(connectionString, stopSampling.Token)
+            : Task.FromResult<IReadOnlyDictionary<int, int>>(new Dictionary<int, int>());
         IReadOnlyList<SentPayment> payments;
         DrainResult drain;
         try
@@ -40,11 +47,16 @@ internal static class PerformanceRun
         }
 
         var readiness = await sampling;
+        var connectionPeaks = Connections.Peaks(await connections);
         var logSummaries = logs
             .Select(instance => instance.Stop())
             .ToArray();
-        log.WriteLine($"{DateTimeOffset.UtcNow:HH:mm:ss} Collecting what the simulators received.");
+        log.WriteLine($"{DateTimeOffset.UtcNow:HH:mm:ss} Collecting what the simulators received and the service recorded.");
         var received = await SimulatorRecord.ReadAsync(stack.Simulators, cancellationToken);
+        var deliveries = await DeliveryRecords.ReadAsync(connectionString, cancellationToken);
+        var diagnosis = waitsBefore is null
+            ? null
+            : await DatabaseDiagnosis.ReadAsync(connectionString, startedAtUtc, waitsBefore, connectionPeaks, cancellationToken);
         var environments = Enumerable.Range(1, options.Instances)
             .Select(stack.EnvironmentOf)
             .ToArray();
@@ -52,7 +64,10 @@ internal static class PerformanceRun
             options.Instances,
             "projects",
             concurrency,
+            shippedConcurrency,
+            options.Timings,
             Signing,
+            options.CollectLogs,
             options.WarmUpRate,
             options.WarmUp,
             options.Rate,
@@ -66,9 +81,11 @@ internal static class PerformanceRun
             machine,
             payments,
             received,
+            deliveries,
             drain,
             readiness,
             logSummaries,
+            diagnosis,
             ServiceSettings.Differences(shipped, environments));
     }
 

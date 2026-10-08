@@ -4,7 +4,10 @@ using Microsoft.Extensions.Configuration;
 namespace IPS.Middleware.Performance;
 
 // What one run does. The defaults are the owner's baseline (013): one minute at 10 requests per second to warm up, ten minutes at
-// 50 per second measured, up to two minutes for the last callbacks, two instances and a 100 ms simulated IPS.
+// 50 per second measured, up to two minutes for the last callbacks, two instances and a 100 ms simulated IPS; since 013a the
+// shipped timings and execution concurrency, without the instances' logs and without the database diagnosis.
+// Concurrency null means the shipped value; Timings Test reproduces the AppHost's fast test timings of 013; Label names the
+// report files.
 internal sealed record RunOptions(
     int Rate,
     TimeSpan Duration,
@@ -13,7 +16,12 @@ internal sealed record RunOptions(
     TimeSpan Drain,
     int Instances,
     TimeSpan IpsDelay,
-    string Output)
+    string Output,
+    int? Concurrency = null,
+    bool CollectLogs = false,
+    bool Diagnose = false,
+    string Label = "baseline",
+    string Timings = "Shipped")
 {
     internal static RunOptions From(IConfiguration configuration) => new(
         int.Parse(configuration["Rate"] ?? "50", CultureInfo.InvariantCulture),
@@ -23,7 +31,12 @@ internal sealed record RunOptions(
         TimeSpan.Parse(configuration["Drain"] ?? "00:02:00", CultureInfo.InvariantCulture),
         int.Parse(configuration["Instances"] ?? "2", CultureInfo.InvariantCulture),
         TimeSpan.Parse(configuration["IpsDelay"] ?? "00:00:00.100", CultureInfo.InvariantCulture),
-        Path.GetFullPath(configuration["Output"] ?? Path.Combine(Repository.Root, "docs", "performance")));
+        Path.GetFullPath(configuration["Output"] ?? Path.Combine(Repository.Root, "docs", "performance")),
+        configuration["Concurrency"] is { } concurrency ? int.Parse(concurrency, CultureInfo.InvariantCulture) : null,
+        bool.Parse(configuration["CollectLogs"] ?? "false"),
+        bool.Parse(configuration["Diagnose"] ?? "false"),
+        configuration["Label"] ?? "baseline",
+        configuration["Timings"] ?? "Shipped");
 }
 
 // Where the run finds the repository: the AppHost project is tests/IPS.Middleware.AppHost.

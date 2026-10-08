@@ -6,7 +6,10 @@ internal sealed record RunConfiguration(
     int Instances,
     string ApiRunAs,
     int ExecutionConcurrency,
+    int ShippedConcurrency,
+    string Timings,
     bool Signed,
+    bool LogsCollected,
     int WarmUpRate,
     TimeSpan WarmUp,
     int Rate,
@@ -37,6 +40,7 @@ internal sealed record PerformanceReport(
     DrainResult Drain,
     IReadOnlyList<ReadinessSample> Readiness,
     IReadOnlyList<InstanceLogSummary> Logs,
+    DatabaseDiagnosis? Diagnosis,
     Machine Machine,
     RunConfiguration Configuration,
     IReadOnlyList<SettingDifference> Settings)
@@ -49,9 +53,11 @@ internal sealed record PerformanceReport(
         Machine machine,
         IReadOnlyList<SentPayment> payments,
         SimulatorRecord received,
+        ILookup<string, DeliveryRecord> deliveries,
         DrainResult drain,
         IReadOnlyList<ReadinessSample> readiness,
         IReadOnlyList<InstanceLogSummary> logs,
+        DatabaseDiagnosis? diagnosis,
         IReadOnlyList<SettingDifference> settings)
     {
         var traffic = IpsTraffic.Of(received.Messages);
@@ -59,7 +65,7 @@ internal sealed record PerformanceReport(
             .Select(CoreReport.Read)
             .OfType<CoreReport>()
             .ToArray();
-        var outcomes = PaymentOutcome.Match(payments, traffic, reports);
+        var outcomes = PaymentOutcome.Match(payments, traffic, reports, deliveries);
         var measured = outcomes
             .Where(outcome => outcome.Payment.Phase == Phase.Measured)
             .ToArray();
@@ -87,13 +93,15 @@ internal sealed record PerformanceReport(
             drain,
             readiness,
             logs,
+            diagnosis,
             machine,
             configuration,
             settings);
     }
 
-    // The owner's targets (013): settlement p95 and p99; nothing lost, left unsent or duplicated; no 5xx and nothing but 200 or 504;
-    // readiness Healthy throughout; a generator that held its rate; and the drain's check that no work is left due.
+    // The owner's targets (013): settlement p95 and p99; nothing lost, left unsent or duplicated (a repeated callback only after an
+    // unknown delivery outcome, 013a decision 1); no 5xx and nothing but 200 or 504; readiness Healthy throughout; a generator that
+    // held its rate; and the drain's check that no work is left due.
     private static IReadOnlyList<Target> Evaluate(
         Distribution settlement,
         Distribution lag,
@@ -120,7 +128,9 @@ internal sealed record PerformanceReport(
             new("Duplicate sends", "0", string.Create(Invariant,
                 $"{correctness.DuplicateSends} (flagged possible-duplicate resends of the same bytes, allowed: {correctness.FlaggedResends})"),
                 correctness.DuplicateSends == 0),
-            new("Duplicate callbacks", "0", correctness.DuplicateCallbacks.ToString(Invariant), correctness.DuplicateCallbacks == 0),
+            new("Duplicate callbacks without an unknown delivery outcome before them", "0", string.Create(Invariant,
+                $"{correctness.DuplicateCallbacksWithoutUnknownOutcome} (payments with more than one callback: {correctness.DuplicateCallbacks})"),
+                correctness.DuplicateCallbacksWithoutUnknownOutcome == 0),
             new("5xx responses", "0", string.Create(Invariant,
                 $"{correctness.ServerErrors} (504: {correctness.GatewayTimeouts}; requests without a response: {correctness.Unanswered})"),
                 correctness.ServerErrors == 0 && correctness.Unanswered == 0),

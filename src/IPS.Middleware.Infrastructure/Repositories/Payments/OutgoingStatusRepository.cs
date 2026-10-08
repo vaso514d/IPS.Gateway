@@ -20,16 +20,19 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
     }
 
     public async Task<IReadOnlyList<StatusDeliveryKey>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken) =>
-        await CurrentDeliveries()
-            .AsNoTracking()
-            .Where(x => x.State == StatusDeliveryState.Pending)
-            .Where(x => x.ClaimToken == null ? x.NextAtUtc <= now : x.ClaimExpiresAtUtc <= now)
+        await Due(now)
             .OrderBy(x => x.NextAtUtc)
             .ThenBy(x => x.PaymentId)
             .ThenBy(x => x.Sequence)
             .Select(x => new StatusDeliveryKey(x.PaymentId, x.Sequence))
             .Take(take)
             .ToListAsync(cancellationToken);
+
+    public async Task<StatusDeliveryKey?> FindDueAsync(Guid paymentId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await Due(now)
+            .Where(x => x.PaymentId == paymentId)
+            .Select(x => new StatusDeliveryKey(x.PaymentId, x.Sequence))
+            .FirstOrDefaultAsync(cancellationToken);
 
     public async Task<StatusDeliveryWork?> ReadWorkAsync(StatusDeliveryKey key, CancellationToken cancellationToken)
     {
@@ -96,7 +99,12 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         delivery.DeliveredAtUtc = result.State == StatusDeliveryState.Delivered ? now.ToUniversalTime() : null;
         delivery.ClaimToken = null;
         delivery.ClaimExpiresAtUtc = null;
-        delivery.LastFailure = failure?.Length > MaxFailureLength ? failure[..MaxFailureLength] : failure;
+        // A success keeps the last failure: it says why an earlier attempt may have reached the core without being recorded.
+        if (failure is not null)
+        {
+            delivery.LastFailure = failure.Length > MaxFailureLength ? failure[..MaxFailureLength] : failure;
+        }
+
         RequireCurrentPaymentVersion(delivery);
         return true;
     }
@@ -117,6 +125,11 @@ public sealed class OutgoingStatusRepository(TransactionDbContext db) : IOutgoin
         RequireCurrentPaymentVersion(delivery);
         return true;
     }
+
+    private IQueryable<OutgoingStatusDeliveryRow> Due(DateTimeOffset now) => CurrentDeliveries()
+        .AsNoTracking()
+        .Where(x => x.State == StatusDeliveryState.Pending)
+        .Where(x => x.ClaimToken == null ? x.NextAtUtc <= now : x.ClaimExpiresAtUtc <= now);
 
     private IQueryable<OutgoingStatusDeliveryRow> CurrentDeliveries() =>
         db.OutgoingStatusDeliveries.Where(x => db.Payments.Any(p => p.Id == x.PaymentId && p.CurrentSequence == x.Sequence));

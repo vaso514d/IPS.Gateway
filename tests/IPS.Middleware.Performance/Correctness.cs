@@ -116,17 +116,20 @@ internal static class Problem
     internal const string Lost = "lost";
     internal const string SentTwice = "sent twice";
     internal const string ReportedTwice = "reported twice";
+    internal const string ReportedTwiceWithoutUnknownOutcome = "reported twice without an unknown delivery outcome";
 
-    internal static readonly string[] All = [NotAnswered200, NotSent, Lost, SentTwice, ReportedTwice];
+    internal static readonly string[] All = [NotAnswered200, NotSent, Lost, SentTwice, ReportedTwice, ReportedTwiceWithoutUnknownOutcome];
 }
 
-// One sent payment with the API's answer and what the simulated IPS and the simulated core received for it, in receive order.
+// One sent payment with the API's answer, what the simulated IPS and the simulated core received for it, in receive order, and
+// the service's records of its callback deliveries.
 internal sealed record PaymentOutcome(
     SentPayment Payment,
     ReportedStatus? Answer,
     IReadOnlyList<IpsMessage> Sends,
     int Investigations,
-    IReadOnlyList<ReportedStatus> Callbacks)
+    IReadOnlyList<ReportedStatus> Callbacks,
+    IReadOnlyList<DeliveryRecord> Deliveries)
 {
     // 200, or 504 for a payment the service took but had no outcome for within its HTTP wait.
     internal bool Accepted => Payment.StatusCode is 200 or 504;
@@ -149,6 +152,12 @@ internal sealed record PaymentOutcome(
 
     internal bool ReportedTwice => Callbacks.Count > 1;
 
+    // Callback delivery is at least once (013a decision 1): a repeat is allowed after an unknown delivery outcome. Each claimed
+    // attempt calls the core at most once, so a repeat is explained when the service recorded at least as many attempts as the
+    // core received callbacks: every attempt before the last then ended without a recorded delivery (the core may have taken it,
+    // the service did not record that). More callbacks than attempts means a call without its own claim, a fencing defect.
+    internal bool ReportedTwiceWithoutUnknownOutcome => ReportedTwice && Callbacks.Count > Deliveries.Sum(delivery => delivery.Attempts);
+
     // From the send to the first callback with a final status: when the core knows the outcome.
     internal TimeSpan? SettlementLatency => Final is { } settled ? settled.AtUtc - Payment.SentAtUtc : null;
 
@@ -167,7 +176,11 @@ internal sealed record PaymentOutcome(
     internal string Describe() => string.Create(CultureInfo.InvariantCulture,
         $"{Payment.Reference}: sent {Payment.SentAtUtc:HH:mm:ss.fff} to middleware-{Payment.Instance}, answered {AnswerLabel}, " +
         $"IPS sends {Sends.Count} (flagged {Sends.Count(message => message.PossibleDuplicate)}), investigations {Investigations}, " +
-        $"callbacks [{string.Join(", ", Callbacks.Select(callback => callback.Label))}]");
+        $"callbacks [{string.Join(", ", Callbacks.Select(callback => callback.Label))}], " +
+        $"deliveries [{string.Join(", ", Deliveries.Select(Describe))}]");
+
+    private static string Describe(DeliveryRecord delivery) => string.Create(CultureInfo.InvariantCulture,
+        $"#{delivery.Sequence} {delivery.State} after {delivery.Attempts} attempts{(delivery.LastFailure is { } failure ? ", last failure: " + failure : "")}");
 
     internal bool Has(string problem) => problem switch
     {
@@ -176,11 +189,16 @@ internal sealed record PaymentOutcome(
         Problem.Lost => Lost,
         Problem.SentTwice => SentTwice,
         Problem.ReportedTwice => ReportedTwice,
+        Problem.ReportedTwiceWithoutUnknownOutcome => ReportedTwiceWithoutUnknownOutcome,
         _ => false
     };
 
-    // Matches sends and investigations by end-to-end id and callbacks by client reference; both are unique per sent payment.
-    internal static IReadOnlyList<PaymentOutcome> Match(IReadOnlyList<SentPayment> payments, IpsTraffic traffic, IReadOnlyList<CoreReport> reports)
+    // Matches sends and investigations by end-to-end id, callbacks and deliveries by client reference; both are unique per payment.
+    internal static IReadOnlyList<PaymentOutcome> Match(
+        IReadOnlyList<SentPayment> payments,
+        IpsTraffic traffic,
+        IReadOnlyList<CoreReport> reports,
+        ILookup<string, DeliveryRecord> deliveries)
     {
         var callbacks = reports.ToLookup(report => report.ClientReference, report => report.Status);
         return payments
@@ -189,7 +207,8 @@ internal sealed record PaymentOutcome(
                 AnswerOf(payment),
                 traffic.Sends[payment.EndToEndId].OrderBy(message => message.ReceivedAtUtc).ToArray(),
                 traffic.Investigations[payment.EndToEndId].Count(),
-                callbacks[payment.Reference].OrderBy(callback => callback.AtUtc).ToArray()))
+                callbacks[payment.Reference].OrderBy(callback => callback.AtUtc).ToArray(),
+                deliveries[payment.Reference].OrderBy(delivery => delivery.Sequence).ToArray()))
             .ToArray();
     }
 
@@ -233,6 +252,7 @@ internal sealed record Correctness(
     int DuplicateSends,
     int FlaggedResends,
     int DuplicateCallbacks,
+    int DuplicateCallbacksWithoutUnknownOutcome,
     int Investigations,
     int InvestigatedPayments,
     IReadOnlyDictionary<string, int> OtherMessages,
@@ -261,6 +281,7 @@ internal sealed record Correctness(
         outcomes.Count(outcome => outcome.SentTwice),
         outcomes.Count(outcome => outcome.Resent),
         outcomes.Count(outcome => outcome.ReportedTwice),
+        outcomes.Count(outcome => outcome.ReportedTwiceWithoutUnknownOutcome),
         outcomes.Sum(outcome => outcome.Investigations),
         outcomes.Count(outcome => outcome.Investigations > 0),
         traffic.Other,

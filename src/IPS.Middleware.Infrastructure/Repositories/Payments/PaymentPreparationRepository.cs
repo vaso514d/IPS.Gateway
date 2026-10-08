@@ -25,11 +25,13 @@ public sealed class PaymentPreparationRepository(TransactionDbContext db) : IPay
             return null;
         }
 
-        var ready = await db.OutgoingMessages
+        // Without TOP, as OutgoingJournal.Single explains.
+        var initial = await db.OutgoingMessages
             .AsNoTracking()
             .Where(x => x.PaymentId == paymentId && x.Direction == OutgoingMessageDirection.Outbound)
             .Where(OutgoingJournal.IsInitial)
-            .SingleOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        var ready = initial.SingleOrDefault();
         var signedXml = ready?.Disposition == SubmissionMessageKind.Signed ? ready.Content : null;
 
         return new PreparedPaymentMessage(

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests;
@@ -57,6 +58,21 @@ public sealed class HostTests
         using var client = factory.CreateClient();
         using var response = await client.PostAsync(path, new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    // Every SQL command at Information was about 50 log entries per payment (013a); failed commands are still logged, as errors.
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Production")]
+    public void Shipped_logging_writes_sql_commands_only_from_warning_and_keeps_the_service_at_information(string environment)
+    {
+        using var factory = new MiddlewareFactory(environment);
+        var loggers = factory.Services.GetRequiredService<ILoggerFactory>();
+        var commands = loggers.CreateLogger("Microsoft.EntityFrameworkCore.Database.Command");
+        var service = loggers.CreateLogger("IPS.Middleware.Infrastructure.Payments.Execution.OutgoingRuntime");
+        Assert.False(commands.IsEnabled(LogLevel.Information));
+        Assert.True(commands.IsEnabled(LogLevel.Warning));
+        Assert.True(service.IsEnabled(LogLevel.Information));
     }
 
     [Theory]

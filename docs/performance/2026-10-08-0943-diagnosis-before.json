@@ -1,0 +1,1920 @@
+{
+  "startedAtUtc": "2026-10-08T09:43:10.9289094+00:00",
+  "finishedAtUtc": "2026-10-08T09:49:16.018144+00:00",
+  "passed": false,
+  "targets": [
+    {
+      "name": "Settlement latency p95",
+      "limit": "<= 1000 ms",
+      "observed": "286442.5 ms (488 samples)",
+      "passed": false
+    },
+    {
+      "name": "Settlement latency p99",
+      "limit": "<= 2000 ms",
+      "observed": "291183.3 ms (488 samples)",
+      "passed": false
+    },
+    {
+      "name": "Lost payments (accepted, no final callback)",
+      "limit": "0",
+      "observed": "8512 (without a callback 8512, callbacks but none final 0)",
+      "passed": false
+    },
+    {
+      "name": "Accepted payments not sent to IPS",
+      "limit": "0",
+      "observed": "51 (never received by the simulated IPS 51, reported NotSent 0)",
+      "passed": false
+    },
+    {
+      "name": "Duplicate sends",
+      "limit": "0",
+      "observed": "0 (flagged possible-duplicate resends of the same bytes, allowed: 0)",
+      "passed": true
+    },
+    {
+      "name": "Duplicate callbacks without an unknown delivery outcome before them",
+      "limit": "0",
+      "observed": "0 (payments with more than one callback: 0)",
+      "passed": true
+    },
+    {
+      "name": "5xx responses",
+      "limit": "0",
+      "observed": "0 (504: 0; requests without a response: 0)",
+      "passed": true
+    },
+    {
+      "name": "Every response is 200 or 504",
+      "limit": "0 others",
+      "observed": "0 others (200: 9600)",
+      "passed": true
+    },
+    {
+      "name": "Readiness Healthy throughout",
+      "limit": "every sample of every instance",
+      "observed": "146 of 146 samples Healthy, 2 of 2 instances sampled",
+      "passed": true
+    },
+    {
+      "name": "Generator lag p99",
+      "limit": "<= 50 ms",
+      "observed": "14.8 ms (9000 samples)",
+      "passed": true
+    },
+    {
+      "name": "Work due after the drain (ips.backlog.due)",
+      "limit": "0",
+      "observed": "8512 (outgoing_payments 0, incoming_payments 0, incoming_transfers 0, inbound_receipts 0, callbacks 8512)",
+      "passed": false
+    }
+  ],
+  "settlement": {
+    "samples": 488,
+    "min": 150203.3636,
+    "mean": 221915.00167336062,
+    "p50": 220796.9627,
+    "p95": 286442.471,
+    "p99": 291183.2836,
+    "max": 291259.7797
+  },
+  "response": {
+    "samples": 9000,
+    "min": 215.8862,
+    "mean": 670.8741944555558,
+    "p50": 243.6493,
+    "p95": 417.6779,
+    "p99": 19415.4067,
+    "max": 24438.8483
+  },
+  "lag": {
+    "samples": 9000,
+    "min": -1.7915,
+    "mean": 7.017521777777771,
+    "p50": 6.9443,
+    "p95": 13.9174,
+    "p99": 14.7708,
+    "max": 35.7329
+  },
+  "throughput": {
+    "plannedRate": 50,
+    "sentPerSecond": 50,
+    "callbacksPerSecond": 2.76,
+    "executionSlots": 16,
+    "maxInFlight": 95,
+    "arrivalsAtFullSlots": 3966
+  },
+  "correctness": {
+    "sent": 9600,
+    "responses": {
+      "200": 9600
+    },
+    "answers": {
+      "200 Accepted": 9549,
+      "200 NotSent TM01/1015": 51
+    },
+    "accepted": 9600,
+    "serverErrors": 0,
+    "gatewayTimeouts": 0,
+    "neitherOkNorTimeout": 0,
+    "unanswered": 0,
+    "notReceivedByIps": 51,
+    "reportedNotSent": 0,
+    "acceptedNotSent": 51,
+    "withoutCallback": 8512,
+    "withoutFinalStatus": 0,
+    "lost": 8512,
+    "finalStatuses": {
+      "no final callback": 8512,
+      "Accepted": 1088
+    },
+    "duplicateSends": 0,
+    "flaggedResends": 0,
+    "duplicateCallbacks": 0,
+    "duplicateCallbacksWithoutUnknownOutcome": 0,
+    "investigations": 0,
+    "investigatedPayments": 0,
+    "otherMessages": {},
+    "unmatchedMessages": 0,
+    "unmatchedCallbacks": 0,
+    "examples": [
+      {
+        "reference": "perf-4cb878f3742b",
+        "problems": [
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-4cb878f3742b: sent 09:46:18.376 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [], deliveries [#3 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-25aa1a5ab451",
+        "problems": [
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-25aa1a5ab451: sent 09:46:18.437 to middleware-2, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [], deliveries [#3 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-15a3affbc8da",
+        "problems": [
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-15a3affbc8da: sent 09:46:26.135 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [], deliveries [#3 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-09254d8ea3f8",
+        "problems": [
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-09254d8ea3f8: sent 09:46:28.104 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [], deliveries [#3 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-8107bc0aad8c",
+        "problems": [
+          "accepted, not sent",
+          "lost"
+        ],
+        "description": "perf-8107bc0aad8c: sent 09:46:29.218 to middleware-1, answered 200 NotSent TM01/1015, IPS sends 0 (flagged 0), investigations 0, callbacks [], deliveries [#3 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-693549d25c0b",
+        "problems": [
+          "lost"
+        ],
+        "description": "perf-693549d25c0b: sent 09:44:20.701 to middleware-1, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [], deliveries [#6 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-7f4d9400ac8f",
+        "problems": [
+          "lost"
+        ],
+        "description": "perf-7f4d9400ac8f: sent 09:44:20.717 to middleware-2, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [], deliveries [#6 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-aeb0b377237f",
+        "problems": [
+          "lost"
+        ],
+        "description": "perf-aeb0b377237f: sent 09:44:20.747 to middleware-1, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [], deliveries [#6 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-47942bb78821",
+        "problems": [
+          "lost"
+        ],
+        "description": "perf-47942bb78821: sent 09:44:20.763 to middleware-2, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [], deliveries [#6 Pending after 0 attempts]"
+      },
+      {
+        "reference": "perf-3643d27009b2",
+        "problems": [
+          "lost"
+        ],
+        "description": "perf-3643d27009b2: sent 09:44:20.779 to middleware-1, answered 200 Accepted, IPS sends 1 (flagged 0), investigations 0, callbacks [], deliveries [#6 Pending after 0 attempts]"
+      }
+    ]
+  },
+  "instances": [
+    {
+      "instance": 1,
+      "sent": 4800,
+      "responses": {
+        "200": 4800
+      },
+      "acceptedNotSent": 26,
+      "lost": 4256,
+      "duplicateCallbacks": 0,
+      "firstFailureAtUtc": "2026-10-08T09:44:20.7019344+00:00"
+    },
+    {
+      "instance": 2,
+      "sent": 4800,
+      "responses": {
+        "200": 4800
+      },
+      "acceptedNotSent": 25,
+      "lost": 4256,
+      "duplicateCallbacks": 0,
+      "firstFailureAtUtc": "2026-10-08T09:44:20.7171957+00:00"
+    }
+  ],
+  "timeline": [
+    {
+      "fromUtc": "2026-10-08T09:43:10.938317+00:00",
+      "phase": "WarmUp",
+      "sent": 600,
+      "ok": 600,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 0,
+      "duplicateCallbacks": 0,
+      "settlementP95": 137094.975
+    },
+    {
+      "fromUtc": "2026-10-08T09:44:10.938317+00:00",
+      "phase": "Measured",
+      "sent": 3001,
+      "ok": 3001,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 0,
+      "duplicateCallbacks": 0,
+      "settlementP95": 286442.471
+    },
+    {
+      "fromUtc": "2026-10-08T09:45:10.938317+00:00",
+      "phase": "Measured",
+      "sent": 3000,
+      "ok": 3000,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 0,
+      "duplicateCallbacks": 0,
+      "settlementP95": 0
+    },
+    {
+      "fromUtc": "2026-10-08T09:46:10.938317+00:00",
+      "phase": "Measured",
+      "sent": 2999,
+      "ok": 2999,
+      "gatewayTimeouts": 0,
+      "serverErrors": 0,
+      "otherAnswers": 0,
+      "notSent": 51,
+      "duplicateCallbacks": 0,
+      "settlementP95": 0
+    }
+  ],
+  "drain": {
+    "took": "00:02:00.6431340",
+    "completed": false,
+    "backlog": {
+      "due": [
+        {
+          "kind": "outgoing_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_payments",
+          "count": 0
+        },
+        {
+          "kind": "incoming_transfers",
+          "count": 0
+        },
+        {
+          "kind": "inbound_receipts",
+          "count": 0
+        },
+        {
+          "kind": "callbacks",
+          "count": 8512
+        }
+      ],
+      "notFinalPayments": 0,
+      "pendingCallbacks": 8512
+    }
+  },
+  "readiness": [
+    {
+      "atUtc": "2026-10-08T09:43:10.9309874+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:10.931641+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:15.9416439+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:15.9417025+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:20.9386283+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:20.9387181+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:25.9408027+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:25.9408838+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:30.9352218+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:30.9353204+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:35.9320803+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:35.9321949+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:40.9299301+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:40.9300384+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:45.9411631+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:45.9412587+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:50.9393648+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:50.9394513+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:55.9419256+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:43:55.9420564+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:00.9357327+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:00.9358901+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:05.9394419+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:05.939537+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:10.9406483+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:10.9407469+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:15.9391526+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:15.9392722+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:20.9303184+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:20.9304324+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:25.9349649+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:25.9350482+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:30.9367407+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:30.9367842+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:35.9343118+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:35.9344002+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:40.9306259+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:40.9307233+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:45.933226+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:45.9332985+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:50.9326755+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:50.9328918+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:55.9433645+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:44:55.9434868+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:00.9304066+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:00.9304888+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:05.9313251+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:05.931437+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:10.9350673+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:10.9352143+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:15.9407023+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:15.9408064+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:20.9412766+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:20.9413621+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:25.9347236+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:25.9348644+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:30.9433191+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:30.9434018+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:35.9389469+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:35.9390119+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:40.9340632+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:40.9341403+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:45.9370662+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:45.9371605+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:50.9362923+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:50.9365221+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:55.9427936+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:45:55.9428747+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:00.9400352+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:00.9400959+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:05.9383653+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:05.9384708+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:10.9329942+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:10.9330873+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:15.9351663+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:15.9352087+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:20.9386108+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:20.9387024+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:25.9380159+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:25.9381025+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:30.9382851+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:30.9383777+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:35.9311562+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:35.9312502+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:40.9418267+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:40.9419112+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:45.9409598+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:45.9410354+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:50.9358819+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:50.9360373+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:55.9338157+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:46:55.9340512+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:00.9428508+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:00.9429365+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:05.9429613+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:05.9430473+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:10.9413321+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:10.9414134+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:15.9373942+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:15.937521+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:20.9430699+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:20.9432136+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:25.9387338+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:25.9389133+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:30.935914+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:30.9360437+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:35.9357839+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:35.93594+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:40.9330984+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:40.9332184+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:45.9428958+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:45.9430673+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:50.9323862+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:50.9325681+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:55.9359835+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:47:55.9360931+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:00.9378392+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:00.93794+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:05.9306233+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:05.9307578+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:10.9390457+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:10.9391845+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:15.9320926+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:15.9321904+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:20.9377549+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:20.9378941+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:25.9450787+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:25.9451863+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:30.9449969+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:30.9451324+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:35.9382689+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:35.9384078+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:40.9369655+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:40.9371078+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:45.9312214+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:45.9313413+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:50.9330105+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:50.9331256+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:55.9380983+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:48:55.9382039+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:00.9391599+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:00.939339+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:05.9450577+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:05.9451767+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:10.9295105+00:00",
+      "instance": 1,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    },
+    {
+      "atUtc": "2026-10-08T09:49:10.9295935+00:00",
+      "instance": 2,
+      "statusCode": 200,
+      "answer": "Healthy",
+      "healthy": true
+    }
+  ],
+  "logs": [
+    {
+      "instance": 1,
+      "entriesByLevel": {},
+      "top": []
+    },
+    {
+      "instance": 2,
+      "entriesByLevel": {},
+      "top": []
+    }
+  ],
+  "diagnosis": {
+    "queries": [
+      {
+        "queryId": 9,
+        "executions": 64349,
+        "failed": 0,
+        "totalMilliseconds": 42885.272,
+        "meanMilliseconds": 0.6664481499324,
+        "maxMilliseconds": 324.862,
+        "cpuMilliseconds": 5012.492,
+        "meanLogicalReads": 8.806927846586582,
+        "waitMilliseconds": {
+          "Lock": 37835,
+          "Buffer Latch": 30
+        },
+        "text": "(@reference nvarchar(35))SELECT TOP(2) [t].[Id], [t].[AcceptedJson], [t].[ClaimExpiresAtUtc], [t].[ClaimToken], [t].[Direction], [t].[MessageId], [t].[NextActionAtUtc], [t].[ProtocolTransactionId], [t].[RequestJson], [t].[RowVersion], [t].[UnsignedXml], [t0].[Id], [t0].[AggregateKind], [t0].[ClientReference], [t0].[CreatedAtUtc], [t0].[CurrentDescription], [t0].[CurrentIpsInternalCode], [t0].[CurrentReasonCode], [t0].[CurrentSequence], [t0].[CurrentSource], [t0].[CurrentStatus], [t0].[CurrentStatusAtUtc], [t0].[LastSequence], [t0].[MessageType], [t0].[RecallRefusedAtUtc], [t0].[RowVersion] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t0].[ClientReference] = @reference",
+        "plan": "Compute Scalar > Top > Nested Loops > Nested Loops > Index Seek [Transactions].[IX_Transactions_ClientReference] > Clustered Index Seek (lookup) [Transactions].[PK_Transactions] > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 5,
+        "executions": 1552,
+        "failed": 0,
+        "totalMilliseconds": 14179.274,
+        "meanMilliseconds": 9.136130154639176,
+        "maxMilliseconds": 441.472,
+        "cpuMilliseconds": 290.088,
+        "meanLogicalReads": 28.159149484536083,
+        "waitMilliseconds": {
+          "Lock": 13884,
+          "Memory": 6,
+          "CPU": 2
+        },
+        "text": "(@status int,@now datetimeoffset(7),@p int)SELECT TOP(@p) [t].[Id] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t0].[CurrentStatus] = @status AND [t].[ClaimToken] IS NULL AND ([t].[NextActionAtUtc] IS NULL OR [t].[NextActionAtUtc] <= @now) ORDER BY CASE WHEN [t0].[MessageType] = N'pacs.008' THEN 0 ELSE 1 END, [t0].[CurrentStatusAtUtc], [t].[Id]",
+        "plan": "Top > Nested Loops > Sort > Compute Scalar > Index Seek [Transactions].[IX_Transactions_CurrentStatus_MessageType_CurrentStatusAtUtc_Id] > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 19,
+        "executions": 19098,
+        "failed": 0,
+        "totalMilliseconds": 4412.144,
+        "meanMilliseconds": 0.23102649492093413,
+        "maxMilliseconds": 56.255,
+        "cpuMilliseconds": 4213.498,
+        "meanLogicalReads": 47.843962718609276,
+        "waitMilliseconds": {
+          "Memory": 468,
+          "Preemptive": 191,
+          "Buffer IO": 113,
+          "Buffer Latch": 30,
+          "Latch": 24,
+          "CPU": 14,
+          "Tran Log IO": 8
+        },
+        "text": "(@p0 uniqueidentifier,@p1 nvarchar(4000),@p2 datetimeoffset(7),@p3 int,@p4 int,@p5 nvarchar(2000),@p6 nvarchar(4000),@p7 int,@p8 uniqueidentifier,@p9 nvarchar(35),@p10 uniqueidentifier,@p11 uniqueidentifier,@p12 datetimeoffset(7),@p13 uniqueidentifier,@p14 datetimeoffset(7),@p15 int,@p16 uniqueidentifier)INSERT INTO [OutgoingMessages] ([Id], [Content], [CreatedAtUtc], [Direction], [Disposition], [Failure], [HeadersJson], [HttpStatusCode], [InvestigationId], [MessageDefinition], [OriginatingMessageId], [PaymentId], [ProcessedAtUtc], [ResendId], [StartedAtUtc], [Status], [SubmissionOwner]) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16)",
+        "plan": "Assert > Nested Loops > Assert > Nested Loops > Nested Loops > Nested Loops > Assert > Clustered Index Insert > Compute Scalar > Compute Scalar > Constant Scan > Index Seek [OutgoingInvestigations].[AK_OutgoingInvestigations_Id_PaymentId] > Index Seek [OutgoingResends].[AK_OutgoingResends_Id_PaymentId] > Clustered Index Seek [Transactions].[PK_Transactions] > Index Seek [OutgoingMessages].[AK_OutgoingMessages_Id_PaymentId]"
+      },
+      {
+        "queryId": 7,
+        "executions": 9600,
+        "failed": 0,
+        "totalMilliseconds": 3039.073,
+        "meanMilliseconds": 0.3165701041666667,
+        "maxMilliseconds": 116.5,
+        "cpuMilliseconds": 2671.445,
+        "meanLogicalReads": 50.05166666666667,
+        "waitMilliseconds": {
+          "Memory": 345,
+          "Preemptive": 264,
+          "Latch": 199,
+          "Buffer IO": 106,
+          "Buffer Latch": 33,
+          "Tran Log IO": 18,
+          "Other Disk IO": 1
+        },
+        "text": "(@p2 uniqueidentifier,@p3 nvarchar(4000),@p4 datetimeoffset(7),@p5 uniqueidentifier,@p6 int,@p7 nvarchar(35),@p8 datetimeoffset(7),@p9 nvarchar(35),@p10 nvarchar(4000),@p11 nvarchar(4000),@p12 nvarchar(35),@p13 datetimeoffset(7),@p14 nvarchar(2000),@p15 int,@p16 nvarchar(35),@p17 int,@p18 int,@p19 int,@p20 datetimeoffset(7),@p21 int,@p22 nvarchar(16),@p23 datetimeoffset(7))INSERT INTO [Transactions] ([Id], [AcceptedJson], [ClaimExpiresAtUtc], [ClaimToken], [Direction], [MessageId], [NextActionAtUtc], [ProtocolTransactionId], [RequestJson], [UnsignedXml], [ClientReference], [CreatedAtUtc], [CurrentDescription], [CurrentIpsInternalCode], [CurrentReasonCode], [CurrentSequence], [CurrentSource], [CurrentStatus], [CurrentStatusAtUtc], [LastSequence], [MessageType], [RecallRefusedAtUtc]) OUTPUT INSERTED.[RowVersion], INSERTED.[AggregateKind] VALUES (@p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16, @p17, @p18, @p19, @p20, @p21, @p22, @p23)",
+        "plan": "Compute Scalar > Assert > Nested Loops > Assert > Clustered Index Insert > Compute Scalar > Compute Scalar > Constant Scan > Index Seek [AggregateIdentities].[AK_AggregateIdentities_Id_Kind]"
+      },
+      {
+        "queryId": 22,
+        "executions": 19098,
+        "failed": 0,
+        "totalMilliseconds": 2971.121,
+        "meanMilliseconds": 0.15557236359828255,
+        "maxMilliseconds": 17.427,
+        "cpuMilliseconds": 2965.231,
+        "meanLogicalReads": 15.993611896533668,
+        "waitMilliseconds": {
+          "Memory": 162,
+          "Preemptive": 5
+        },
+        "text": "(@p15 uniqueidentifier,@p0 nvarchar(4000),@p1 datetimeoffset(7),@p2 int,@p3 int,@p4 nvarchar(2000),@p5 nvarchar(4000),@p6 int,@p7 uniqueidentifier,@p8 nvarchar(35),@p9 uniqueidentifier,@p10 datetimeoffset(7),@p11 uniqueidentifier,@p12 datetimeoffset(7),@p13 int,@p14 uniqueidentifier)UPDATE [OutgoingMessages] SET [Content] = @p0, [CreatedAtUtc] = @p1, [Direction] = @p2, [Disposition] = @p3, [Failure] = @p4, [HeadersJson] = @p5, [HttpStatusCode] = @p6, [InvestigationId] = @p7, [MessageDefinition] = @p8, [OriginatingMessageId] = @p9, [ProcessedAtUtc] = @p10, [ResendId] = @p11, [StartedAtUtc] = @p12, [Status] = @p13, [SubmissionOwner] = @p14 OUTPUT 1 WHERE [Id] = @p15",
+        "plan": "Compute Scalar > Sequence > Table Spool > Split > Assert > Nested Loops > Nested Loops > Assert > Compute Scalar > Clustered Index Update > Compute Scalar > Compute Scalar > Compute Scalar > Clustered Index Seek [OutgoingMessages].[PK_OutgoingMessages] > Index Seek [OutgoingInvestigations].[AK_OutgoingInvestigations_Id_PaymentId] > Index Seek [OutgoingResends].[AK_OutgoingResends_Id_PaymentId] > Assert > Nested Loops > Table Spool > Index Seek [OutgoingMessages].[AK_OutgoingMessages_Id_PaymentId] > Filter > Table Spool"
+      },
+      {
+        "queryId": 8,
+        "executions": 28749,
+        "failed": 0,
+        "totalMilliseconds": 2869.631,
+        "meanMilliseconds": 0.0998167240599673,
+        "maxMilliseconds": 69.059,
+        "cpuMilliseconds": 2669.606,
+        "meanLogicalReads": 19.506869804167103,
+        "waitMilliseconds": {
+          "Preemptive": 207,
+          "Buffer IO": 119,
+          "Memory": 94,
+          "Latch": 50,
+          "Buffer Latch": 15,
+          "Tran Log IO": 4,
+          "Other Disk IO": 2
+        },
+        "text": "(@p0 int,@p1 uniqueidentifier,@p2 varchar(32),@p3 uniqueidentifier,@p4 nvarchar(100),@p5 datetimeoffset(7),@p6 nvarchar(4000),@p7 int)INSERT INTO [TransactionEvents] ([Sequence], [TransactionId], [AggregateKind], [EventId], [Name], [OccurredAtUtc], [PayloadJson], [SchemaVersion]) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7)",
+        "plan": "Assert > Nested Loops > Assert > Clustered Index Insert > Index Seek [AggregateIdentities].[AK_AggregateIdentities_Id_Kind]"
+      },
+      {
+        "queryId": 11,
+        "executions": 9684,
+        "failed": 0,
+        "totalMilliseconds": 2059.546,
+        "meanMilliseconds": 0.21267513424204873,
+        "maxMilliseconds": 51.553,
+        "cpuMilliseconds": 862.84,
+        "meanLogicalReads": 18.52612556794713,
+        "waitMilliseconds": {
+          "Lock": 997,
+          "Buffer Latch": 164,
+          "Preemptive": 27,
+          "Buffer IO": 24
+        },
+        "text": "(@p6 uniqueidentifier,@p7 varbinary(8),@p0 datetimeoffset(7),@p1 uniqueidentifier,@p2 int,@p3 int,@p4 datetimeoffset(7),@p5 int)UPDATE [Transactions] SET [ClaimExpiresAtUtc] = @p0, [ClaimToken] = @p1, [CurrentSequence] = @p2, [CurrentStatus] = @p3, [CurrentStatusAtUtc] = @p4, [LastSequence] = @p5 OUTPUT INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p6 AND [RowVersion] = @p7",
+        "plan": "Compute Scalar > Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Top > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 10,
+        "executions": 29355,
+        "failed": 0,
+        "totalMilliseconds": 1505.084,
+        "meanMilliseconds": 0.051271810594447284,
+        "maxMilliseconds": 26.049,
+        "cpuMilliseconds": 1014.695,
+        "meanLogicalReads": 5.945086016010901,
+        "waitMilliseconds": {
+          "Lock": 480
+        },
+        "text": "(@id uniqueidentifier)SELECT TOP(2) [t].[Id], [t].[AcceptedJson], [t].[ClaimExpiresAtUtc], [t].[ClaimToken], [t].[Direction], [t].[MessageId], [t].[NextActionAtUtc], [t].[ProtocolTransactionId], [t].[RequestJson], [t].[RowVersion], [t].[UnsignedXml], [t0].[Id], [t0].[AggregateKind], [t0].[ClientReference], [t0].[CreatedAtUtc], [t0].[CurrentDescription], [t0].[CurrentIpsInternalCode], [t0].[CurrentReasonCode], [t0].[CurrentSequence], [t0].[CurrentSource], [t0].[CurrentStatus], [t0].[CurrentStatusAtUtc], [t0].[LastSequence], [t0].[MessageType], [t0].[RecallRefusedAtUtc], [t0].[RowVersion] FROM [Transactions] AS [t] LEFT JOIN [Transactions] AS [t0] ON [t].[Id] = [t0].[Id] WHERE [t].[Id] = @id",
+        "plan": "Top > Nested Loops > Clustered Index Seek [Transactions].[PK_Transactions] > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 20,
+        "executions": 19098,
+        "failed": 0,
+        "totalMilliseconds": 1412.924,
+        "meanMilliseconds": 0.07398282542674627,
+        "maxMilliseconds": 50.524,
+        "cpuMilliseconds": 1337.792,
+        "meanLogicalReads": 14.59137082417007,
+        "waitMilliseconds": {
+          "Preemptive": 111,
+          "Latch": 50,
+          "Memory": 19,
+          "Buffer IO": 16,
+          "Other Disk IO": 1,
+          "Tran Log IO": 1
+        },
+        "text": "(@p17 int,@p18 uniqueidentifier,@p19 varchar(32),@p20 uniqueidentifier,@p21 nvarchar(100),@p22 datetimeoffset(7),@p23 nvarchar(4000),@p24 int)INSERT INTO [TransactionEvents] ([Sequence], [TransactionId], [AggregateKind], [EventId], [Name], [OccurredAtUtc], [PayloadJson], [SchemaVersion]) VALUES (@p17, @p18, @p19, @p20, @p21, @p22, @p23, @p24)",
+        "plan": "Assert > Nested Loops > Assert > Clustered Index Insert > Index Seek [AggregateIdentities].[AK_AggregateIdentities_Id_Kind]"
+      },
+      {
+        "queryId": 45,
+        "executions": 118,
+        "failed": 0,
+        "totalMilliseconds": 1367.04,
+        "meanMilliseconds": 11.585084745762712,
+        "maxMilliseconds": 37.171,
+        "cpuMilliseconds": 1325.129,
+        "meanLogicalReads": 9645.042372881357,
+        "waitMilliseconds": {
+          "Lock": 41
+        },
+        "text": "(@p0 datetimeoffset(7))SELECT TOP(2) [s].[Value] FROM ( SELECT COUNT_BIG(*) AS [Value] FROM [Transactions] WHERE [NextActionAtUtc] <= @p0 ) AS [s]",
+        "plan": "Top > Stream Aggregate > Clustered Index Scan [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 17,
+        "executions": 9549,
+        "failed": 0,
+        "totalMilliseconds": 1187.258,
+        "meanMilliseconds": 0.1243332286103257,
+        "maxMilliseconds": 16.791,
+        "cpuMilliseconds": 1151.078,
+        "meanLogicalReads": 14.25897999790554,
+        "waitMilliseconds": {
+          "Memory": 153,
+          "Latch": 16,
+          "Preemptive": 13,
+          "Buffer Latch": 6,
+          "Tran Log IO": 5,
+          "Buffer IO": 3
+        },
+        "text": "(@p2 uniqueidentifier,@p3 varbinary(8),@p0 nvarchar(4000),@p1 int)UPDATE [Transactions] SET [UnsignedXml] = @p0, [LastSequence] = @p1 OUTPUT INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p2 AND [RowVersion] = @p3",
+        "plan": "Compute Scalar > Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 23,
+        "executions": 9549,
+        "failed": 0,
+        "totalMilliseconds": 1174.279,
+        "meanMilliseconds": 0.12297402869410409,
+        "maxMilliseconds": 50.522,
+        "cpuMilliseconds": 982.034,
+        "meanLogicalReads": 17.1835794324013,
+        "waitMilliseconds": {
+          "Buffer Latch": 125,
+          "Latch": 50,
+          "Preemptive": 27,
+          "Buffer IO": 7
+        },
+        "text": "(@p9 uniqueidentifier,@p10 varbinary(8),@p0 datetimeoffset(7),@p1 uniqueidentifier,@p2 datetimeoffset(7),@p3 nvarchar(2000),@p4 int,@p5 int,@p6 int,@p7 datetimeoffset(7),@p8 int)UPDATE [Transactions] SET [ClaimExpiresAtUtc] = @p0, [ClaimToken] = @p1, [NextActionAtUtc] = @p2, [CurrentDescription] = @p3, [CurrentSequence] = @p4, [CurrentSource] = @p5, [CurrentStatus] = @p6, [CurrentStatusAtUtc] = @p7, [LastSequence] = @p8 OUTPUT INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p9 AND [RowVersion] = @p10",
+        "plan": "Compute Scalar > Assert > Clustered Index Update > Compute Scalar > Compute Scalar > Top > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 35,
+        "executions": 48,
+        "failed": 0,
+        "totalMilliseconds": 1095.25,
+        "meanMilliseconds": 22.817708333333332,
+        "maxMilliseconds": 76.771,
+        "cpuMilliseconds": 443.105,
+        "meanLogicalReads": 6028.4375,
+        "waitMilliseconds": {
+          "Lock": 644,
+          "CPU": 2
+        },
+        "text": "(@now datetimeoffset(7))SELECT COUNT_BIG(*) FROM [Transactions] AS [t] WHERE [t].[NextActionAtUtc] IS NOT NULL AND [t].[NextActionAtUtc] <= @now",
+        "plan": "Stream Aggregate > Clustered Index Scan [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 18,
+        "executions": 19098,
+        "failed": 0,
+        "totalMilliseconds": 975.427,
+        "meanMilliseconds": 0.051074824588962196,
+        "maxMilliseconds": 50.448,
+        "cpuMilliseconds": 856.864,
+        "meanLogicalReads": 3.9666980835689603,
+        "waitMilliseconds": {
+          "Latch": 50,
+          "Buffer Latch": 31,
+          "Preemptive": 30,
+          "Buffer IO": 20,
+          "Tran Log IO": 11
+        },
+        "text": "(@p2 uniqueidentifier,@p3 varbinary(8),@p0 datetimeoffset(7),@p1 int)UPDATE [Transactions] SET [NextActionAtUtc] = @p0, [LastSequence] = @p1 OUTPUT INSERTED.[RowVersion], INSERTED.[AggregateKind] WHERE [Id] = @p2 AND [RowVersion] = @p3",
+        "plan": "Compute Scalar > Clustered Index Update > Compute Scalar > Clustered Index Seek [Transactions].[PK_Transactions]"
+      },
+      {
+        "queryId": 24,
+        "executions": 9549,
+        "failed": 0,
+        "totalMilliseconds": 872.013,
+        "meanMilliseconds": 0.09131982406534717,
+        "maxMilliseconds": 7.444,
+        "cpuMilliseconds": 831.557,
+        "meanLogicalReads": 15.676510629385277,
+        "waitMilliseconds": {
+          "Memory": 44,
+          "Buffer IO": 34,
+          "Buffer Latch": 3
+        },
+        "text": "(@p16 uniqueidentifier,@p17 int,@p18 int,@p19 datetimeoffset(7),@p20 uniqueidentifier,@p21 datetimeoffset(7),@p22 nvarchar(2000),@p23 datetimeoffset(7),@p24 nvarchar(4000),@p25 int,@p26 int)INSERT INTO [OutgoingStatusDeliveries] ([PaymentId], [Sequence], [Attempts], [ClaimExpiresAtUtc], [ClaimToken], [DeliveredAtUtc], [LastFailure], [NextAtUtc], [PayloadJson], [PayloadVersion], [State]) OUTPUT INSERTED.[RowVersion] VALUES (@p16, @p17, @p18, @p19, @p20, @p21, @p22, @p23, @p24, @p25, @p26)",
+        "plan": "Assert > Nested Loops > Assert > Clustered Index Insert > Clustered Index Seek [Transactions].[PK_Transactions]"
+      }
+    ],
+    "deadlocks": [],
+    "deadlockSource": "system_health event files",
+    "waits": [
+      {
+        "waitType": "SOS_WORK_DISPATCHER",
+        "waitingTasks": 604738,
+        "waitMilliseconds": 13555589
+      },
+      {
+        "waitType": "DISPATCHER_QUEUE_SEMAPHORE",
+        "waitingTasks": 40,
+        "waitMilliseconds": 4497780
+      },
+      {
+        "waitType": "SLEEP_TASK",
+        "waitingTasks": 1233,
+        "waitMilliseconds": 919781
+      },
+      {
+        "waitType": "LOGMGR_QUEUE",
+        "waitingTasks": 75800,
+        "waitMilliseconds": 724991
+      },
+      {
+        "waitType": "PREEMPTIVE_OS_FLUSHFILEBUFFERS",
+        "waitingTasks": 71007,
+        "waitMilliseconds": 481785
+      },
+      {
+        "waitType": "SQLTRACE_INCREMENTAL_FLUSH_SLEEP",
+        "waitingTasks": 92,
+        "waitMilliseconds": 368011
+      },
+      {
+        "waitType": "CHECKPOINT_QUEUE",
+        "waitingTasks": 104,
+        "waitMilliseconds": 366083
+      },
+      {
+        "waitType": "REQUEST_FOR_DEADLOCK_SEARCH",
+        "waitingTasks": 73,
+        "waitMilliseconds": 365009
+      },
+      {
+        "waitType": "LAZYWRITER_SLEEP",
+        "waitingTasks": 385,
+        "waitMilliseconds": 364835
+      },
+      {
+        "waitType": "HADR_FILESTREAM_IOMGR_IOCOMPLETION",
+        "waitingTasks": 728,
+        "waitMilliseconds": 364351
+      },
+      {
+        "waitType": "DIRTY_PAGE_POLL",
+        "waitingTasks": 3636,
+        "waitMilliseconds": 364145
+      },
+      {
+        "waitType": "XE_TIMER_EVENT",
+        "waitingTasks": 95,
+        "waitMilliseconds": 363223
+      }
+    ]
+  },
+  "machine": {
+    "cpu": "AMD Ryzen 7 7800X3D 8-Core Processor",
+    "logicalProcessors": 16,
+    "memoryGiB": 63.2,
+    "operatingSystem": "Microsoft Windows 10.0.26200",
+    "runtime": ".NET 10.0.12",
+    "dockerVersion": "29.6.2",
+    "dockerCpus": 16,
+    "dockerMemoryGiB": 30.9,
+    "containers": [
+      "k8s-course-control-plane (kindest/node:v1.31.0)",
+      "sql-aundfwrr (mcr.microsoft.com/mssql/server:2022-latest)"
+    ]
+  },
+  "configuration": {
+    "instances": 2,
+    "apiRunAs": "projects",
+    "executionConcurrency": 8,
+    "shippedConcurrency": 8,
+    "signed": true,
+    "logsCollected": true,
+    "warmUpRate": 10,
+    "warmUp": "00:01:00",
+    "rate": 50,
+    "duration": "00:03:00",
+    "drainLimit": "00:02:00",
+    "ipsDelay": "00:00:00.1000000",
+    "readinessInterval": "00:00:05"
+  },
+  "settings": [
+    {
+      "key": "ASPNETCORE_ENVIRONMENT",
+      "shipped": null,
+      "usedByInstance": [
+        "Development",
+        "Development"
+      ]
+    },
+    {
+      "key": "ConnectionStrings:Middleware",
+      "shipped": null,
+      "usedByInstance": [
+        "(the AppHost's SQL Server container)",
+        "(the AppHost's SQL Server container)"
+      ]
+    },
+    {
+      "key": "LOGGING:CONSOLE:FORMATTERNAME",
+      "shipped": null,
+      "usedByInstance": [
+        "simple",
+        "simple"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Execution:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Policy:Currencies:0:Code",
+      "shipped": null,
+      "usedByInstance": [
+        "GEL",
+        "GEL"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Protocol:IpsBic",
+      "shipped": "",
+      "usedByInstance": [
+        "NBGEGE22",
+        "NBGEGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:52729",
+        "https://localhost:52729"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Cbs:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:52729",
+        "https://localhost:52729"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:Ips:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsSignatureTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/ips-signing.pem",
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/ips-signing.pem"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:IpsVersion",
+      "shipped": "1",
+      "usedByInstance": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Password",
+      "shipped": null,
+      "usedByInstance": [
+        "(generated)",
+        "(generated)"
+      ]
+    },
+    {
+      "key": "Payments:Outgoing:Transport:SigningCertificate:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/signing/outgoing-signing.pfx",
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/signing/outgoing-signing.pfx"
+      ]
+    },
+    {
+      "key": "Proxy:Enabled",
+      "shipped": "False",
+      "usedByInstance": [
+        "true",
+        "true"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:BaseUrl",
+      "shipped": "",
+      "usedByInstance": [
+        "https://localhost:52729",
+        "https://localhost:52729"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:CheckCertificateRevocation",
+      "shipped": "True",
+      "usedByInstance": [
+        "false",
+        "false"
+      ]
+    },
+    {
+      "key": "Proxy:Endpoint:ServerTrust:0:Path",
+      "shipped": null,
+      "usedByInstance": [
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem",
+        "%TEMP%/ips-aspire-f28562bdbbd24737aaf27d2bbd4e15bc/trust/simulators-server.pem"
+      ]
+    },
+    {
+      "key": "Proxy:ParticipantBic",
+      "shipped": "",
+      "usedByInstance": [
+        "BAGAGE22",
+        "BAGAGE22"
+      ]
+    },
+    {
+      "key": "Proxy:ProxyBic",
+      "shipped": "",
+      "usedByInstance": [
+        "PROXGE22",
+        "PROXGE22"
+      ]
+    }
+  ]
+}

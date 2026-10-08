@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 using Aspire.Hosting.ApplicationModel;
 
@@ -9,9 +10,10 @@ internal sealed record LogTemplate(string Level, string Template, int Count, str
 
 internal sealed record InstanceLogSummary(int Instance, IReadOnlyDictionary<string, int> EntriesByLevel, IReadOnlyList<LogTemplate> Top);
 
-// What one API instance logged during the run, read from the orchestrator's log stream (ResourceLoggerService). The stream first
-// replays what the instance wrote before; those lines are skipped by line number. Each line carries the orchestrator's timestamp,
-// and the console's simple format writes an entry as a coloured "level: category[event]" followed by indented message lines.
+// The warnings and errors one API instance logged during the run, read from the orchestrator's log stream (ResourceLoggerService)
+// when the run collects logs. The stream first replays what the instance wrote before; those lines are skipped by line number.
+// Each line carries the orchestrator's timestamp, and the console's simple format writes an entry as a coloured
+// "level: category[event]" followed by indented message lines; entries below warning are skipped, not counted.
 // Counting runs on the stream's own task while the summary is read from the run, hence the lock.
 internal sealed partial class InstanceLogs
 {
@@ -99,11 +101,15 @@ internal sealed partial class InstanceLogs
             _level = header.Groups["level"].Value;
             _category = header.Groups["category"].Value;
             _entry = null;
-            _levels[_level] = _levels.GetValueOrDefault(_level) + 1;
+            if (IsWarningOrError(_level))
+            {
+                _levels[_level] = _levels.GetValueOrDefault(_level) + 1;
+            }
+
             return;
         }
 
-        if (_level is not ("warn" or "fail" or "crit") || _category is null)
+        if (!IsWarningOrError(_level) || _category is null)
         {
             return;
         }
@@ -126,6 +132,8 @@ internal sealed partial class InstanceLogs
             }
         }
     }
+
+    private static bool IsWarningOrError([NotNullWhen(true)] string? level) => level is "warn" or "fail" or "crit";
 
     private string Add(string level, string entry)
     {

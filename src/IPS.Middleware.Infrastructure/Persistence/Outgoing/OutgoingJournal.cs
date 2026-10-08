@@ -16,9 +16,15 @@ internal static class OutgoingJournal
 
     internal static OutgoingMessageRow? Find(TransactionDbContext db, Guid paymentId, OutgoingMessageDirection direction) =>
         db.OutgoingMessages.Local.SingleOrDefault(row => row.PaymentId == paymentId && row.Direction == direction && IsInitialRow(row))
-        ?? db.OutgoingMessages
+        ?? Single(db.OutgoingMessages
             .Where(IsInitial)
-            .SingleOrDefault(row => row.PaymentId == paymentId && row.Direction == direction);
+            .Where(row => row.PaymentId == paymentId && row.Direction == direction));
+
+    // A journal row by its unique key, read without TOP: once the journal had grown, the row goal of TOP made SQL Server scan
+    // all of it for the one row (the 013a baseline), where a plain read seeks the key's index.
+    internal static OutgoingMessageRow? Single(IQueryable<OutgoingMessageRow> rows) => rows
+        .ToList()
+        .SingleOrDefault();
 
     // Only a validated, correlated response establishes its protocol definition.
     internal static void Consume(OutgoingMessageRow response, bool conclusive, string? failure, DateTimeOffset now)
