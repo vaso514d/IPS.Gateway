@@ -76,7 +76,7 @@ No retry, no worker, no ownership: the call is synchronous, as today.
 ## Acceptance (014a)
 
 - Lookup validation: each field rule, each alias type format, unknown type.
-- acmt.023: valid against the XSD for each alias type, exact element order, fresh ids, signed and independently verified (Java verifier), unsigned when no certificate is configured.
+- acmt.023: valid against the XSD for each alias type, exact element order, fresh ids, signed and verified in process, unsigned when no certificate is configured.
 - acmt.024 reading: found, not found with each error code, matching report by `OrgnlId`, first-report fallback, pacs.002 technical reject, malformed and schema-invalid answers.
 - Journal (SQL Server): register/update/remove/lookup each leave one operation row with request and reply documents; documents decompress to the exact bytes sent and received; save failure before send sends nothing and returns 503; save failure after the answer returns the answer and leaves `Sending`; duplicate operation id is impossible.
 - Simulator: the test Proxy simulator answers lookup from registered data (ported from the reference `MockProxy`: `Acmt023Parser`, `Acmt024ResponseBuilder`, `ProxyDataStore`).

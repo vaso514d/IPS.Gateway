@@ -17,7 +17,7 @@ All development and Git operations belong to D:\vaso\Running\IPS\IPS.Middleware.
 
 ## Verification
 
-Install JDK17 or newer and set JAVA_HOME (or put java on PATH). Signing integration tests use the independent JSR105 verifier; Java is test-only and is provisioned explicitly in CI. Tests generate ephemeral certificates and do not use machine certificate stores or application secrets.
+Signing integration tests run in process and need no Java. Tests generate ephemeral certificates and do not use machine certificate stores or application secrets.
 
 ```powershell
 dotnet tool restore
@@ -30,7 +30,7 @@ dotnet ef migrations has-pending-model-changes --project src/IPS.Middleware.Infr
 git diff --check
 ```
 
-The Aspire tests (`tests/IPS.Middleware.AspireTests`) start SQL Server and the service in containers and need Docker; without Docker they are skipped with the reason. `-m:1` runs the test projects one after another: run in parallel with the SQL and Java integration tests, the container orchestrator can exceed its own one-minute start timeout on a single machine. See [the local environment](docs/local-environment.md).
+The Aspire tests (`tests/IPS.Middleware.AspireTests`) start SQL Server and the service in containers and need Docker; without Docker they are skipped with the reason. `-m:1` runs the test projects one after another: run in parallel with the SQL integration tests, the container orchestrator can exceed its own one-minute start timeout on a single machine. See [the local environment](docs/local-environment.md).
 
 Build warnings are errors. GitHub Actions repeats restore, Release build, tests, and formatting on Windows. It uploads test results and uses the runner's SQL Server LocalDB for isolated database tests. SQL tests create and delete only their own generated databases; they do not use application configuration. Branch protection will be configured when a remote is introduced.
 

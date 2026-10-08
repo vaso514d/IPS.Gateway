@@ -43,7 +43,7 @@ public sealed class Pacs008SigningTests
         }
         var result = Signer().Prepare(unsigned, certificate);
         Assert.True(result.IsSigned);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(result.Xml, certificate));
+        Assert.True(SignatureVerifier.Verifies(result.Xml, certificate));
         var signed = XDocument.Parse(result.Xml);
         var signature = Assert.Single(signed.Descendants(Ds + "Signature"));
         Assert.Equal("MONT", signature.Attribute("Id")!.Value);
@@ -82,7 +82,7 @@ public sealed class Pacs008SigningTests
             bytes[0] ^= 1;
             value.Value = Convert.ToBase64String(bytes);
         }
-        Assert.False(await JavaSignatureVerifier.VerifyAsync(signed.ToString(SaveOptions.DisableFormatting), certificate));
+        Assert.False(SignatureVerifier.Verifies(signed.ToString(SaveOptions.DisableFormatting), certificate));
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class Pacs008SigningTests
         using var certificate = Certificate();
         using var differentCertificate = Certificate();
         var result = Signer().Prepare(Unsigned(), certificate);
-        Assert.False(await JavaSignatureVerifier.VerifyAsync(result.Xml, differentCertificate));
+        Assert.False(SignatureVerifier.Verifies(result.Xml, differentCertificate));
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public sealed class Pacs008SigningTests
         var reloaded = (await new PaymentPreparationRepository(read.Context).ReadAsync(paymentId, default))!;
         Assert.Equal(unsigned, reloaded.UnsignedXml);
         Assert.Equal(signed, reloaded.SignedXml);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(reloaded.SignedXml!, certificate));
+        Assert.True(SignatureVerifier.Verifies(reloaded.SignedXml!, certificate));
     }
 
     [Theory]
@@ -195,7 +195,7 @@ public sealed class Pacs008SigningTests
     {
         using var certificate = Certificate(kind);
         var result = Signer().Prepare(Unsigned(), certificate);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(result.Xml, certificate));
+        Assert.True(SignatureVerifier.Verifies(result.Xml, certificate));
         if (kind == "p384")
         {
             Assert.Equal(96, Convert.FromBase64String(XDocument.Parse(result.Xml).Descendants(Ds + "SignatureValue").Single().Value).Length);

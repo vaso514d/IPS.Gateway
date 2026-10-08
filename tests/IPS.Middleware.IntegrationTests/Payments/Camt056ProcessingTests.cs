@@ -220,7 +220,7 @@ public sealed class Camt056ProcessingTests
 
         var sent = Assert.Single(core.Ips.Received);
         Assert.Contains("Signature", sent);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(sent, core.SigningCertificate));
+        Assert.True(SignatureVerifier.Verifies(sent, core.SigningCertificate));
         Assert.Equal(sent, (await core.ReadAsync(id)).Message.SignedXml);
     }
 

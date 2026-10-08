@@ -32,3 +32,7 @@ Behavior difference from 012b: the validity period is judged after the signature
 ## Limits
 
 Nothing is verified against a real IPS message yet. Without a configured certificate, a message injected on the mutually authenticated TLS channel would not be stopped by its signature.
+
+## Java removed from the tests
+
+Owner decision of 2026-10-08: the Java JSR105 signer and verifier (`SignXmlReply.java`, `VerifyXmlSignature.java`, `JavaSignatureVerifier`) are deleted and CI no longer installs a JDK. Simulated IPS messages are signed in process with the IPS profile (`IpsReplies.SignAsync`), and our generated signatures are checked with the IPS profile verifier (`SignatureVerifier.Verifies`). The consequence: the signer and verifier are no longer checked against an independent implementation, so a canonicalization mistake shared by both would not be caught. The first exchange with the real IPS test environment is now the only independent check.

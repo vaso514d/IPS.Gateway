@@ -35,7 +35,7 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         Assert.Equal(IncomingReplyStatus.Delivered, saved.Status);
         Assert.Equal(InboundProcessingStatus.Processed, (await h.ReceiptAsync(id)).Status);
         Assert.True(Assert.Single(saved.Attempts).Consumed);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(saved.MessageXml!, fixture.Input.Certificate));
+        Assert.True(SignatureVerifier.Verifies(saved.MessageXml!, fixture.Input.Certificate));
         await h.SeedAsync(accepted: accepted);
         await h.RunAsync(id);
         Assert.Single(h.Client.Messages);

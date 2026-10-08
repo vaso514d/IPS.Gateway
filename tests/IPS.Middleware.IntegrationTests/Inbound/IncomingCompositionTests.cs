@@ -55,7 +55,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         Assert.Single(h.Core.Submissions);
         Assert.Single(h.Reply.Messages);
         Assert.Equal(h.Time.Now, (await h.SnapshotAsync(id)).Attempts.Single().StartedAtUtc);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(h.Reply.Messages.Single(), fixture.Input.Certificate));
+        Assert.True(SignatureVerifier.Verifies(h.Reply.Messages.Single(), fixture.Input.Certificate));
         Assert.False(h.Channel.TryRead(out _));
         Assert.Equal(id, await h.SeedAsync());
         await h.RunAsync(id);
@@ -125,7 +125,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         var reply = await h.SnapshotAsync(id);
         Assert.Equal(IncomingReplyStatus.Delivered, reply.Status);
         Assert.True(reply.Envelope.Decision.Accepted);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(Assert.Single(h.Reply.Messages), current));
+        Assert.True(SignatureVerifier.Verifies(Assert.Single(h.Reply.Messages), current));
     }
 
     [Theory]

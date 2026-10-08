@@ -17,10 +17,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
       - name: Restore
         run: dotnet restore IPS.Middleware.slnx
       - name: Restore EF tooling

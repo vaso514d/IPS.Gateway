@@ -72,7 +72,8 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
     {
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(IncomingPacs008Fixture.Xml));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read(fixture.Signed["valid"].Replace("12.50", "13.50", StringComparison.Ordinal)));
-        Assert.IsType<IncomingPacs008ReadResult.Hold>(new IncomingPacs008Reader().Read(fixture.Signed["valid"], new IpsSignatureTrust([], TimeProvider.System), DateTimeOffset.UtcNow));
+        // 012d: without a configured IPS certificate nothing is verified.
+        Assert.IsType<IncomingPacs008ReadResult.Ready>(new IncomingPacs008Reader().Read(fixture.Signed["valid"], new IpsSignatureTrust([], TimeProvider.System), DateTimeOffset.UtcNow));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read("<!DOCTYPE Message [<!ENTITY x SYSTEM 'file:///unread'>]><Message>&x;</Message>"));
         Assert.IsType<IncomingPacs008ReadResult.Hold>(Read("<broken"));
     }
@@ -123,7 +124,7 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
         Assert.Equal(unsigned, builder.BuildUnsigned(original, decision, context, "BAGAGE22"));
         var signed = builder.Prepare(original, decision, context, "BAGAGE22", fixture.Certificate);
         Assert.True(signed.IsSigned);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(signed.Xml, fixture.Certificate));
+        Assert.True(SignatureVerifier.Verifies(signed.Xml, fixture.Certificate));
         XNamespace pacs = "urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14";
         var doc = XDocument.Parse(signed.Xml);
         Assert.Equal("IN-GROUP-1", doc.Descendants(pacs + "OrgnlMsgId").Single().Value);

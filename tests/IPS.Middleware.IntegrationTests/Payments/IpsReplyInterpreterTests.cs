@@ -75,7 +75,7 @@ public sealed class IpsReplyInterpreterTests(IpsReplyInterpreterTests.SignedRepl
             "<!DOCTYPE Message [<!ENTITY x \"y\">]><Message/>",
             PresentTrustedCertificate(replies.Signed["untrusted"]),
             signed.Replace("xmldsig-more#ecdsa-sha256", "xmldsig-more#rsa-sha256"),
-            signed.Replace("<ds:Reference URI=\"\">", "<ds:Reference URI=\"#other\">"),
+            signed.Replace("URI=\"\"", "URI=\"#other\""),
         })
         {
             Assert.Equal(IpsReplyStatus.Unresolved, Interpret(body, "ACCP").Status);

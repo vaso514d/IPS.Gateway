@@ -129,7 +129,7 @@ public sealed class Pacs009ProcessingTests
 
         var sent = Assert.Single(core.Ips.Received);
         Assert.Contains("Signature", sent);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(sent, core.SigningCertificate));
+        Assert.True(SignatureVerifier.Verifies(sent, core.SigningCertificate));
         Pacs008Schema.ValidatePacs009(sent);
         Assert.Equal(sent, (await core.ReadAsync(id)).Message.SignedXml);
     }

@@ -19,7 +19,4 @@
     <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <None Update="Payments/Fixtures/*.java" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 </Project>
