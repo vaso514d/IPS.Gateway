@@ -1,0 +1,405 @@
+[
+  {
+    "name": "pacs008 nested parties and remittance",
+    "type": "IPS.MiidleWear.Contracts.Pacs008.Pacs008InstantPaymentRequestDto",
+    "input": {
+      "clientReference": "CBS-008",
+      "endToEndId": "E2E-008",
+      "currency": "GEL",
+      "amount": 125.5,
+      "debtor": {
+        "name": "Test Debtor",
+        "account": "GE00TEST00000000000000",
+        "participantBic": "BAGAGE22"
+      },
+      "creditor": {
+        "name": "Test Creditor",
+        "account": "GE00TEST00000000000001",
+        "participantBic": "TBCBGE22"
+      },
+      "remittance": {
+        "unstructured": "Test payment",
+        "structured": [
+          {
+            "referenceType": "MCC",
+            "reference": "5411"
+          }
+        ]
+      },
+      "initiationChannelInstrument": {
+        "channelCode": "MOBL",
+        "instrumentCodes": [
+          "PRXY"
+        ]
+      }
+    },
+    "expected": "{\u0022clientReference\u0022:\u0022CBS-008\u0022,\u0022endToEndId\u0022:\u0022E2E-008\u0022,\u0022amount\u0022:125.5,\u0022currency\u0022:\u0022GEL\u0022,\u0022debtor\u0022:{\u0022participantBic\u0022:\u0022BAGAGE22\u0022,\u0022name\u0022:\u0022Test Debtor\u0022,\u0022account\u0022:\u0022GE00TEST00000000000000\u0022},\u0022creditor\u0022:{\u0022name\u0022:\u0022Test Creditor\u0022,\u0022participantBic\u0022:\u0022TBCBGE22\u0022,\u0022account\u0022:\u0022GE00TEST00000000000001\u0022},\u0022initiationChannelInstrument\u0022:{\u0022channelCode\u0022:\u0022MOBL\u0022,\u0022instrumentCodes\u0022:[\u0022PRXY\u0022]},\u0022remittance\u0022:{\u0022unstructured\u0022:\u0022Test payment\u0022,\u0022structured\u0022:[{\u0022referenceType\u0022:\u0022MCC\u0022,\u0022reference\u0022:\u00225411\u0022}]}}"
+  },
+  {
+    "name": "pacs008 omitted optional fields",
+    "type": "IPS.MiidleWear.Contracts.Pacs008.Pacs008InstantPaymentRequestDto",
+    "input": {
+      "clientReference": "CBS-MIN",
+      "currency": "GEL",
+      "amount": 0.01
+    },
+    "expected": "{\u0022clientReference\u0022:\u0022CBS-MIN\u0022,\u0022amount\u0022:0.01,\u0022currency\u0022:\u0022GEL\u0022}"
+  },
+  {
+    "name": "pacs008 core result",
+    "type": "IPS.MiidleWear.Contracts.Pacs008.Pacs008PaymentResultDto",
+    "input": {
+      "status": "ACCP",
+      "reasonCode": null,
+      "description": "Posted",
+      "ProcessedAtUtc": "2026-10-03T12:00:00\u002B04:00"
+    },
+    "expected": "{\u0022Status\u0022:\u0022ACCP\u0022,\u0022Accepted\u0022:true,\u0022Description\u0022:\u0022Posted\u0022,\u0022ProcessedAtUtc\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022}"
+  },
+  {
+    "name": "pacs009 dates times and uppercase property names",
+    "type": "IPS.MiidleWear.Contracts.Pacs009.Pacs009PaymentRequestDto",
+    "input": {
+      "ClientReference": "CBS-009",
+      "Id": "MSG-009",
+      "EndToEndId": "E2E-009",
+      "TxId": "TX-009",
+      "ValueDate": "2026-10-03",
+      "Currency": "GEL",
+      "Amount": 500,
+      "FromTime": "09:30:00",
+      "UETR": "11111111-2222-3333-4444-555555555555",
+      "DebtorAgent": {
+        "BICFI": "BAGAGE22"
+      },
+      "CreditorAgent": {
+        "BICFI": "TBCBGE22"
+      }
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-009\u0022,\u0022Id\u0022:\u0022MSG-009\u0022,\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022EndToEndId\u0022:\u0022E2E-009\u0022,\u0022TxId\u0022:\u0022TX-009\u0022,\u0022UETR\u0022:\u002211111111-2222-3333-4444-555555555555\u0022,\u0022FromTime\u0022:\u002209:30:00\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022,\u0022Currency\u0022:\u0022GEL\u0022,\u0022Amount\u0022:500}"
+  },
+  {
+    "name": "pacs004 return",
+    "type": "IPS.MiidleWear.Contracts.Pacs004.Pacs004PaymentReturnRequestDto",
+    "input": {
+      "ClientReference": "CBS-004",
+      "Id": "RETURN-004",
+      "Currency": "GEL",
+      "Amount": 125.5,
+      "ValueDate": "2026-10-03",
+      "ReturnReasonCode": "AC04",
+      "Original": {
+        "OriginalMessageId": "MSG-008",
+        "OriginalMessageNameId": "pacs.008.001.12",
+        "EndToEndId": "E2E-008",
+        "TransactionId": "TX-008",
+        "ValueDate": "2026-10-03",
+        "Amount": 125.5,
+        "Currency": "GEL"
+      }
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-004\u0022,\u0022Id\u0022:\u0022RETURN-004\u0022,\u0022Amount\u0022:125.5,\u0022Currency\u0022:\u0022GEL\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022,\u0022ReturnReasonCode\u0022:\u0022AC04\u0022,\u0022Original\u0022:{\u0022TransactionId\u0022:\u0022TX-008\u0022,\u0022EndToEndId\u0022:\u0022E2E-008\u0022,\u0022ValueDate\u0022:\u00222026-10-03\u0022,\u0022OriginalMessageId\u0022:\u0022MSG-008\u0022,\u0022OriginalMessageNameId\u0022:\u0022pacs.008.001.12\u0022,\u0022Amount\u0022:125.5,\u0022Currency\u0022:\u0022GEL\u0022}}"
+  },
+  {
+    "name": "camt056 recall",
+    "type": "IPS.MiidleWear.Contracts.Camt056.Camt056RecallRequestDto",
+    "input": {
+      "ClientReference": "CBS-056",
+      "Id": "MSG-056",
+      "RecallId": "RECALL-1",
+      "OriginalMessageId": "MSG-008",
+      "OriginalTransactionId": "TX-008",
+      "OriginalEndToEndId": "E2E-008",
+      "OriginalCurrency": "GEL",
+      "OriginalAmount": 125.5,
+      "OriginalSettlementDate": "2026-10-03",
+      "ReasonCode": "DUPL"
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-056\u0022,\u0022Id\u0022:\u0022MSG-056\u0022,\u0022RecallId\u0022:\u0022RECALL-1\u0022,\u0022OriginalMessageId\u0022:\u0022MSG-008\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-008\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-008\u0022,\u0022OriginalCurrency\u0022:\u0022GEL\u0022,\u0022OriginalAmount\u0022:125.5,\u0022OriginalSettlementDate\u0022:\u00222026-10-03\u0022,\u0022ReasonCode\u0022:\u0022DUPL\u0022}"
+  },
+  {
+    "name": "camt029 refusal",
+    "type": "IPS.MiidleWear.Contracts.Camt029.Camt029ResolutionOfInvestigationDto",
+    "input": {
+      "ClientReference": "CBS-029",
+      "Id": "MSG-029",
+      "CancellationStatusId": "CANCEL-1",
+      "OriginalMessageId": "MSG-008",
+      "OriginalEndToEndId": "E2E-008",
+      "OriginalTransactionId": "TX-008",
+      "ReasonCode": "LEGL",
+      "AdditionalInformation": "Test refusal"
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-029\u0022,\u0022Id\u0022:\u0022MSG-029\u0022,\u0022CancellationStatusId\u0022:\u0022CANCEL-1\u0022,\u0022OriginalMessageId\u0022:\u0022MSG-008\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-008\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-008\u0022,\u0022ReasonCode\u0022:\u0022LEGL\u0022,\u0022AdditionalInformation\u0022:\u0022Test refusal\u0022}"
+  },
+  {
+    "name": "pain001 initiation",
+    "type": "IPS.MiidleWear.Contracts.Pain001.Pain001PaymentInitiationDto",
+    "input": {
+      "clientReference": "CBS-001",
+      "messageId": "MSG-001",
+      "creationDateTime": "2026-10-03T12:00:00\u002B04:00",
+      "paymentInformationId": "PISP-1",
+      "requestedExecutionDate": "2026-10-03",
+      "endToEndId": "INIT-1",
+      "amount": 100,
+      "currency": "GEL",
+      "initiatingParty": {
+        "name": "Test PISP",
+        "bic": "TBCBGE22"
+      }
+    },
+    "expected": "{\u0022clientReference\u0022:\u0022CBS-001\u0022,\u0022messageId\u0022:\u0022MSG-001\u0022,\u0022creationDateTime\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022,\u0022initiatingParty\u0022:{\u0022name\u0022:\u0022Test PISP\u0022,\u0022bic\u0022:\u0022TBCBGE22\u0022},\u0022paymentInformationId\u0022:\u0022PISP-1\u0022,\u0022requestedExecutionDate\u0022:\u00222026-10-03\u0022,\u0022endToEndId\u0022:\u0022INIT-1\u0022,\u0022amount\u0022:100,\u0022currency\u0022:\u0022GEL\u0022}"
+  },
+  {
+    "name": "pain002 initiation refusal",
+    "type": "IPS.MiidleWear.Contracts.Pain002.Pain002PaymentStatusReportDto",
+    "input": {
+      "ClientReference": "CBS-002",
+      "Id": "MSG-002",
+      "CreDtTm": "2026-10-03T12:00:00\u002B04:00",
+      "OriginalMessageId": "MSG-001",
+      "OriginalPaymentInformationId": "PISP-1",
+      "ReasonCode": "CUST"
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-002\u0022,\u0022Id\u0022:\u0022MSG-002\u0022,\u0022CreDtTm\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022,\u0022OriginalMessageId\u0022:\u0022MSG-001\u0022,\u0022OriginalPaymentInformationId\u0022:\u0022PISP-1\u0022,\u0022ReasonCode\u0022:\u0022CUST\u0022}"
+  },
+  {
+    "name": "transaction outgoing accepted",
+    "type": "IPS.MiidleWear.Contracts.Transactions.TransactionStatusDto",
+    "input": {
+      "messageKind": "Pacs008",
+      "clientReference": "CBS-008",
+      "direction": "Outgoing",
+      "transactionId": "11111111-2222-3333-4444-555555555555",
+      "status": "Accepted",
+      "statusAtUtc": "2026-10-03T12:00:00\u002B04:00",
+      "messageId": "MSG-008",
+      "endToEndId": "E2E-008"
+    },
+    "expected": "{\u0022messageKind\u0022:\u0022Pacs008\u0022,\u0022clientReference\u0022:\u0022CBS-008\u0022,\u0022direction\u0022:\u0022Outgoing\u0022,\u0022transactionId\u0022:\u002211111111-2222-3333-4444-555555555555\u0022,\u0022status\u0022:\u0022Accepted\u0022,\u0022statusAtUtc\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022,\u0022messageId\u0022:\u0022MSG-008\u0022,\u0022endToEndId\u0022:\u0022E2E-008\u0022}"
+  },
+  {
+    "name": "transaction incoming manual review",
+    "type": "IPS.MiidleWear.Contracts.Transactions.TransactionStatusDto",
+    "input": {
+      "messageKind": "Pacs004",
+      "clientReference": "",
+      "direction": "Incoming",
+      "coreReference": "CORE-004",
+      "transactionId": "11111111-2222-3333-4444-555555555555",
+      "status": "ManualReview",
+      "statusAtUtc": "2026-10-03T12:00:00\u002B04:00",
+      "reasonCode": "TM01",
+      "ipsInternalCode": 1015,
+      "description": "Test unresolved outcome"
+    },
+    "expected": "{\u0022messageKind\u0022:\u0022Pacs004\u0022,\u0022clientReference\u0022:\u0022\u0022,\u0022direction\u0022:\u0022Incoming\u0022,\u0022coreReference\u0022:\u0022CORE-004\u0022,\u0022transactionId\u0022:\u002211111111-2222-3333-4444-555555555555\u0022,\u0022status\u0022:\u0022ManualReview\u0022,\u0022statusAtUtc\u0022:\u00222026-10-03T12:00:00\u002B04:00\u0022,\u0022reasonCode\u0022:\u0022TM01\u0022,\u0022ipsInternalCode\u0022:1015,\u0022description\u0022:\u0022Test unresolved outcome\u0022}"
+  },
+  {
+    "name": "transaction query",
+    "type": "IPS.MiidleWear.Contracts.Transactions.TransactionStatusQueryDto",
+    "input": {
+      "messageKind": "Pacs008",
+      "clientReference": "CBS-008"
+    },
+    "expected": "{\u0022messageKind\u0022:\u0022Pacs008\u0022,\u0022clientReference\u0022:\u0022CBS-008\u0022}"
+  },
+  {
+    "name": "proxy registration",
+    "type": "IPS.MiidleWear.Contracts.Proxy.ProxyRegisterRequestDto",
+    "input": {
+      "accountHolder": {
+        "identifier": "01000000000",
+        "type": "Individual",
+        "givenNameKa": "Test",
+        "surnameKa": "Holder"
+      },
+      "account": {
+        "identifier": "GE00TEST00000000000000",
+        "isIban": true,
+        "currency": "GEL",
+        "type": "CACC",
+        "openingDate": "2026-10-03"
+      },
+      "proxyIdentifiers": [
+        {
+          "type": "MbNb",
+          "alias": "\u002B995555000000"
+        }
+      ]
+    },
+    "expected": "{\u0022accountHolder\u0022:{\u0022identifier\u0022:\u002201000000000\u0022,\u0022type\u0022:\u0022Individual\u0022,\u0022givenNameKa\u0022:\u0022Test\u0022,\u0022surnameKa\u0022:\u0022Holder\u0022},\u0022account\u0022:{\u0022identifier\u0022:\u0022GE00TEST00000000000000\u0022,\u0022isIban\u0022:true,\u0022currency\u0022:\u0022GEL\u0022,\u0022type\u0022:\u0022CACC\u0022,\u0022openingDate\u0022:\u00222026-10-03\u0022},\u0022proxyIdentifiers\u0022:[{\u0022type\u0022:\u0022MbNb\u0022,\u0022alias\u0022:\u0022\\u002B995555000000\u0022}]}"
+  },
+  {
+    "name": "proxy partial update",
+    "type": "IPS.MiidleWear.Contracts.Proxy.ProxyUpdateRequestDto",
+    "input": {
+      "accountHolderIdentifier": "01000000000",
+      "accountHolderType": "Individual",
+      "accountIdentifier": "GE00TEST00000000000000",
+      "accountCurrency": "GEL",
+      "proxyIdentifiers": [
+        {
+          "type": "MbNb",
+          "alias": "\u002B995555000001"
+        }
+      ]
+    },
+    "expected": "{\u0022accountHolderIdentifier\u0022:\u002201000000000\u0022,\u0022accountHolderType\u0022:\u0022Individual\u0022,\u0022accountIdentifier\u0022:\u0022GE00TEST00000000000000\u0022,\u0022accountCurrency\u0022:\u0022GEL\u0022,\u0022proxyIdentifiers\u0022:[{\u0022type\u0022:\u0022MbNb\u0022,\u0022alias\u0022:\u0022\\u002B995555000001\u0022}]}"
+  },
+  {
+    "name": "proxy removal",
+    "type": "IPS.MiidleWear.Contracts.Proxy.ProxyRemoveRequestDto",
+    "input": {
+      "accountHolderIdentifier": "01000000000",
+      "accountHolderType": "Individual",
+      "accountIdentifier": "GE00TEST00000000000000",
+      "accountCurrency": "GEL",
+      "keepAccountActive": true,
+      "authorizedPersonIdsToRemove": [
+        "PERSON-1"
+      ]
+    },
+    "expected": "{\u0022accountHolderIdentifier\u0022:\u002201000000000\u0022,\u0022accountHolderType\u0022:\u0022Individual\u0022,\u0022accountIdentifier\u0022:\u0022GE00TEST00000000000000\u0022,\u0022accountCurrency\u0022:\u0022GEL\u0022,\u0022keepAccountActive\u0022:true,\u0022authorizedPersonIdsToRemove\u0022:[\u0022PERSON-1\u0022]}"
+  },
+  {
+    "name": "camt056 delivered recall request",
+    "type": "IPS.MiidleWear.Contracts.Camt056.Camt056RecallRequestDto",
+    "input": {
+      "Id": "IN-RCL-1",
+      "CreDtTm": "2026-10-08T09:00:00\u002B00:00",
+      "RecallId": "IN-CXL-1",
+      "OriginalMessageId": "P008-MSG-1",
+      "OriginalEndToEndId": "E2E-RCL-1",
+      "OriginalTransactionId": "TX-RCL-1",
+      "OriginalCurrency": "GEL",
+      "OriginalAmount": 150.25,
+      "OriginalSettlementDate": "2026-10-07",
+      "ReasonCode": "DUPL",
+      "OriginalTransaction": {
+        "SettlementDate": "2026-10-07",
+        "RemittanceInformation": {
+          "Unstructured": "Invoice 9",
+          "CreditorReference": {
+            "Issuer": "ISS",
+            "Reference": "REF-9"
+          }
+        },
+        "Debtor": {
+          "Name": "Original Payer",
+          "PostalAddress": {
+            "TownName": "Tbilisi",
+            "Country": "GE",
+            "AddressLines": [
+              "Rustaveli 1"
+            ]
+          },
+          "Type": 1,
+          "Id": "01001",
+          "Account": "GE95TB0000000123456789"
+        },
+        "DebtorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "BAGAGE22",
+          "Name": "Bank of Georgia"
+        },
+        "Creditor": {
+          "Name": "Original Payee",
+          "Account": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022Id\u0022:\u0022IN-RCL-1\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T09:00:00\u002B00:00\u0022,\u0022RecallId\u0022:\u0022IN-CXL-1\u0022,\u0022OriginalMessageId\u0022:\u0022P008-MSG-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-RCL-1\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-RCL-1\u0022,\u0022OriginalCurrency\u0022:\u0022GEL\u0022,\u0022OriginalAmount\u0022:150.25,\u0022OriginalSettlementDate\u0022:\u00222026-10-07\u0022,\u0022ReasonCode\u0022:\u0022DUPL\u0022,\u0022OriginalTransaction\u0022:{\u0022SettlementDate\u0022:\u00222026-10-07\u0022,\u0022RemittanceInformation\u0022:{\u0022Unstructured\u0022:\u0022Invoice 9\u0022,\u0022CreditorReference\u0022:{\u0022Issuer\u0022:\u0022ISS\u0022,\u0022Reference\u0022:\u0022REF-9\u0022}},\u0022Debtor\u0022:{\u0022Name\u0022:\u0022Original Payer\u0022,\u0022PostalAddress\u0022:{\u0022TownName\u0022:\u0022Tbilisi\u0022,\u0022Country\u0022:\u0022GE\u0022,\u0022AddressLines\u0022:[\u0022Rustaveli 1\u0022]},\u0022Type\u0022:1,\u0022Id\u0022:\u002201001\u0022,\u0022Account\u0022:\u0022GE95TB0000000123456789\u0022},\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022,\u0022Name\u0022:\u0022Bank of Georgia\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Original Payee\u0022,\u0022Account\u0022:\u0022GE29NB0000000101904917\u0022}}}"
+  },
+  {
+    "name": "camt055 delivered cancellation request",
+    "type": "IPS.MiidleWear.Contracts.Camt055.Camt055CancellationRequestDto",
+    "input": {
+      "MsgId": "IN-CNCL-1",
+      "AssignerBIC": "PISPGE22",
+      "AssigneeBIC": "NBGEGE22",
+      "CreDtTm": "2026-10-08T09:30:00Z",
+      "PaymentCancellationId": "PCXL-1",
+      "OriginalPaymentInformationId": "PMTINF-1",
+      "OriginalGroupInformation": {
+        "OriginalMessageId": "PAIN001-MSG-1",
+        "OriginalMessageNameId": "pain.001.001.12",
+        "OriginalCreationDateTime": "2026-10-08T09:00:00Z"
+      },
+      "CancellationId": "CXL-1",
+      "OriginalInstructionId": "INS-1",
+      "OriginalEndToEndId": "PISP-E2E-1",
+      "CancellationReason": {
+        "OriginatorName": "PISP LLC",
+        "OriginatorBIC": "PISPGE22",
+        "ReasonCode": "CUST",
+        "AdditionalInformation": "Customer asked"
+      },
+      "OriginalTransaction": {
+        "Currency": "GEL",
+        "Amount": 25.5,
+        "RequestedExecutionDate": "2026-10-08T00:00:00",
+        "ServiceLevelCode": "INST",
+        "LocalInstrumentCode": "INST",
+        "CategoryPurposeCode": "OTHR",
+        "RemittanceInformationUnstructured": "Invoice 77",
+        "DebtorAgent": {
+          "BICFI": "BAGAGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "Creditor": {
+          "Name": "Receiver LLC",
+          "Id": "400000002",
+          "PostalAddress": {
+            "TownName": "Tbilisi",
+            "Country": "GE"
+          }
+        },
+        "CreditorAccount": {
+          "IBAN": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022MsgId\u0022:\u0022IN-CNCL-1\u0022,\u0022AssignerBIC\u0022:\u0022PISPGE22\u0022,\u0022AssigneeBIC\u0022:\u0022NBGEGE22\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T09:30:00Z\u0022,\u0022PaymentCancellationId\u0022:\u0022PCXL-1\u0022,\u0022OriginalPaymentInformationId\u0022:\u0022PMTINF-1\u0022,\u0022OriginalGroupInformation\u0022:{\u0022OriginalMessageId\u0022:\u0022PAIN001-MSG-1\u0022,\u0022OriginalMessageNameId\u0022:\u0022pain.001.001.12\u0022,\u0022OriginalCreationDateTime\u0022:\u00222026-10-08T09:00:00Z\u0022},\u0022CancellationId\u0022:\u0022CXL-1\u0022,\u0022OriginalInstructionId\u0022:\u0022INS-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022PISP-E2E-1\u0022,\u0022CancellationReason\u0022:{\u0022OriginatorName\u0022:\u0022PISP LLC\u0022,\u0022OriginatorBIC\u0022:\u0022PISPGE22\u0022,\u0022ReasonCode\u0022:\u0022CUST\u0022,\u0022AdditionalInformation\u0022:\u0022Customer asked\u0022},\u0022OriginalTransaction\u0022:{\u0022Currency\u0022:\u0022GEL\u0022,\u0022Amount\u0022:25.5,\u0022RequestedExecutionDate\u0022:\u00222026-10-08T00:00:00\u0022,\u0022ServiceLevelCode\u0022:\u0022INST\u0022,\u0022LocalInstrumentCode\u0022:\u0022INST\u0022,\u0022CategoryPurposeCode\u0022:\u0022OTHR\u0022,\u0022RemittanceInformationUnstructured\u0022:\u0022Invoice 77\u0022,\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Receiver LLC\u0022,\u0022Id\u0022:\u0022400000002\u0022,\u0022PostalAddress\u0022:{\u0022TownName\u0022:\u0022Tbilisi\u0022,\u0022Country\u0022:\u0022GE\u0022}},\u0022CreditorAccount\u0022:{\u0022IBAN\u0022:\u0022GE29NB0000000101904917\u0022}}}"
+  },
+  {
+    "name": "camt029 delivered refusal of our recall",
+    "type": "IPS.MiidleWear.Contracts.Camt029.Camt029ResolutionOfInvestigationDto",
+    "input": {
+      "ClientReference": "CBS-RCL-1",
+      "Id": "IN-RJCR-1",
+      "CreDtTm": "2026-10-08T10:00:00\u002B00:00",
+      "CancellationStatusId": "IN-CXLSTS-1",
+      "OriginalMessageId": "RCL-OUT-1",
+      "OriginalEndToEndId": "E2E-OUT-1",
+      "OriginalTransactionId": "TX-OUT-1",
+      "ReasonCode": "NOAS",
+      "AdditionalInformation": "No answer from customer",
+      "OriginalTransaction": {
+        "Currency": "GEL",
+        "Amount": 100,
+        "SettlementDate": "2026-10-07",
+        "Debtor": {
+          "Name": "Our Payer",
+          "Account": "GE95TB0000000123456789"
+        },
+        "DebtorAgent": {
+          "BICFI": "BAGAGE22"
+        },
+        "CreditorAgent": {
+          "BICFI": "TBCBGE22"
+        },
+        "Creditor": {
+          "Name": "Their Payee",
+          "Account": "GE29NB0000000101904917"
+        }
+      }
+    },
+    "expected": "{\u0022ClientReference\u0022:\u0022CBS-RCL-1\u0022,\u0022Id\u0022:\u0022IN-RJCR-1\u0022,\u0022CreDtTm\u0022:\u00222026-10-08T10:00:00\u002B00:00\u0022,\u0022CancellationStatusId\u0022:\u0022IN-CXLSTS-1\u0022,\u0022OriginalMessageId\u0022:\u0022RCL-OUT-1\u0022,\u0022OriginalEndToEndId\u0022:\u0022E2E-OUT-1\u0022,\u0022OriginalTransactionId\u0022:\u0022TX-OUT-1\u0022,\u0022ReasonCode\u0022:\u0022NOAS\u0022,\u0022AdditionalInformation\u0022:\u0022No answer from customer\u0022,\u0022OriginalTransaction\u0022:{\u0022Currency\u0022:\u0022GEL\u0022,\u0022Amount\u0022:100,\u0022SettlementDate\u0022:\u00222026-10-07\u0022,\u0022Debtor\u0022:{\u0022Name\u0022:\u0022Our Payer\u0022,\u0022Account\u0022:\u0022GE95TB0000000123456789\u0022},\u0022DebtorAgent\u0022:{\u0022BICFI\u0022:\u0022BAGAGE22\u0022},\u0022CreditorAgent\u0022:{\u0022BICFI\u0022:\u0022TBCBGE22\u0022},\u0022Creditor\u0022:{\u0022Name\u0022:\u0022Their Payee\u0022,\u0022Account\u0022:\u0022GE29NB0000000101904917\u0022}}}"
+  }
+]

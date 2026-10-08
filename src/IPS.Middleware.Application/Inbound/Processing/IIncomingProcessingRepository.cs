@@ -1,0 +1,29 @@
+using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Registration;
+
+namespace IPS.Middleware.Application.Inbound.Processing;
+
+public interface IIncomingProcessingRepository
+{
+    Task<IncomingProcessingSnapshot?> ReadAsync(Guid paymentId, CancellationToken cancellationToken);
+    Task<bool> IsOwnerAsync(IncomingPaymentClaim claim, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<IncomingCoreCall> StageCallAsync(
+        IncomingPaymentClaim claim,
+        CoreCallKind kind,
+        DateTimeOffset now,
+        CancellationToken cancellationToken,
+        ReversalNotification? notification = null);
+    Task StageCompletionAsync(
+        IncomingPaymentClaim claim,
+        Guid callId,
+        CoreCallCompletion completion,
+        DateTimeOffset now,
+        CancellationToken cancellationToken);
+    Task StageConsumptionAsync(IncomingPaymentClaim claim, Guid callId, DateTimeOffset now, CancellationToken cancellationToken);
+    Task StageFinishAsync(
+        IncomingPaymentClaim claim,
+        DateTimeOffset now,
+        DateTimeOffset? followUpAtUtc,
+        DateTimeOffset? reconciliationDeadlineUtc,
+        CancellationToken cancellationToken);
+}

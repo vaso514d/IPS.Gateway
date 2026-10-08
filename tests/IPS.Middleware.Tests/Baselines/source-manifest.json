@@ -1,0 +1,90 @@
+{
+  "sourceRepository": "https://github.com/vaso514d/IPS.MiidleWear",
+  "sourceCommit": "d498de6c4638aa71cdb20189d13642b41abab5f1",
+  "files": [
+    {
+      "path": "Abstractions/IClientPaymentReceiver.cs",
+      "gitBlob": "e35edc8a124e6c01041c9a913570b453b39a350d"
+    },
+    {
+      "path": "Abstractions/IGatewayApi.cs",
+      "gitBlob": "8b44d0af1268660ad34a1a6272cb9cbf21be7ea9"
+    },
+    {
+      "path": "Camt029/Camt029ResolutionOfInvestigationDto.cs",
+      "gitBlob": "865d57a4d9405ea9aa4128b004b28521bb5579e4"
+    },
+    {
+      "path": "Camt055/Camt055CancellationRequestDto.cs",
+      "gitBlob": "b3663ca054ea081f08c6b4efa277ba219cf244b6"
+    },
+    {
+      "path": "Camt056/Camt056RecallRequestDto.cs",
+      "gitBlob": "cc19c246e5753ce7b9857530e75b695ff935d40d"
+    },
+    {
+      "path": "IPS.MiidleWear.Contracts.csproj",
+      "gitBlob": "5b84b2fdb0e8773a6be0dc8ed2b2595d4b61eb6e"
+    },
+    {
+      "path": "Pacs004/Pacs004PaymentReturnRequestDto.cs",
+      "gitBlob": "9020aaf1879cceb1196b56baf006be7da1fc2a01"
+    },
+    {
+      "path": "Pacs004/Pacs004RestApiRoutes.cs",
+      "gitBlob": "60167700090dfb4db690fa1dc15a276e2227978a"
+    },
+    {
+      "path": "Pacs008/Pacs008InstantPaymentRequestDto.cs",
+      "gitBlob": "fc78a1d505247fdc4581d08a7aae73a8a3810ac6"
+    },
+    {
+      "path": "Pacs008/Pacs008PaymentResultDto.cs",
+      "gitBlob": "f4902cd900d8bb8e3637276cc960e844b8f98190"
+    },
+    {
+      "path": "Pacs008/Pacs008RestApiRoutes.cs",
+      "gitBlob": "d89fa10e732c2a1a27714d8a51107fc4069998fc"
+    },
+    {
+      "path": "Pacs008/Pacs008SharedDtos.cs",
+      "gitBlob": "a5c44553f9c1f4e5cd5e4d0fe7be34df9e8ab8dc"
+    },
+    {
+      "path": "Pacs009/Pacs009PaymentRequestDto.cs",
+      "gitBlob": "159acabd6f43a0f2299c593aa903f9415423c2c8"
+    },
+    {
+      "path": "Pacs009/Pacs009RestApiRoutes.cs",
+      "gitBlob": "4cc5e0776ad4aaca9d191db498d09ae55e552e57"
+    },
+    {
+      "path": "Pain001/Pain001PaymentInitiationDto.cs",
+      "gitBlob": "d990647f8a32b29a2128cb634df57e60570c9f12"
+    },
+    {
+      "path": "Pain002/Pain002PaymentStatusReportDto.cs",
+      "gitBlob": "e3a4d7810cc5503dc6379f798a609097914d553b"
+    },
+    {
+      "path": "Proxy/ProxyManagementContracts.cs",
+      "gitBlob": "2594de62635d0d6d34744fbef2d905c7f42789f6"
+    },
+    {
+      "path": "Proxy/ProxyRestApiRoutes.cs",
+      "gitBlob": "66be400f07f35b6a5975b048e0a2e9bfd0b93409"
+    },
+    {
+      "path": "Routing/RestEndpointAttribute.cs",
+      "gitBlob": "5d0dbdfee75f8bdb825b0f9e36c90c0b9c5b1237"
+    },
+    {
+      "path": "Transactions/TransactionEnums.cs",
+      "gitBlob": "7f5dddde8695fbb74b678336456ca2ce8886f3fb"
+    },
+    {
+      "path": "Transactions/TransactionStatusDto.cs",
+      "gitBlob": "14143d9634ce4af2e29b362ff9723d4fb1260ba2"
+    }
+  ]
+}

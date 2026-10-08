@@ -1,0 +1,44 @@
+using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Abstractions.Persistence;
+using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Receipts;
+using IPS.Middleware.Application.Inbound.Reconciliation;
+using IPS.Middleware.Application.Inbound.Registration;
+using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments.Investigation;
+using IPS.Middleware.Application.Payments.StatusDelivery;
+using IPS.Middleware.Infrastructure.Repositories.Inbound;
+using IPS.Middleware.Infrastructure.Repositories.Payments;
+using IPS.Middleware.Infrastructure.Transactions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace IPS.Middleware.Infrastructure.Persistence;
+
+public static class PersistenceRegistration
+{
+    public static IServiceCollection AddPersistence(this IServiceCollection services, string connectionString)
+        => services.AddPersistence(_ => connectionString);
+
+    public static IServiceCollection AddPersistence(this IServiceCollection services, Func<IServiceProvider, string> connectionString)
+    {
+        services.AddDbContext<TransactionDbContext>((sp, options) => options.UseSqlServer(connectionString(sp)));
+        services.AddScoped<IOutgoingStatusRepository, OutgoingStatusRepository>();
+        services.AddScoped<OutgoingStatusReader>();
+        services.AddScoped<IOutgoingPaymentRepository, OutgoingPaymentRepository>();
+        services.AddScoped<ITransactionWorkRepository, TransactionWorkRepository>();
+        services.AddScoped<IPaymentPreparationRepository, PaymentPreparationRepository>();
+        services.AddScoped<IPaymentSubmissionRepository, PaymentSubmissionRepository>();
+        services.AddScoped<IInvestigationRepository, InvestigationRepository>();
+        services.AddScoped<IResendRepository, ResendRepository>();
+        services.AddScoped<IInboundReceiptRepository, InboundReceiptRepository>();
+        services.AddScoped<IInboundWorkRepository, InboundWorkRepository>();
+        services.AddScoped<IIncomingPaymentRepository, IncomingPaymentRepository>();
+        services.AddScoped<IIncomingPaymentWorkRepository, IncomingPaymentWorkRepository>();
+        services.AddScoped<IIncomingProcessingRepository, IncomingProcessingRepository>();
+        services.AddScoped<IIncomingReconciliationRepository, IncomingReconciliationRepository>();
+        services.AddScoped<IIncomingReplyRepository, IncomingReplyRepository>();
+        services.AddScoped<IUnitOfWork, UnitOfWork.UnitOfWork>();
+        return services;
+    }
+}

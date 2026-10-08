@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../src/IPS.MiidleWear.Contracts/bin/$(Configuration)/net8.0/IPS.MiidleWear.Contracts.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.MiidleWear.Contracts.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/IPS.Middleware.Domain/bin/$(Configuration)/net10.0/IPS.Middleware.Domain.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.Middleware.Domain.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/IPS.Middleware.Application/bin/$(Configuration)/net10.0/IPS.Middleware.Application.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.Middleware.Application.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/IPS.Middleware.Infrastructure/bin/$(Configuration)/net10.0/IPS.Middleware.Infrastructure.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.Middleware.Infrastructure.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/IPS.Middleware.Api/bin/$(Configuration)/net10.0/IPS.Middleware.Api.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.Middleware.Api.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Baselines/public-api.json;Baselines/wire-cases.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

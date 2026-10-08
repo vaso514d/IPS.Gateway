@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "IPS.Middleware.Simulators": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:52066;http://localhost:52067"
+    }
+  }
+}

@@ -1,0 +1,131 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" agent="IPS.Middleware documentation" version="24.7.17" type="device" compressed="false">
+  <diagram name="25 · სხვა outgoing ტიპები — duplicate recovery" id="ips-flow-25">
+    <mxGraphModel dx="1600" dy="1370" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1370" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="25 · სხვა outgoing ტიპები — duplicate recovery" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontFamily=Sylfaen;fontSize=25;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="44" y="18" width="1512" height="45" />
+        </mxCell>
+        <mxCell id="sub" value="pacs.009 / pacs.004 / camt.056 / camt.029 / pain.002; pacs.028 არ გამოიყენება." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontFamily=Sylfaen;fontSize=16;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="44" y="66" width="1512" height="48" />
+        </mxCell>
+        <mxCell id="life0" value="" style="endArrow=none;dashed=1;strokeColor=#438b72;strokeWidth=1;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="175.0" y="172" as="sourcePoint" />
+            <mxPoint x="175.0" y="1250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actor0" value="აღდგენის worker" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#dcf1e9;strokeColor=#438b72;fontFamily=Sylfaen;fontSize=17;fontStyle=1;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="65.0" y="120" width="220" height="55" />
+        </mxCell>
+        <mxCell id="life1" value="" style="endArrow=none;dashed=1;strokeColor=#438b72;strokeWidth=1;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="591.6666666666667" y="172" as="sourcePoint" />
+            <mxPoint x="591.6666666666667" y="1250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actor1" value="Middleware&lt;br&gt;Application" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#dcf1e9;strokeColor=#438b72;fontFamily=Sylfaen;fontSize=17;fontStyle=1;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="481.66666666666674" y="120" width="220" height="55" />
+        </mxCell>
+        <mxCell id="life2" value="" style="endArrow=none;dashed=1;strokeColor=#64748b;strokeWidth=1;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1008.3333333333334" y="172" as="sourcePoint" />
+            <mxPoint x="1008.3333333333334" y="1250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actor2" value="SQL Server" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#eef2f6;strokeColor=#64748b;fontFamily=Sylfaen;fontSize=17;fontStyle=1;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="898.3333333333334" y="120" width="220" height="55" />
+        </mxCell>
+        <mxCell id="life3" value="" style="endArrow=none;dashed=1;strokeColor=#b58922;strokeWidth=1;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1425.0" y="172" as="sourcePoint" />
+            <mxPoint x="1425.0" y="1250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="actor3" value="IPS" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#fff3cd;strokeColor=#b58922;fontFamily=Sylfaen;fontSize=17;fontStyle=1;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="1315.0" y="120" width="220" height="55" />
+        </mxCell>
+        <mxCell id="e0" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#263e59;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="175.0" y="252" as="sourcePoint" />
+            <mxPoint x="1008.3333333333334" y="252" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t0" value="01. Uncertain / Resending discovery; due და claim-ის შემოწმება" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="183.0" y="180" width="817.3333333333334" height="70" />
+        </mxCell>
+        <mxCell id="e1" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#263e59;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="175.0" y="352" as="sourcePoint" />
+            <mxPoint x="591.6666666666667" y="352" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1" value="02. ცალკე scope; გადახდის claim" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="183.0" y="280" width="400.66666666666674" height="70" />
+        </mxCell>
+        <mxCell id="n2" value="ჯერ შენახული პასუხი მუშავდება. წინა მარკერი პასუხის გარეშე სრულდება როგორც abandoned; იგივე attempt არ იგზავნება ხელახლა." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f4f8;strokeColor=#a3b4c7;fontFamily=Sylfaen;fontSize=16;align=left;spacing=16;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="65" y="382" width="1470" height="84" />
+        </mxCell>
+        <mxCell id="e3" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#21866b;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="591.6666666666667" y="562" as="sourcePoint" />
+            <mxPoint x="1008.3333333333334" y="562" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t3" value="03. COMMIT: ახალი attempt + frozen deadline" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="599.6666666666667" y="490" width="400.66666666666663" height="70" />
+        </mxCell>
+        <mxCell id="e4" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#21866b;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="591.6666666666667" y="662" as="sourcePoint" />
+            <mxPoint x="1008.3333333333334" y="662" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t4" value="04. COMMIT: ზუსტი ორიგინალი bytes + SendStarted" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="599.6666666666667" y="590" width="400.66666666666663" height="70" />
+        </mxCell>
+        <mxCell id="e5" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#263e59;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="591.6666666666667" y="762" as="sourcePoint" />
+            <mxPoint x="1425.0" y="762" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t5" value="05. POST /Message + PossibleDuplicate=true" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="599.6666666666667" y="690" width="817.3333333333333" height="70" />
+        </mxCell>
+        <mxCell id="e6" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#516980;dashed=1;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1425.0" y="862" as="sourcePoint" />
+            <mxPoint x="591.6666666666667" y="862" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t6" value="06. თავდაპირველი შეტყობინების სტატუსი" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="599.6666666666667" y="790" width="817.3333333333333" height="70" />
+        </mxCell>
+        <mxCell id="e7" value="" style="endArrow=block;endFill=1;strokeWidth=2;strokeColor=#21866b;dashed=0;rounded=0;" parent="1" edge="1">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="591.6666666666667" y="962" as="sourcePoint" />
+            <mxPoint x="1008.3333333333334" y="962" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t7" value="07. COMMIT: evidence; შემდეგ outcome / retry + release" style="text;html=1;whiteSpace=wrap;align=center;verticalAlign=middle;fontFamily=Sylfaen;fontSize=15;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="599.6666666666667" y="890" width="400.66666666666663" height="70" />
+        </mxCell>
+        <mxCell id="n8" value="pacs.009/004/camt.056/029 → სანდო pacs.002. pain.002 → RequestStatus header. საბოლოო outcome ქმნის callback-ს." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f4f8;strokeColor=#a3b4c7;fontFamily=Sylfaen;fontSize=16;align=left;spacing=16;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="65" y="992" width="1470" height="84" />
+        </mxCell>
+        <mxCell id="n9" value="ახალი uncertainty: +9 წმ; ორიგინალის recovery: დაუყოვნებლივ; abandoned duplicate-attempt: backoff. მცდელობები: MaxCycles; არა pacs.008-ის MaxResends. უცნობი → backoff; 24 სთ / ლიმიტი → ManualReview." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7e2;strokeColor=#c39736;fontFamily=Sylfaen;fontSize=16;align=left;spacing=16;fontColor=#172b4d;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="65" y="1102" width="1470" height="84" />
+        </mxCell>
+        <mxCell id="source" value="კოდი: OutgoingDuplicateResend; ResendExchange; OutgoingRuntime" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontFamily=Sylfaen;fontSize=13;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="44" y="1270" width="1512" height="44" />
+        </mxCell>
+        <mxCell id="footer" value="IPS.Middleware · 0636b9c · 2026-10-07 | მწვანე: SQL commit · პუნქტირი: პასუხი · ყვითელი: პირობა / ლიმიტი" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontFamily=Sylfaen;fontSize=12;fontColor=#172b4d;strokeColor=none;fillColor=#ffffff;fontStyle=0;" parent="1" vertex="1">
+          <mxGeometry as="geometry" x="44" y="1317" width="1512" height="28" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

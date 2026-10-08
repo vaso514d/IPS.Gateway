@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <OutputType>Exe</OutputType>
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
+    <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Payments/Fixtures/*.java" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
