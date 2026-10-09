@@ -70,5 +70,5 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
 
     private static bool WithinCurrencyLimits(decimal? amount, PaymentCurrency? currency) =>
         amount is not > 0 || currency is null ||
-        ((currency.Minimum is null || amount >= currency.Minimum) && (currency.Maximum is null || amount <= currency.Maximum));
+        ((currency.MinAmount is null || amount >= currency.MinAmount) && (currency.MaxAmount is null || amount <= currency.MaxAmount));
 }

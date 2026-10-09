@@ -7,7 +7,7 @@ public sealed class Pacs008ValidationTests
 {
     private static readonly DateTimeOffset Created = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
     private static readonly Pacs008Policy Policy = new("BAGAGE22", "TRESGE22",
-        [new("GEL", Minimum: 0.01m, Maximum: 9999999999999.99999m)], ["INDIRECT"]);
+        [new("GEL", MinAmount: 0.01m, MaxAmount: 9999999999999.99999m)], ["INDIRECT"]);
     public static Pacs008Request Minimal() => new()
     {
         ClientReference = "CORE-1",
@@ -279,7 +279,7 @@ public sealed class Pacs008ValidationTests
     [Fact]
     public void Currency_enablement_and_limits_come_from_policy()
     {
-        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", Minimum: 10, Maximum: 20), new("USD", false)]);
+        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", MinAmount: 10, MaxAmount: 20), new("USD", false)]);
         foreach (var amount in new[]
         {
             10m,

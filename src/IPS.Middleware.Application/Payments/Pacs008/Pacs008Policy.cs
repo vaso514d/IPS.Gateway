@@ -51,11 +51,11 @@ public sealed class Pacs008Policy
     }
 }
 
-public sealed record PaymentCurrency(string Code, bool Enabled = true, decimal? Minimum = null, decimal? Maximum = null)
+public sealed record PaymentCurrency(string Code, bool Enabled = true, decimal? MinAmount = null, decimal? MaxAmount = null)
 {
     internal bool HasValidCode => Code.Length == 3 && Code.All(char.IsAsciiLetterUpper);
 
-    internal bool HasValidLimits => Minimum is null or >= 0
-        && Maximum is null or >= 0
-        && !(Minimum > Maximum);
+    internal bool HasValidLimits => MinAmount is null or > 0
+        && MaxAmount is null or > 0
+        && !(MinAmount > MaxAmount);
 }

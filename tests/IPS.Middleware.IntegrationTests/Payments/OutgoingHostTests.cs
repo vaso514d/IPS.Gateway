@@ -100,6 +100,25 @@ public sealed class OutgoingHostTests
         Assert.Equal(lost ? 1 : 2, await db.Set<OutgoingMessageRow>().CountAsync());
     }
 
+    // The reference gateway's IpsStp:Currencies shape: a disabled currency and an amount above MaxAmount never reach IPS.
+    [Fact]
+    public async Task Configured_currencies_and_amount_limits_reject_before_sending()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:0:MinAmount"] = "0.01";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:0:MaxAmount"] = "1000";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:1:Code"] = "USD";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:1:Enabled"] = "false";
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+        foreach (var request in new[] { Request() with { Amount = 1000.01m }, Request() with { Currency = "USD", Amount = 10m } })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(Send, request)).StatusCode);
+        }
+
+        Assert.Empty(fixture.Submissions);
+    }
+
     [Fact]
     public async Task Invalid_intake_and_status_queries_preserve_validation_and_not_found()
     {
@@ -562,6 +581,9 @@ public sealed class OutgoingHostTests
     [InlineData("Payments:Outgoing:Execution:ShutdownBudget", "00:00:00")]
     [InlineData("Payments:Outgoing:Protocol:IpsBic", "bad")]
     [InlineData("Payments:Outgoing:Policy:Currencies:0:Code", "bad")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:MinAmount", "0")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:MaxAmount", "-1")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:Minimum", "1")]
     public async Task Startup_rejects_invalid_execution_policy_and_capacity(string key, string value)
     {
         await using var fixture = await CreateAsync();
