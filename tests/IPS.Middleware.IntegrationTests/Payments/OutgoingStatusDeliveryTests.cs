@@ -40,6 +40,36 @@ public sealed class OutgoingStatusDeliveryTests
         Assert.Empty(await new OutgoingStatusRepository(read.Context).FindDueAsync(Now.AddDays(1), 50, default));
     }
 
+    // The deadlock graph of the 013 baseline: discovery held a delivery's index entry while it looked up the row a finishing
+    // delivery held, and the finish then had to move that entry. Discovery now reads the claim from the index alone (013a).
+    [Fact]
+    public async Task Discovery_does_not_deadlock_with_a_delivery_that_holds_its_row_and_then_moves_its_index_entry()
+    {
+        await using var database = await SqlTestDatabase.CreateAsync();
+        var key = await FinalizeAsync(database);
+        await using var writer = database.Context();
+        // The service's database reads committed data with locks (EF Core creates its test databases with row versioning), and
+        // holds thousands of delivered callbacks beside the pending one, so discovery seeks its index.
+        await writer.Database.ExecuteSqlRawAsync("ALTER DATABASE CURRENT SET READ_COMMITTED_SNAPSHOT OFF WITH ROLLBACK IMMEDIATE");
+        await writer.Database.ExecuteSqlAsync($"""
+            INSERT INTO [OutgoingStatusDeliveries] ([PaymentId], [Sequence], [PayloadVersion], [PayloadJson], [State], [Attempts], [DeliveredAtUtc])
+            SELECT [PaymentId], [Sequence] + [Number], 1, [PayloadJson], 1, 1, {Now}
+            FROM [OutgoingStatusDeliveries]
+            CROSS JOIN (SELECT TOP (5000) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS [Number] FROM sys.all_objects AS a CROSS JOIN sys.all_objects AS b) AS [Numbers]
+            """);
+        await using var transaction = await writer.Database.BeginTransactionAsync();
+        await writer.Database.ExecuteSqlAsync($"UPDATE [OutgoingStatusDeliveries] SET [LastFailure] = N'held' WHERE [PaymentId] = {key.PaymentId} AND [Sequence] = {key.Sequence}");
+        var discovery = Task.Run(async () =>
+        {
+            await using var read = database.Session();
+            return await new OutgoingStatusRepository(read.Context).FindDueAsync(Now, 50, default);
+        });
+        await Task.WhenAny(discovery, Task.Delay(TimeSpan.FromSeconds(1)));
+        await writer.Database.ExecuteSqlAsync($"UPDATE [OutgoingStatusDeliveries] SET [NextAtUtc] = {Now.AddSeconds(5)} WHERE [PaymentId] = {key.PaymentId} AND [Sequence] = {key.Sequence}");
+        await transaction.CommitAsync();
+        Assert.Equal(new[] { key }, await discovery);
+    }
+
     [Fact]
     public async Task Callback_results_are_counted_as_delivered_failed_or_exhausted()
     {
@@ -103,6 +133,28 @@ public sealed class OutgoingStatusDeliveryTests
         Assert.Single(remote.Sent);
         await using var read = database.Session();
         Assert.Equal(2, (await new OutgoingStatusRepository(read.Context).ReadWorkAsync(key, default))!.Attempts);
+    }
+
+    // A repeated callback is allowed only after an unknown delivery outcome (013a decision 1); the record that judges it keeps
+    // why the earlier attempt is unknown after the repeat delivered.
+    [Fact]
+    public async Task A_delivery_after_an_abandoned_attempt_keeps_the_unknown_outcome_on_record()
+    {
+        await using var database = await SqlTestDatabase.CreateAsync();
+        var key = await FinalizeAsync(database);
+        await using (var owner = database.Session())
+        {
+            Assert.NotNull(await new OutgoingStatusRepository(owner.Context).StageClaimAsync(key, Now, TimeSpan.FromSeconds(45), default));
+            await owner.Unit.SaveAsync();
+        }
+
+        var remote = new Receiver((_, _) => Task.FromResult(200));
+        Assert.Equal(StatusDeliveryResult.Scheduled, await Deliver(database, key, remote, Now.AddSeconds(45)));
+        Assert.Equal(StatusDeliveryResult.Delivered, await Deliver(database, key, remote, Now.AddSeconds(50)));
+        await using var read = database.Session();
+        var record = await read.Context.OutgoingStatusDeliveries.SingleAsync(x => x.PaymentId == key.PaymentId && x.Sequence == key.Sequence);
+        Assert.Equal((StatusDeliveryState.Delivered, 2), (record.State, record.Attempts));
+        Assert.Equal("Previous delivery owner expired; CBS receipt is unknown.", record.LastFailure);
     }
 
     [Fact]

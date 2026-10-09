@@ -4,6 +4,7 @@ public interface IOutgoingStatusRepository
 {
     Task<OutgoingStatus?> ReadAsync(string reference, CancellationToken cancellationToken);
     Task<IReadOnlyList<StatusDeliveryKey>> FindDueAsync(DateTimeOffset now, int take, CancellationToken cancellationToken);
+    Task<StatusDeliveryKey?> FindDueAsync(Guid paymentId, DateTimeOffset now, CancellationToken cancellationToken);
     Task<StatusDeliveryWork?> ReadWorkAsync(StatusDeliveryKey key, CancellationToken cancellationToken);
     Task<Guid?> StageClaimAsync(StatusDeliveryKey key, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken);
     Task<bool> StageFinishAsync(

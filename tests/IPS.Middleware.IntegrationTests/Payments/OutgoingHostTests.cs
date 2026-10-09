@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,6 +7,7 @@ using IPS.Middleware.Infrastructure.Payments.Execution;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.MiidleWear.Contracts.Transactions;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -42,6 +44,52 @@ public sealed class OutgoingHostTests
         Assert.Single(fixture.Submissions);
         var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing");
         Assert.Equal(status, query);
+    }
+
+    // The poll and the callback discovery are slower than the test allows: the attempt on this instance answers the waiting
+    // request and starts the outcome's callback itself (013a).
+    [Fact]
+    public async Task The_attempt_on_this_instance_answers_the_waiting_request_and_starts_its_callback_without_polling_or_discovery()
+    {
+        await using var fixture = await CreateAsync();
+        using var host = fixture.Host(new()
+        {
+            ["Payments:Outgoing:Execution:StatusPollInterval"] = "00:00:10",
+            ["Payments:Outgoing:Execution:StatusPollMaxInterval"] = "00:00:10",
+            ["Payments:Outgoing:StatusDelivery:DiscoveryInterval"] = "00:01:00"
+        });
+        using var client = host.CreateClient();
+        var started = Stopwatch.StartNew();
+        using var response = await client.PostAsJsonAsync(Send, Request());
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(TransactionStatus.Accepted, (await response.Content.ReadFromJsonAsync<TransactionStatusDto>())!.Status);
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(8), $"Answered after {started.Elapsed}.");
+        await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(20), $"Called back after {started.Elapsed}.");
+    }
+
+    // A command timing out behind a lock reaches the controller as EF Core's transient-failure wrapper around the SqlException,
+    // the 500s of the 013 baseline.
+    [Fact]
+    public async Task A_transient_sql_failure_at_intake_answers_503_with_retry_after_and_the_repeated_request_is_accepted()
+    {
+        await using var fixture = await CreateAsync();
+        var timingOut = new SqlConnectionStringBuilder(fixture.Configuration["ConnectionStrings:Middleware"]) { CommandTimeout = 1 };
+        using var host = fixture.Host(new() { ["ConnectionStrings:Middleware"] = timingOut.ConnectionString });
+        using var client = host.CreateClient();
+        await using (var blocker = fixture.Database.Context())
+        {
+            await using var transaction = await blocker.Database.BeginTransactionAsync();
+            await blocker.Database.ExecuteSqlRawAsync("SELECT TOP (1) 1 FROM [Transactions] WITH (TABLOCKX, HOLDLOCK)");
+            using var unavailable = await client.PostAsJsonAsync(Send, Request());
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
+            Assert.Equal(TimeSpan.FromSeconds(1), unavailable.Headers.RetryAfter?.Delta);
+        }
+
+        using var repeated = await client.PostAsJsonAsync(Send, Request());
+        Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+        Assert.Equal(TransactionStatus.Accepted, (await repeated.Content.ReadFromJsonAsync<TransactionStatusDto>())!.Status);
+        Assert.Single(fixture.PaymentSubmissions);
     }
 
     [Fact]
@@ -542,7 +590,7 @@ public sealed class OutgoingHostTests
     public async Task Stop_after_dispose_is_safe_and_does_not_admit_work()
     {
         using var services = new ServiceCollection().BuildServiceProvider();
-        using var runtime = new OutgoingRuntime(services.GetRequiredService<IServiceScopeFactory>(), new(enabled: true), new(), new(),
+        using var runtime = new OutgoingRuntime(services.GetRequiredService<IServiceScopeFactory>(), new(), new(enabled: true), new(), new(),
             TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<OutgoingRuntime>.Instance);
         runtime.Dispose();
         await runtime.StopAsync(default);

@@ -34,6 +34,7 @@ internal static class OutgoingExecutionConfiguration
         services.AddScoped(CreateCamt056Intake);
         services.AddScoped(CreateCamt029Intake);
         services.AddScoped(CreatePain002Intake);
+        services.AddSingleton<OutgoingAttemptSignals>();
         services.AddSingleton<OutgoingRuntime>();
         services.AddSingleton<IOutgoingExecution>(sp => sp.GetRequiredService<OutgoingRuntime>());
         services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());

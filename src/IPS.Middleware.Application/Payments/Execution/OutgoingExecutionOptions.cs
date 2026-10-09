@@ -12,7 +12,8 @@ public sealed class OutgoingExecutionOptions
         TimeSpan? attemptBudget = null,
         TimeSpan? discoveryInterval = null,
         TimeSpan? statusPollInterval = null,
-        TimeSpan? shutdownBudget = null)
+        TimeSpan? shutdownBudget = null,
+        TimeSpan? statusPollMaxInterval = null)
     {
         var validCapacity = concurrency is >= 1 and <= 1000 && callbackConcurrency is >= 1 and <= 1000 && channelCapacity >= 1;
         var validDiscovery = discoveryBatch is >= 1 and <= 1000 && discoveryBatch <= channelCapacity;
@@ -30,10 +31,16 @@ public sealed class OutgoingExecutionOptions
         AttemptBudget = Positive(attemptBudget ?? TimeSpan.FromSeconds(35));
         DiscoveryInterval = Positive(discoveryInterval ?? TimeSpan.FromSeconds(1));
         StatusPollInterval = Positive(statusPollInterval ?? TimeSpan.FromMilliseconds(100));
+        StatusPollMaxInterval = Positive(statusPollMaxInterval ?? TimeSpan.FromSeconds(1));
         ShutdownBudget = Positive(shutdownBudget ?? TimeSpan.FromSeconds(30));
         if (HttpWait >= AttemptBudget)
         {
             throw new ArgumentException("HTTP wait must be shorter than the attempt budget.");
+        }
+
+        if (StatusPollMaxInterval < StatusPollInterval)
+        {
+            throw new ArgumentException("The longest status poll interval must not be shorter than the first.");
         }
     }
 
@@ -46,6 +53,7 @@ public sealed class OutgoingExecutionOptions
     public TimeSpan AttemptBudget { get; }
     public TimeSpan DiscoveryInterval { get; }
     public TimeSpan StatusPollInterval { get; }
+    public TimeSpan StatusPollMaxInterval { get; }
     public TimeSpan ShutdownBudget { get; }
 
     private static TimeSpan Positive(TimeSpan value) =>

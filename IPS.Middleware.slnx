@@ -12,5 +12,6 @@
     <Project Path="tests/IPS.Middleware.Simulators/IPS.Middleware.Simulators.csproj" />
     <Project Path="tests/IPS.Middleware.AppHost/IPS.Middleware.AppHost.csproj" />
     <Project Path="tests/IPS.Middleware.AspireTests/IPS.Middleware.AspireTests.csproj" />
+    <Project Path="tests/IPS.Middleware.Performance/IPS.Middleware.Performance.csproj" />
   </Folder>
 </Solution>

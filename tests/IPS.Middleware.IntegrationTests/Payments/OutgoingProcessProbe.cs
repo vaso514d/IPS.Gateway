@@ -77,6 +77,7 @@ internal static class OutgoingProcessProbe
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
         builder.Services.AddScoped(sp => new Pain002Intake(sp.GetRequiredService<IOutgoingPaymentRepository>(), sp.GetRequiredService<OutgoingTransactionIntake>(),
             Pacs008Fixture.Policy, new("NBGEGE22"), TimeProvider.System));
+        builder.Services.AddSingleton<OutgoingAttemptSignals>();
         builder.Services.AddSingleton<OutgoingRuntime>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<OutgoingRuntime>());
         using var host = builder.Build();

@@ -270,7 +270,7 @@ public sealed class InvestigationRepository(TransactionDbContext db) : IInvestig
 
     private OutgoingMessageRow? Message(Guid attemptId, OutgoingMessageDirection direction) =>
         db.OutgoingMessages.Local.SingleOrDefault(x => x.InvestigationId == attemptId && x.Direction == direction)
-        ?? db.OutgoingMessages.SingleOrDefault(x => x.InvestigationId == attemptId && x.Direction == direction);
+        ?? OutgoingJournal.Single(db.OutgoingMessages.Where(x => x.InvestigationId == attemptId && x.Direction == direction));
 
     private OutgoingMessageRow CommittedMessage(Guid attemptId, OutgoingMessageDirection direction)
     {

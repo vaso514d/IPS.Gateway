@@ -16,6 +16,12 @@ internal sealed class OutgoingPaymentMetadata
     public Guid? ClaimToken { get; set; }
     public DateTimeOffset? ClaimExpiresAtUtc { get; set; }
     public DateTimeOffset? NextActionAtUtc { get; set; }
+
+    // Read-only copies of columns of the same row for discovery, which reads them untracked: the payment writes its status and
+    // SQL computes the dispatch priority (0 for pacs.008, else 1).
+    public TransactionStatus CurrentStatus { get; private set; }
+    public DateTimeOffset CurrentStatusAtUtc { get; private set; }
+    public int DispatchPriority { get; private set; }
     public byte[] RowVersion { get; set; } = [];
 
     public bool IsClaimLive(DateTimeOffset now) => ClaimToken is not null && ClaimExpiresAtUtc > now;

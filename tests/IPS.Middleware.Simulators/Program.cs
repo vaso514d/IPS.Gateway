@@ -51,7 +51,7 @@ app.MapPost("/Message", async (HttpContext context, SimulatorSigning signing, Pa
 // CBS: the outgoing status callback.
 app.MapPost("/api/ips/transactions/status/receive", async (HttpContext context) =>
 {
-    state.Callbacks.Enqueue(await new StreamReader(context.Request.Body).ReadToEndAsync());
+    state.Callbacks.Enqueue(new(await new StreamReader(context.Request.Body).ReadToEndAsync(), DateTimeOffset.UtcNow));
     return Results.NoContent();
 });
 
