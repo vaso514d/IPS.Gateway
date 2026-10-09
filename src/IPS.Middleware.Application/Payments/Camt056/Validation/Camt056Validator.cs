@@ -12,12 +12,12 @@ internal sealed class Camt056Validator : AbstractValidator<Camt056Request>
 {
     public Camt056Validator(Pacs008Policy policy, DateOnly today)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.Id).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.RecallId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalEndToEndId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalTransactionId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.RecallId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalEndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalTransactionId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.OriginalCurrency).ProtocolText(Pacs008Text.Currency, required: true);
         RuleFor(x => x.OriginalCurrency).Must(code => policy.FindCurrency(code) is { Enabled: true })
             .WithMessage("Currency is not enabled.");
@@ -27,7 +27,7 @@ internal sealed class Camt056Validator : AbstractValidator<Camt056Request>
         RuleFor(x => x.OriginalSettlementDate).NotNull().WithMessage("The original settlement date is required.");
         RuleFor(x => x.OriginalSettlementDate).Must(date => date is null || date <= today)
             .WithMessage("The original settlement date must not be in the future.");
-        RuleFor(x => x.ReasonCode).ProtocolText("^[A-Z0-9]{1,4}$", required: true);
+        RuleFor(x => x.ReasonCode).ProtocolText(Pacs008Text.Text(4), required: true);
         RuleFor(x => x.OriginalTransaction).NotNull().WithMessage("The original transaction is required.");
         RuleFor(x => x.OriginalTransaction).SetValidator(new RecallOriginalValidator<RecallOriginalInput>(policy, today, RecallSender.DebtorAgent)!);
     }

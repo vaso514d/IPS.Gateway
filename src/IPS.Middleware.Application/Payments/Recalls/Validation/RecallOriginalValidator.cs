@@ -56,12 +56,12 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
     {
         public PartyValidator()
         {
-            RuleFor(x => x.Name).ProtocolText(Pacs008Text.FreeText(140), required: true);
+            RuleFor(x => x.Name).ProtocolText(Pacs008Text.Text(140), required: true);
             RuleFor(x => x.Type).Must(type => type is null or (int)PaymentPartyKind.Organisation or (int)PaymentPartyKind.Individual)
                 .WithMessage("Use 0 for an organisation or 1 for an individual.");
             RuleFor(x => x.Type).NotNull().When(x => !string.IsNullOrWhiteSpace(x.Identifier))
                 .WithMessage("A type is required with an identifier.");
-            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Identification(256));
+            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Text(256));
             RuleFor(x => x.Account).Iban();
             RuleFor(x => x.Address).SetValidator(new AddressValidator()!);
         }
@@ -71,12 +71,12 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
     {
         public UltimatePartyValidator()
         {
-            RuleFor(x => x.Name).ProtocolText(Pacs008Text.FreeText(140), required: true);
+            RuleFor(x => x.Name).ProtocolText(Pacs008Text.Text(140), required: true);
             RuleFor(x => x.Type).Must(type => type is null or (int)PaymentPartyKind.Organisation or (int)PaymentPartyKind.Individual)
                 .WithMessage("Use 0 for an organisation or 1 for an individual.");
             RuleFor(x => x.Type).NotNull().When(x => !string.IsNullOrWhiteSpace(x.Identifier))
                 .WithMessage("A type is required with an identifier.");
-            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Identification(256));
+            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Text(256));
         }
     }
 
@@ -84,15 +84,15 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
     {
         public AddressValidator()
         {
-            RuleFor(x => x.StreetName).ProtocolText(Pacs008Text.FreeText(140));
-            RuleFor(x => x.BuildingNumber).ProtocolText(Pacs008Text.FreeText(16));
-            RuleFor(x => x.PostCode).ProtocolText(Pacs008Text.FreeText(16));
-            RuleFor(x => x.TownName).ProtocolText(Pacs008Text.FreeText(140));
-            RuleFor(x => x.CountrySubdivision).ProtocolText(Pacs008Text.FreeText(35));
+            RuleFor(x => x.StreetName).ProtocolText(Pacs008Text.Text(140));
+            RuleFor(x => x.BuildingNumber).ProtocolText(Pacs008Text.Text(16));
+            RuleFor(x => x.PostCode).ProtocolText(Pacs008Text.Text(16));
+            RuleFor(x => x.TownName).ProtocolText(Pacs008Text.Text(140));
+            RuleFor(x => x.CountrySubdivision).ProtocolText(Pacs008Text.Text(35));
             RuleFor(x => x.Country).ProtocolText("^[A-Z]{2}$");
             RuleFor(x => x.AddressLines).Must(lines => lines is null || lines.Count(line => !string.IsNullOrWhiteSpace(line)) <= 7)
                 .WithMessage("At most seven address lines are allowed.");
-            RuleForEach(x => x.AddressLines).ProtocolText(Pacs008Text.FreeText(70));
+            RuleForEach(x => x.AddressLines).ProtocolText(Pacs008Text.Text(70));
         }
     }
 
@@ -101,7 +101,7 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
         public AgentValidator()
         {
             RuleFor(x => x.Bic).ProtocolText(Pacs008Text.Bic, required: true);
-            RuleFor(x => x.Name).ProtocolText(Pacs008Text.FreeText(140));
+            RuleFor(x => x.Name).ProtocolText(Pacs008Text.Text(140));
         }
     }
 
@@ -109,10 +109,10 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
     {
         public RemittanceValidator()
         {
-            RuleFor(x => x.Unstructured).ProtocolText(Pacs008Text.FreeText(140));
-            RuleFor(x => x.CreditorReference!.Reference).ProtocolText(Pacs008Text.FreeText(35), required: true)
+            RuleFor(x => x.Unstructured).ProtocolText(Pacs008Text.Text(140));
+            RuleFor(x => x.CreditorReference!.Reference).ProtocolText(Pacs008Text.Text(35), required: true)
                 .When(x => x.CreditorReference is not null);
-            RuleFor(x => x.CreditorReference!.Issuer).ProtocolText(Pacs008Text.FreeText(35))
+            RuleFor(x => x.CreditorReference!.Issuer).ProtocolText(Pacs008Text.Text(35))
                 .When(x => x.CreditorReference is not null);
         }
     }

@@ -11,14 +11,14 @@ internal sealed class Camt029Validator : AbstractValidator<Camt029Request>
 {
     public Camt029Validator(Pacs008Policy policy, DateOnly today)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.Id).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.CancellationStatusId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalEndToEndId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalTransactionId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.ReasonCode).ProtocolText("^[A-Z0-9]{1,4}$", required: true);
-        RuleFor(x => x.AdditionalInformation).ProtocolText(Pacs008Text.FreeText(105));
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.CancellationStatusId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalEndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalTransactionId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.ReasonCode).ProtocolText(Pacs008Text.Text(4), required: true);
+        RuleFor(x => x.AdditionalInformation).ProtocolText(Pacs008Text.Text(105));
         RuleFor(x => x.OriginalTransaction).NotNull().WithMessage("The original transaction is required.");
         RuleFor(x => x.OriginalTransaction).SetValidator(new OriginalValidator(policy, today)!);
     }

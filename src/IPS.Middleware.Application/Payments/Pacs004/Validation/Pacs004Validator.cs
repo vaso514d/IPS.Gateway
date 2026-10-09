@@ -11,8 +11,8 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
 {
     public Pacs004Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.Id).ProtocolText(Pacs008Text.AsciiId(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.Amount).Must(amount => amount is > 0).WithMessage("Amount must be greater than zero.");
         RuleFor(x => x.Amount).Must(amount => amount is null || PaymentChecksums.HasAllowedPrecision(amount.Value))
             .WithMessage("Amount permits 13 integer and 5 fractional digits.");
@@ -20,13 +20,13 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
         RuleFor(x => x.Currency).Must(code => policy.FindCurrency(code) is { Enabled: true })
             .WithMessage("Currency is not enabled.");
         RuleFor(x => x.ValueDate).NotNull().WithMessage("ValueDate is required.");
-        RuleFor(x => x.TransactionTypeCode).ProtocolText(Pacs008Text.SimpleText(35));
+        RuleFor(x => x.TransactionTypeCode).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.InstructedAgent).ProtocolText(Pacs008Text.Bic, required: true);
         RuleFor(x => x.InstructingAgent).ProtocolText(Pacs008Text.Bic);
         RuleFor(x => x.InstructingAgent).Must(bic => string.IsNullOrWhiteSpace(bic) ||
                 string.Equals(bic.Trim(), policy.ParticipantBic, StringComparison.OrdinalIgnoreCase))
             .WithMessage("The instructing agent must be our participant.");
-        RuleFor(x => x.SenderIndirectParticipant).ProtocolText(Pacs008Text.Compact(35));
+        RuleFor(x => x.SenderIndirectParticipant).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.SenderIndirectParticipant).Must(bic => string.IsNullOrWhiteSpace(bic) ||
                 policy.IndirectParticipants.Contains(bic.Trim(), StringComparer.OrdinalIgnoreCase))
             .WithMessage("Indirect participant is not configured.");
@@ -38,9 +38,9 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
         RuleFor(x => x.Debtor).SetValidator(new PartyValidator()!);
         RuleFor(x => x.Creditor).NotNull().WithMessage("Creditor is required: the original payee, who returns the money.");
         RuleFor(x => x.Creditor).SetValidator(new PartyValidator()!);
-        RuleFor(x => x.OriginatorName).ProtocolText(Pacs008Text.FreeText(140));
-        RuleFor(x => x.OriginatorAddress).ProtocolText(Pacs008Text.FreeText(140));
-        RuleFor(x => x.AdditionalInfo).ProtocolText(Pacs008Text.FreeText(105));
+        RuleFor(x => x.OriginatorName).ProtocolText(Pacs008Text.Text(140));
+        RuleFor(x => x.OriginatorAddress).ProtocolText(Pacs008Text.Text(140));
+        RuleFor(x => x.AdditionalInfo).ProtocolText(Pacs008Text.Text(105));
         RuleFor(x => x.Original).NotNull().WithMessage("Original is required.");
         RuleFor(x => x.Original).SetValidator(new OriginalValidator()!);
         // The original amount cannot be smaller than what is returned (Annex D 3.2.3.g); only same-currency amounts compare.
@@ -55,13 +55,13 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
     {
         public PartyValidator()
         {
-            RuleFor(x => x.Name).ProtocolText(Pacs008Text.FreeText(140), required: true);
+            RuleFor(x => x.Name).ProtocolText(Pacs008Text.Text(140), required: true);
             RuleFor(x => x.Account).Iban();
             RuleFor(x => x.Type).Must(type => type is null or (int)PaymentPartyKind.Organisation or (int)PaymentPartyKind.Individual)
                 .WithMessage("Use 0 for an organisation or 1 for an individual.");
             RuleFor(x => x.Type).NotNull().When(x => !string.IsNullOrWhiteSpace(x.Identifier))
                 .WithMessage("A type is required with an identifier.");
-            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Identification(256));
+            RuleFor(x => x.Identifier).ProtocolText(Pacs008Text.Text(256));
         }
     }
 
@@ -69,9 +69,9 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
     {
         public OriginalValidator()
         {
-            RuleFor(x => x.TransactionId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-            RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.AsciiId(35));
-            RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
+            RuleFor(x => x.TransactionId).ProtocolText(Pacs008Text.Text(35), required: true);
+            RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.Text(35));
+            RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
             RuleFor(x => x.ValueDate).NotNull().WithMessage("The original value date is required.");
             RuleFor(x => x.Amount).Must(amount => amount is null or > 0).WithMessage("The original amount must be greater than zero.");
             RuleFor(x => x.Amount).Must(amount => amount is null || PaymentChecksums.HasAllowedPrecision(amount.Value))
@@ -81,8 +81,8 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
             RuleFor(x => x.Amount).NotNull().When(x => !string.IsNullOrWhiteSpace(x.Currency))
                 .WithMessage("The original amount is required with its currency.");
             RuleFor(x => x.Uetr).Must(uetr => uetr is null || uetr != Guid.Empty).WithMessage("UETR must not be an empty GUID.");
-            RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.AsciiId(35));
-            RuleFor(x => x.OriginalMessageNameId).ProtocolText(Pacs008Text.AsciiId(35));
+            RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35));
+            RuleFor(x => x.OriginalMessageNameId).ProtocolText(Pacs008Text.Text(35));
         }
     }
 }

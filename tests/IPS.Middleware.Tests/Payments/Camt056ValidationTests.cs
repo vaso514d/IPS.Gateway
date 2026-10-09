@@ -92,7 +92,7 @@ public sealed class Camt056ValidationTests
         { "originalSettlementDate", r => r with { OriginalSettlementDate = new DateOnly(2026, 10, 5) } },
         { "reasonCode", r => r with { ReasonCode = null } },
         { "reasonCode", r => r with { ReasonCode = "TOOLONG" } },
-        { "reasonCode", r => r with { ReasonCode = "dupl" } },
+        { "reasonCode", r => r with { ReasonCode = "D\u0001PL" } },
         { "originalTransaction", r => r with { OriginalTransaction = null } },
         { "originalTransaction.settlementDate", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { SettlementDate = null } } },
         { "originalTransaction.settlementDate", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { SettlementDate = new DateOnly(2026, 10, 5) } } },

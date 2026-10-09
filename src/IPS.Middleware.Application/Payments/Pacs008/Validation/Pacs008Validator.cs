@@ -7,9 +7,9 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
 {
     public Pacs008Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.EndToEndId).Must(value => !IsInitiated(value) || value!.Trim().Length > 4)
             .WithMessage("The initiation prefix must be followed by the original payment identifier.");
         RuleFor(x => x.CreationDateTime).NotNull().WithMessage("Creation time is required.");
@@ -32,7 +32,7 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
         RuleFor(x => x.Amount).Must((request, amount) => WithinCurrencyLimits(amount, policy.FindCurrency(request.Currency)))
             .WithMessage("Amount is outside the configured currency limits.");
         RuleFor(x => x.InstructionPriority).Must(value => value is "NORM" or "HIGH").WithMessage("Use NORM or HIGH.");
-        RuleFor(x => x.CategoryPurposeCode).ProtocolText("^[A-Za-z0-9]{1,4}$");
+        RuleFor(x => x.CategoryPurposeCode).ProtocolText(Pacs008Text.Text(4));
         RuleFor(x => x.Debtor).NotNull().WithMessage("Debtor is required.");
         RuleFor(x => x.Debtor).SetValidator(new DebtorValidator(policy)!);
         RuleFor(x => x.Creditor).NotNull().WithMessage("Creditor is required.");

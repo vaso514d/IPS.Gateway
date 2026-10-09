@@ -1,24 +1,18 @@
 namespace IPS.Middleware.Application.Payments.Pacs008;
 
+// Field formats follow the ISO 20022 schemas: a MaxNText field is any XML character, 1 to N long. Patterns remain
+// only where the schema has one (BIC, currency), plus the Annex D channel and instrument code (3.2.1.e).
 internal static class Pacs008Text
 {
-    private const string FreeTextClass =
-        @"[0-9a-zA-Zა-ჰ/\-\?:\(\)\.,'\+ !#$%&\*=^_`\{\|\}~"";<>@\[\\\]]";
+    // Every character XML 1.0 can carry; control characters other than tab, line feed and carriage return cannot be.
+    private const string XmlCharacter = @"[^\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]";
 
-    private const string AsciiIdClass =
-        @"[0-9a-zA-Z/\-\?:\(\)\.,'\+ !""#$%&\*=^_`\{\|\}~;<>@\[\\\]]";
+    // The client reference also travels in the Idempotency-Key HTTP header, which carries printable ASCII only.
+    private const string HeaderCharacter = @"[ -~]";
 
-    private const string SimpleTextClass = @"[0-9a-zA-Z/\-\?:\(\)\.,'\+ ]";
-
-    private const string CompactClass = @"[0-9a-zA-Z/\-\?:\(\)\.,'\+]";
-
-    private const string IdentificationClass = @"[0-9a-zA-Z/\-\?:\(\)\.,'\+| ]";
-    public static string FreeText(int maxLength) => Wrap(FreeTextClass, maxLength);
-    public static readonly string FreeTextAnyLength = "^" + FreeTextClass + "+$";
-    public static string AsciiId(int maxLength) => Wrap(AsciiIdClass, maxLength);
-    public static string SimpleText(int maxLength) => Wrap(SimpleTextClass, maxLength);
-    public static string Compact(int maxLength) => Wrap(CompactClass, maxLength);
-    public static string Identification(int maxLength) => Wrap(IdentificationClass, maxLength);
+    public static string Text(int maxLength) => Wrap(XmlCharacter, maxLength);
+    public static readonly string TextAnyLength = "^" + XmlCharacter + "+$";
+    public static string HeaderText(int maxLength) => Wrap(HeaderCharacter, maxLength);
 
     public const string Bic = @"^[A-Z0-9]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$";
 

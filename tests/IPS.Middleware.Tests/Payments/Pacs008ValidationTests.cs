@@ -34,7 +34,7 @@ public sealed class Pacs008ValidationTests
         }, "clientReference"];
         yield return [r with
         {
-            InstructionId = "ქართული"
+            InstructionId = new string('x', 36)
         }, "instructionId"];
         yield return [r with
         {
@@ -234,6 +234,26 @@ public sealed class Pacs008ValidationTests
         var result = ValidatedPacs008.Validate(input, Policy);
         Assert.Null(result.Payment);
         Assert.Contains(result.Errors, e => e.Field == field);
+    }
+
+    // The schemas decide field formats: MaxNText is any XML character up to N. Only the client reference, which also
+    // travels in the Idempotency-Key HTTP header, stays printable ASCII.
+    [Fact]
+    public void Text_the_schema_allows_is_accepted_and_only_the_client_reference_stays_ascii()
+    {
+        var georgian = "ქართული «ტექსტი» №1 — ü";
+        AssertValid(Minimal() with
+        {
+            InstructionId = georgian,
+            EndToEndId = "E2E/ქართ€",
+            CategoryPurposeCode = "oth-",
+            Debtor = Minimal().Debtor! with { Name = georgian + "\t\n" }
+        });
+        AssertValid(Minimal() with { InstructionId = new string('ქ', 35) });
+
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = new string('ქ', 36) }, Policy).Errors, e => e.Field == "instructionId");
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = "a\u0001b" }, Policy).Errors, e => e.Field == "instructionId");
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { ClientReference = "ქართული" }, Policy).Errors, e => e.Field == "clientReference");
     }
 
     [Fact]

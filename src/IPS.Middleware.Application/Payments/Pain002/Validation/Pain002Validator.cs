@@ -10,12 +10,12 @@ internal sealed class Pain002Validator : AbstractValidator<Pain002Request>
 {
     public Pain002Validator()
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.Id).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.OriginalPaymentInformationId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.ReasonCode).ProtocolText("^[A-Z0-9]{1,4}$", required: true);
-        RuleFor(x => x.AdditionalInformation).ProtocolText(Pacs008Text.FreeText(105));
-        RuleFor(x => x.OriginatorName).ProtocolText(Pacs008Text.FreeText(140));
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.OriginalPaymentInformationId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.ReasonCode).ProtocolText(Pacs008Text.Text(4), required: true);
+        RuleFor(x => x.AdditionalInformation).ProtocolText(Pacs008Text.Text(105));
+        RuleFor(x => x.OriginatorName).ProtocolText(Pacs008Text.Text(140));
     }
 }

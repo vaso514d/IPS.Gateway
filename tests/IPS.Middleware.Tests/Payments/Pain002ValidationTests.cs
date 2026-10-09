@@ -48,7 +48,7 @@ public sealed class Pain002ValidationTests
         { "originalPaymentInformationId", r => r with { OriginalPaymentInformationId = new string('x', 36) } },
         { "reasonCode", r => r with { ReasonCode = null } },
         { "reasonCode", r => r with { ReasonCode = "TOOLONG" } },
-        { "reasonCode", r => r with { ReasonCode = "cust" } },
+        { "reasonCode", r => r with { ReasonCode = "C\u0001ST" } },
         { "additionalInformation", r => r with { AdditionalInformation = new string('x', 106) } },
         { "originatorName", r => r with { OriginatorName = new string('x', 141) } }
     };

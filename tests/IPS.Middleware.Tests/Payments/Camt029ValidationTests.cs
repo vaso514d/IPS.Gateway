@@ -75,7 +75,7 @@ public sealed class Camt029ValidationTests
         { "originalTransactionId", r => r with { OriginalTransactionId = null } },
         { "reasonCode", r => r with { ReasonCode = null } },
         { "reasonCode", r => r with { ReasonCode = "TOOLONG" } },
-        { "reasonCode", r => r with { ReasonCode = "cust" } },
+        { "reasonCode", r => r with { ReasonCode = "C\u0001ST" } },
         { "additionalInformation", r => r with { AdditionalInformation = new string('x', 106) } },
         { "originalTransaction.currency", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { Currency = null } } },
         { "originalTransaction.currency", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { Currency = "USD" } } },

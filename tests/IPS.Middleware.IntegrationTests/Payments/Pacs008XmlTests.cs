@@ -268,6 +268,24 @@ public sealed class Pacs008XmlTests
         Assert.All(document.Descendants().Attributes("Ccy"), currency => Assert.Equal("GEL", currency.Value));
     }
 
+    // Formats follow the schemas: Georgian and other non-ASCII text in identifiers is schema-valid and signs.
+    [Fact]
+    public void Non_ascii_identifiers_and_names_are_schema_valid_and_signed()
+    {
+        var r = Request();
+        var xml = Build(r with
+        {
+            InstructionId = new string('ქ', 35),
+            EndToEndId = "E2E/ქართ€<&>",
+            Debtor = r.Debtor! with { Name = "ქართული «სახელი» — ü" }
+        });
+        Pacs008Schema.Validate(xml);
+        using var certificate = IpsReplies.Certificate();
+        var signed = new Infrastructure.Payments.Pacs008.Signing.Pacs008MessageSigner(new(false, false), TimeProvider.System).Prepare(xml, certificate);
+        Assert.True(SignatureVerifier.Verifies(signed.Xml, certificate));
+        Assert.Equal("E2E/ქართ€<&>", XDocument.Parse(signed.Xml).Descendants(P + "EndToEndId").Single().Value);
+    }
+
     private static string Build(Pacs008Request input)
     {
         var result = ValidatedPacs008.Validate(input, Policy);

@@ -11,15 +11,15 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
 {
     public Pacs009Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.Id).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.AsciiId(35));
-        RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.AsciiId(35), required: true);
-        RuleFor(x => x.TransactionId).ProtocolText(Pacs008Text.AsciiId(35));
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.Text(35));
+        RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.TransactionId).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.Uetr).Must(uetr => uetr is null || uetr != Guid.Empty).WithMessage("UETR must not be an empty GUID.");
         RuleFor(x => x.InstructionPriority).Must(value => value is null or 0 or 1).WithMessage("InstructionPriority must be 0 or 1.");
         RuleFor(x => x.RtgsPriority).Must(value => value is null or 0 or 1).WithMessage("RTGSPriority must be 0 or 1.");
-        RuleFor(x => x.TransactionTypeCode).ProtocolText(Pacs008Text.SimpleText(35));
+        RuleFor(x => x.TransactionTypeCode).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.RejectTime).Must((x, reject) => x.FromTime is not { } from || reject is not { } until || from < until)
             .WithMessage("FromTime must be before RejectTime.");
         RuleFor(x => x.ValueDate).NotNull().WithMessage("ValueDate is required.");
@@ -34,9 +34,9 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
         RuleFor(x => x.CreditorAgent).NotNull().WithMessage("CreditorAgent is required.");
         RuleFor(x => x.CreditorAgent).SetValidator(new AgentValidator(null)!);
         RuleFor(x => x.CategoryPurpose).SetValidator(new CodeChoiceValidator(proprietaryMaxLength: 35)!);
-        RuleFor(x => x.Purpose).ProtocolText(Pacs008Text.FreeText(35));
+        RuleFor(x => x.Purpose).ProtocolText(Pacs008Text.Text(35));
         // RmtInf/Ustrd is unbounded Max140Text elements; the builder splits the text, so there is no total limit.
-        RuleFor(x => x.AdditionalPurpose).ProtocolText(Pacs008Text.FreeTextAnyLength);
+        RuleFor(x => x.AdditionalPurpose).ProtocolText(Pacs008Text.TextAnyLength);
         RuleFor(x => x.DebtorAccount).Must(account => string.IsNullOrWhiteSpace(account) || IsIban(account))
             .WithMessage("Account must be an IBAN with a valid checksum (pacs.009 sends accounts only as IBAN).");
         RuleFor(x => x.CreditorAccount).Must(account => string.IsNullOrWhiteSpace(account) || IsIban(account))
@@ -55,7 +55,7 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
         public AgentValidator(Pacs008Policy? payer)
         {
             RuleFor(x => x.Bic).ProtocolText(Pacs008Text.Bic, required: true);
-            RuleFor(x => x.ClearingSystemMemberId).ProtocolText(Pacs008Text.Compact(28));
+            RuleFor(x => x.ClearingSystemMemberId).ProtocolText(Pacs008Text.Text(28));
             if (payer is not null)
             {
                 RuleFor(x => x.Bic).Must(bic => string.IsNullOrWhiteSpace(bic) ||
@@ -72,8 +72,8 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
         public CodeChoiceValidator(int proprietaryMaxLength)
         {
             RuleFor(x => x.Type).Must(type => type is null or 0 or 1).WithMessage("Type must be 0 (code) or 1 (proprietary).");
-            RuleFor(x => x.Value).ProtocolText(Pacs008Text.AsciiId(4), required: true).When(x => x.Type != 1);
-            RuleFor(x => x.Value).ProtocolText(Pacs008Text.FreeText(proprietaryMaxLength), required: true).When(x => x.Type == 1);
+            RuleFor(x => x.Value).ProtocolText(Pacs008Text.Text(4), required: true).When(x => x.Type != 1);
+            RuleFor(x => x.Value).ProtocolText(Pacs008Text.Text(proprietaryMaxLength), required: true).When(x => x.Type == 1);
         }
     }
 }
