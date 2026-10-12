@@ -1,6 +1,7 @@
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using static IPS.Middleware.Infrastructure.Persistence.Events.EventRegistry;
 using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
@@ -22,7 +23,9 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         builder.Property(x => x.CurrentReasonCode).HasMaxLength(35);
         builder.Property(x => x.CurrentDescription).HasMaxLength(2000);
         builder.Property<byte[]>(RowVersion).IsRequired().IsRowVersion();
-        builder.HasIndex(x => new { x.CurrentStatus, x.MessageType, x.CurrentStatusAtUtc, x.Id });
+        // Shared with the metadata's read-only copies, which EF Core allows only for explicitly named columns.
+        builder.Property(x => x.CurrentStatus).HasColumnName(nameof(OutgoingPayment.CurrentStatus));
+        builder.Property(x => x.CurrentStatusAtUtc).HasColumnName(nameof(OutgoingPayment.CurrentStatusAtUtc));
         builder.Ignore(x => x.PendingEvents);
         builder.Ignore(x => x.Current);
         builder.Ignore(x => x.IsFinal);
@@ -52,12 +55,29 @@ internal sealed class OutgoingPaymentMetadataConfiguration : IEntityTypeConfigur
         builder.Property(x => x.RowVersion).IsRequired().IsRowVersion();
         builder.HasIndex(x => x.MessageId).IsUnique().HasFilter("[MessageId] IS NOT NULL");
         builder.HasIndex(x => x.ProtocolTransactionId).IsUnique().HasFilter("[ProtocolTransactionId] IS NOT NULL");
-        builder.HasIndex(x => x.ClaimExpiresAtUtc);
+        // Discovery reads one index without a lookup: due work in dispatch order (pacs.008 first, then the oldest status change),
+        // expired claims, and the scheduled work the backlog gauge counts. A lookup would hold the index row while waiting for a
+        // claimed payment's row, the order in which the 013 baseline deadlocked delivery discovery.
+        builder.Property(x => x.DispatchPriority).HasComputedColumnSql($"CASE WHEN [MessageType] = N'{Pacs008}' THEN 0 ELSE 1 END", stored: true);
+        ReadOnly(builder.Property(x => x.CurrentStatus).HasColumnName(nameof(OutgoingPayment.CurrentStatus)));
+        ReadOnly(builder.Property(x => x.CurrentStatusAtUtc).HasColumnName(nameof(OutgoingPayment.CurrentStatusAtUtc)));
+        builder.HasIndex(x => new { x.CurrentStatus, x.DispatchPriority, x.CurrentStatusAtUtc, x.Id })
+            .IncludeProperties(x => new { x.ClaimToken, x.NextActionAtUtc });
+        builder.HasIndex(x => x.ClaimExpiresAtUtc)
+            .IncludeProperties(x => new { x.ClaimToken, x.DispatchPriority, x.CurrentStatusAtUtc });
+        builder.HasIndex(x => x.NextActionAtUtc).HasFilter("[NextActionAtUtc] IS NOT NULL");
 
         builder.HasOne(x => x.Payment)
             .WithOne()
             .HasForeignKey<OutgoingPayment>(x => x.Id)
             .IsRequired();
         builder.Navigation(x => x.Payment).IsRequired();
+    }
+
+    // A column the payment writes, read here only.
+    private static void ReadOnly<T>(PropertyBuilder<T> property)
+    {
+        property.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        property.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
     }
 }

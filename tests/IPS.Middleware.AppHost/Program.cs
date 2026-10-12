@@ -9,9 +9,22 @@ using Microsoft.Extensions.Hosting;
 // CBS and the Proxy Solution, and one or more instances of the API (as projects, or as containers built from the Dockerfile).
 //   Middleware:Instances   number of API instances sharing the database (default 1)
 //   Middleware:Container   run the API as a container (the published output with src/IPS.Middleware.Api/Dockerfile) instead of as a project (default false)
+//   Middleware:Concurrency outgoing execution concurrency of each instance (default 4; the performance harness passes the shipped value)
+//   Middleware:Signing     sign outgoing messages with a generated key instead of sending them unsigned (default false)
+//   Middleware:Timings     Test (default) shortens discovery, waits, budgets and ownership so the Aspire tests run fast; Shipped
+//                          leaves them at the values of src/IPS.Middleware.Api/appsettings.json (the performance harness uses it)
 var builder = DistributedApplication.CreateBuilder(args);
 var instances = int.Parse(builder.Configuration["Middleware:Instances"] ?? "1", System.Globalization.CultureInfo.InvariantCulture);
 var asContainer = bool.Parse(builder.Configuration["Middleware:Container"] ?? "false");
+// A small admission limit leaves work waiting for the recovery sweeps of every instance, so instances share it.
+var concurrency = int.Parse(builder.Configuration["Middleware:Concurrency"] ?? "4", System.Globalization.CultureInfo.InvariantCulture);
+var signing = bool.Parse(builder.Configuration["Middleware:Signing"] ?? "false");
+var testTimings = (builder.Configuration["Middleware:Timings"] ?? "Test") switch
+{
+    "Test" => true,
+    "Shipped" => false,
+    var other => throw new InvalidOperationException($"Middleware:Timings must be Test or Shipped, not {other}.")
+};
 
 // The generated passwords are visible in the dashboard and in the container environment; they protect throwaway files only.
 var temporary = new TemporaryDirectories();
@@ -55,14 +68,19 @@ for (var number = 1; number <= instances; number++)
         var container = builder.AddDockerfile(name, contextPath: imageContext)
             .WithHttpEndpoint(targetPort: 8080, name: "http")
             .WithBindMount(certificates.TrustDirectory, "/certs", isReadOnly: true);
-        Configure(container, name, number, certificates, simulators, database, certificateRoot: "/certs");
+        if (signing)
+        {
+            container.WithBindMount(certificates.SigningDirectory, "/signing", isReadOnly: true);
+        }
+
+        Configure(container, name, number, concurrency, signing, testTimings, certificates, simulators, database, certificateRoot: "/certs", signingRoot: "/signing");
         container.WithHttpHealthCheck("/health/ready").WithHttpHealthCheck("/health/live");
     }
     else
     {
         var project = builder.AddProject<Projects.IPS_Middleware_Api>(name, launchProfileName: null)
             .WithHttpEndpoint(name: "http");
-        Configure(project, name, number, certificates, simulators, database, certificateRoot: certificates.TrustDirectory);
+        Configure(project, name, number, concurrency, signing, testTimings, certificates, simulators, database, certificateRoot: certificates.TrustDirectory, signingRoot: certificates.SigningDirectory);
         project.WithHttpHealthCheck("/health/ready").WithHttpHealthCheck("/health/live");
     }
 }
@@ -70,15 +88,20 @@ for (var number = 1; number <= instances; number++)
 builder.Build().Run();
 
 // Everything the service needs, as environment: transport to the simulators over TLS it trusts by file, the IPS signature trust,
-// the proxy, and the database. Each instance sends a different protocol version, so a test can tell who sent what.
+// the proxy, the database and, with signing on, the key it signs with. Each instance sends a different protocol version, so a
+// test can tell who sent what.
 static void Configure<T>(
     IResourceBuilder<T> middleware,
     string name,
     int number,
+    int concurrency,
+    bool signing,
+    bool testTimings,
     DevelopmentCertificates certificates,
     IResourceBuilder<ProjectResource> simulators,
     IResourceBuilder<SqlServerDatabaseResource> database,
-    string certificateRoot)
+    string certificateRoot,
+    string signingRoot)
     where T : IResourceWithEnvironment, IResourceWithWaitSupport
 {
     var serverTrust = Path.Combine(certificateRoot, Path.GetFileName(certificates.ServerPem)).Replace('\\', '/');
@@ -89,27 +112,19 @@ static void Configure<T>(
         .WaitFor(database)
         .WaitFor(simulators)
         .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development")
-        .WithEnvironment("Payments__Signing__AllowUnsignedInDevelopment", "true")
+        .WithEnvironment("Payments__Signing__AllowUnsignedInDevelopment", signing ? "false" : "true")
         .WithEnvironment("Payments__Outgoing__Transport__Enabled", "true")
         .WithEnvironment("Payments__Outgoing__Transport__ParticipantBic", "BAGAGE22")
         .WithEnvironment("Payments__Outgoing__Transport__IpsVersion", number.ToString())
         .WithEnvironment("Payments__Outgoing__Transport__Ips__BaseUrl", simulatorUrl)
         .WithEnvironment("Payments__Outgoing__Transport__Ips__ServerTrust__0__Path", serverTrust)
         .WithEnvironment("Payments__Outgoing__Transport__Ips__CheckCertificateRevocation", "false")
-        .WithEnvironment("Payments__Outgoing__Transport__Ips__RequestTimeout", "00:00:20")
         .WithEnvironment("Payments__Outgoing__Transport__Cbs__BaseUrl", simulatorUrl)
         .WithEnvironment("Payments__Outgoing__Transport__Cbs__ServerTrust__0__Path", serverTrust)
         .WithEnvironment("Payments__Outgoing__Transport__Cbs__CheckCertificateRevocation", "false")
         .WithEnvironment("Payments__Outgoing__Transport__IpsSignatureTrust__0__Path", ipsTrust)
         .WithEnvironment("Payments__Outgoing__Execution__Enabled", "true")
-        // A small admission limit leaves work waiting for the recovery sweeps of every instance, so instances share it.
-        .WithEnvironment("Payments__Outgoing__Execution__Concurrency", "4")
-        .WithEnvironment("Payments__Outgoing__Execution__HttpWait", "00:00:21")
-        .WithEnvironment("Payments__Outgoing__Execution__AttemptBudget", "00:00:22")
-        .WithEnvironment("Payments__Outgoing__Pacs008__Ownership", "00:00:30")
-        .WithEnvironment("Payments__Outgoing__Execution__DiscoveryInterval", "00:00:00.200")
-        .WithEnvironment("Payments__Outgoing__StatusDelivery__DiscoveryInterval", "00:00:00.200")
-        .WithEnvironment("Payments__Outgoing__Investigation__DiscoveryInterval", "00:00:00.200")
+        .WithEnvironment("Payments__Outgoing__Execution__Concurrency", concurrency.ToString(System.Globalization.CultureInfo.InvariantCulture))
         .WithEnvironment("Payments__Outgoing__Policy__Currencies__0__Code", "GEL")
         .WithEnvironment("Payments__Outgoing__Protocol__IpsBic", "NBGEGE22")
         .WithEnvironment("Proxy__Enabled", "true")
@@ -118,4 +133,23 @@ static void Configure<T>(
         .WithEnvironment("Proxy__Endpoint__BaseUrl", simulatorUrl)
         .WithEnvironment("Proxy__Endpoint__ServerTrust__0__Path", serverTrust)
         .WithEnvironment("Proxy__Endpoint__CheckCertificateRevocation", "false");
+    if (testTimings)
+    {
+        middleware
+            .WithEnvironment("Payments__Outgoing__Transport__Ips__RequestTimeout", "00:00:20")
+            .WithEnvironment("Payments__Outgoing__Execution__HttpWait", "00:00:21")
+            .WithEnvironment("Payments__Outgoing__Execution__AttemptBudget", "00:00:22")
+            .WithEnvironment("Payments__Outgoing__Pacs008__Ownership", "00:00:30")
+            .WithEnvironment("Payments__Outgoing__Execution__DiscoveryInterval", "00:00:00.200")
+            .WithEnvironment("Payments__Outgoing__StatusDelivery__DiscoveryInterval", "00:00:00.200")
+            .WithEnvironment("Payments__Outgoing__Investigation__DiscoveryInterval", "00:00:00.200");
+    }
+
+    if (signing)
+    {
+        var signingKey = Path.Combine(signingRoot, Path.GetFileName(certificates.OutgoingSigningPfx)).Replace('\\', '/');
+        middleware
+            .WithEnvironment("Payments__Outgoing__Transport__SigningCertificate__Path", signingKey)
+            .WithEnvironment("Payments__Outgoing__Transport__SigningCertificate__Password", certificates.Password);
+    }
 }

@@ -1,10 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IPS.Middleware.Api.Binding;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Infrastructure.Payments.StatusDelivery;
+using IPS.Middleware.Infrastructure.Persistence;
 using IPS.MiidleWear.Contracts.Camt029;
 using IPS.MiidleWear.Contracts.Camt056;
 using IPS.MiidleWear.Contracts.Pacs004;
@@ -17,8 +19,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace IPS.Middleware.Api.Payments;
 
 [ApiController]
-public sealed class OutgoingPaymentsController(OutgoingSubmission submission, OutgoingStatusReader reader) : ControllerBase
+public sealed class OutgoingPaymentsController(
+    OutgoingSubmission submission,
+    OutgoingStatusReader reader,
+    ILogger<OutgoingPaymentsController> logger) : ControllerBase
 {
+    private const string RetryAfterSeconds = "1";
     private static readonly JsonSerializerOptions Wire = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
@@ -28,43 +34,49 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendAsync([FromBody] Pacs008InstantPaymentRequestDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(Pacs008RequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendAsync([FromBody] Pacs008InstantPaymentRequestDto request, CancellationToken token) =>
+        SubmitAsync(Pacs008RequestMapping.Map(request), Json(request), token);
 
     [HttpPost(Pacs009RestApiRoutes.Send, Name = "SendPacs009")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendPacs009Async([FromBody] Pacs009PaymentRequestDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(Pacs009RequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendPacs009Async([FromBody] Pacs009PaymentRequestDto request, CancellationToken token) =>
+        SubmitAsync(Pacs009RequestMapping.Map(request), Json(request), token);
 
     [HttpPost(Pacs004RestApiRoutes.Send, Name = "SendPacs004")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendPacs004Async([FromBody] Pacs004PaymentReturnRequestDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(Pacs004RequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendPacs004Async([FromBody] Pacs004PaymentReturnRequestDto request, CancellationToken token) =>
+        SubmitAsync(Pacs004RequestMapping.Map(request), Json(request), token);
 
     [HttpPost(Camt056RestApiRoutes.Send, Name = "SendCamt056")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendCamt056Async([FromBody] Camt056RecallRequestDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(RecallRequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendCamt056Async([FromBody] Camt056RecallRequestDto request, CancellationToken token) =>
+        SubmitAsync(RecallRequestMapping.Map(request), Json(request), token);
 
     [HttpPost(Camt029RestApiRoutes.Send, Name = "SendCamt029")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendCamt029Async([FromBody] Camt029ResolutionOfInvestigationDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(RecallRequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendCamt029Async([FromBody] Camt029ResolutionOfInvestigationDto request, CancellationToken token) =>
+        SubmitAsync(RecallRequestMapping.Map(request), Json(request), token);
 
     [HttpPost(Pain002RestApiRoutes.Send, Name = "SendPain002")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status504GatewayTimeout, "application/json")]
     [ProducesResponseType<HttpValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
-    public async Task<IResult> SendPain002Async([FromBody] Pain002PaymentStatusReportDto request, CancellationToken token) =>
-        Respond(await submission.SubmitAsync(Pain002RequestMapping.Map(request), Json(request), token));
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status503ServiceUnavailable, "application/problem+json")]
+    public Task<IResult> SendPain002Async([FromBody] Pain002PaymentStatusReportDto request, CancellationToken token) =>
+        SubmitAsync(Pain002RequestMapping.Map(request), Json(request), token);
 
     [HttpGet(TransactionRestApiRoutes.Status, Name = "GetTransactionStatus")]
     [ProducesResponseType<TransactionStatusDto>(StatusCodes.Status200OK, "application/json")]
@@ -87,6 +99,24 @@ public sealed class OutgoingPaymentsController(OutgoingSubmission submission, Ou
     }
 
     private static string Json<T>(T request) => JsonSerializer.Serialize(request, JsonSerializerOptions.Web);
+
+    private async Task<IResult> SubmitAsync(IOutgoingPaymentRequest request, string json, CancellationToken token)
+    {
+        try
+        {
+            return Respond(await submission.SubmitAsync(request, json, token));
+        }
+        catch (Exception error) when (DatabaseFailure.IsTransient(error))
+        {
+            logger.LogWarning(error, "The payment store failed transiently at intake; the caller is asked to repeat the request");
+            // The request is idempotent by client reference: repeated after the pause, it returns the stored payment's status.
+            Response.Headers.RetryAfter = RetryAfterSeconds;
+            return Results.Problem(
+                title: "The payment store is temporarily unavailable.",
+                detail: "Repeat the request with the same client reference.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
 
     private static IResult Respond(OutgoingSubmissionResult result)
     {

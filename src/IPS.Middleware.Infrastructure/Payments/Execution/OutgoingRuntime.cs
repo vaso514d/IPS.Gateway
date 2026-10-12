@@ -24,6 +24,7 @@ namespace IPS.Middleware.Infrastructure.Payments.Execution;
 // SQL claims stay the authority.
 public sealed class OutgoingRuntime(
     IServiceScopeFactory scopes,
+    OutgoingAttemptSignals attempts,
     OutgoingExecutionOptions options,
     InvestigationOptions investigation,
     StatusDeliveryOptions delivery,
@@ -141,6 +142,41 @@ public sealed class OutgoingRuntime(
     }
 
     private async Task ProcessAsync(Guid paymentId)
+    {
+        try
+        {
+            await AttemptAsync(paymentId);
+        }
+        finally
+        {
+            // After the attempt's last commit, so a request waiting here reads its outcome at once.
+            attempts.Finished(paymentId);
+        }
+
+        await StartCallbackAsync(paymentId);
+    }
+
+    // The callback of the outcome this attempt committed starts at once; callback discovery remains the path for retries, for
+    // outcomes committed elsewhere and for a callback that finds no free slot here.
+    // A failed lookup only delays the callback until discovery finds it, so it is a warning, not a failed payment.
+    private async Task StartCallbackAsync(Guid paymentId)
+    {
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IOutgoingStatusRepository>();
+            if (await repository.FindDueAsync(paymentId, Time.GetUtcNow(), ExecutionToken) is { } key)
+            {
+                _callbacks.TryStart(key, () => DeliverCallbackAsync(key));
+            }
+        }
+        catch (Exception error) when (!ExecutionToken.IsCancellationRequested)
+        {
+            Logger.LogWarning(error, "Starting the callback of payment {PaymentId} failed; callback discovery will deliver it", paymentId);
+        }
+    }
+
+    private async Task AttemptAsync(Guid paymentId)
     {
         using var budget = new CancellationTokenSource(options.AttemptBudget, Time);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(budget.Token, ExecutionToken);

@@ -253,10 +253,14 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("CurrentStatus")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("int")
+                        .HasColumnName("CurrentStatus");
 
                     b.Property<DateTimeOffset>("CurrentStatusAtUtc")
-                        .HasColumnType("datetimeoffset");
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("CurrentStatusAtUtc");
 
                     b.Property<int>("EventSequence")
                         .HasColumnType("int")
@@ -283,8 +287,6 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.HasIndex("Id", "AggregateKind")
                         .IsUnique();
-
-                    b.HasIndex("CurrentStatus", "MessageType", "CurrentStatusAtUtc", "Id");
 
                     b.ToTable("Transactions", (string)null);
                 });
@@ -815,8 +817,21 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.Property<Guid?>("ClaimToken")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("CurrentStatus")
+                        .HasColumnType("int")
+                        .HasColumnName("CurrentStatus");
+
+                    b.Property<DateTimeOffset>("CurrentStatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("CurrentStatusAtUtc");
+
                     b.Property<int>("Direction")
                         .HasColumnType("int");
+
+                    b.Property<int>("DispatchPriority")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("int")
+                        .HasComputedColumnSql("CASE WHEN [MessageType] = N'pacs.008' THEN 0 ELSE 1 END", true);
 
                     b.Property<string>("MessageId")
                         .HasMaxLength(35)
@@ -846,13 +861,22 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.HasIndex("ClaimExpiresAtUtc");
 
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ClaimExpiresAtUtc"), new[] { "ClaimToken", "DispatchPriority", "CurrentStatusAtUtc" });
+
                     b.HasIndex("MessageId")
                         .IsUnique()
                         .HasFilter("[MessageId] IS NOT NULL");
 
+                    b.HasIndex("NextActionAtUtc")
+                        .HasFilter("[NextActionAtUtc] IS NOT NULL");
+
                     b.HasIndex("ProtocolTransactionId")
                         .IsUnique()
                         .HasFilter("[ProtocolTransactionId] IS NOT NULL");
+
+                    b.HasIndex("CurrentStatus", "DispatchPriority", "CurrentStatusAtUtc", "Id");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CurrentStatus", "DispatchPriority", "CurrentStatusAtUtc", "Id"), new[] { "ClaimToken", "NextActionAtUtc" });
 
                     b.ToTable("Transactions", null, t =>
                         {
@@ -910,6 +934,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("PaymentId", "Sequence");
 
                     b.HasIndex("State", "NextAtUtc", "PaymentId", "Sequence");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("State", "NextAtUtc", "PaymentId", "Sequence"), new[] { "ClaimToken", "ClaimExpiresAtUtc" });
 
                     b.ToTable("OutgoingStatusDeliveries", null, t =>
                         {

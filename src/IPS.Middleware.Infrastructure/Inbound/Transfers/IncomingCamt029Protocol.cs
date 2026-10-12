@@ -19,7 +19,6 @@ public sealed class IncomingCamt029Protocol(IpsSignatureTrust trust) : IIncoming
     // The only answer IPS forwards besides the pacs.004 that accepts a recall (Annex D 8.1.6).
     private const string Refused = "RJCR";
 
-    private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Camt = Camt029Xml.DocumentNamespace;
     private static readonly RecallReferenceReader Reader = new(Camt);
 
@@ -29,28 +28,10 @@ public sealed class IncomingCamt029Protocol(IpsSignatureTrust trust) : IIncoming
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
-            var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-            if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-                header.Name != Head + "AppHdr" || body.Name != Camt + "Document")
+            var opened = SignedEnvelope.Open(xml, receivedAtUtc, trust, Camt, PaymentMessageTypes.Camt029Definition.Equals);
+            if (opened.Document is not { } body)
             {
-                return Hold("Unexpected message envelope or version.");
-            }
-
-            if (header.Element(Head + "MsgDefIdr")?.Value != PaymentMessageTypes.Camt029Definition)
-            {
-                return Hold("Unsupported message definition.");
-            }
-
-            var signature = trust.Check(xml, receivedAtUtc);
-            if (signature is IpsSignatureCheck.OutsideValidity outside)
-            {
-                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
-            }
-
-            if (signature is not IpsSignatureCheck.Trusted)
-            {
-                return Hold("Untrusted message signature.");
+                return Hold(opened.HoldReason!);
             }
 
             // Every transaction in the message counts, including one nested in an original payment information block

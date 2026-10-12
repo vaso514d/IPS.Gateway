@@ -15,7 +15,6 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transfers;
 // payment's ids, amount and settlement date, and names both agents of that payment by BICFI.
 public sealed class IncomingCamt056Protocol(IpsSignatureTrust trust) : IIncomingTransferProtocol
 {
-    private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Camt = Camt056Xml.DocumentNamespace;
     private static readonly RecallReferenceReader Reader = new(Camt);
 
@@ -25,28 +24,10 @@ public sealed class IncomingCamt056Protocol(IpsSignatureTrust trust) : IIncoming
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
-            var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-            if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-                header.Name != Head + "AppHdr" || body.Name != Camt + "Document")
+            var opened = SignedEnvelope.Open(xml, receivedAtUtc, trust, Camt, PaymentMessageTypes.Camt056Definition.Equals);
+            if (opened.Document is not { } body)
             {
-                return Hold("Unexpected message envelope or version.");
-            }
-
-            if (header.Element(Head + "MsgDefIdr")?.Value != PaymentMessageTypes.Camt056Definition)
-            {
-                return Hold("Unsupported message definition.");
-            }
-
-            var signature = trust.Check(xml, receivedAtUtc);
-            if (signature is IpsSignatureCheck.OutsideValidity outside)
-            {
-                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
-            }
-
-            if (signature is not IpsSignatureCheck.Trusted)
-            {
-                return Hold("Untrusted message signature.");
+                return Hold(opened.HoldReason!);
             }
 
             var request = body.Element(Camt + "FIToFIPmtCxlReq");
