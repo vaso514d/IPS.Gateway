@@ -49,6 +49,7 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
             group.Add(new XElement(d.Descendants(Pacs + "CdtTrfTxInf").Single()));
         });
         Add("count", d => d.Descendants(Pacs + "NbOfTxs").Single().Value = "2");
+        Add("other-creditor-agent", d => d.Descendants(Pacs + "CdtrAgt").Single().Descendants(Pacs + "BICFI").Single().Value = "TBCBGE22");
         Add("missing-count", d => d.Descendants(Pacs + "NbOfTxs").Single().Remove());
         Add("invalid-count", d => d.Descendants(Pacs + "NbOfTxs").Single().Value = "invalid");
         Add("missing-date-and-count", d => { d.Descendants(Pacs + "GrpHdr").Single().Element(Pacs + "CreDtTm")!.Remove(); d.Descendants(Pacs + "NbOfTxs").Single().Remove(); });

@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Proxy;
@@ -125,23 +126,19 @@ public sealed class ProxyClientTests
     }
 
     [Fact]
-    public void Settings_require_valid_bics_a_version_and_a_client_certificate_outside_development()
+    public void Settings_require_a_version_and_a_client_certificate_outside_development()
     {
-        var valid = new ProxySettings { Enabled = true, ParticipantBic = "TESTGE22", ProxyBic = "PROXGE22", Endpoint = new() { BaseUrl = "http://127.0.0.1:5000" } };
+        var valid = new ProxySettings { Enabled = true, Endpoint = new() { BaseUrl = "http://127.0.0.1:5000" } };
         valid.Validate(development: true);
 
-        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, ParticipantBic = "BAD", ProxyBic = "PROXGE22", Endpoint = valid.Endpoint }.Validate(true));
-        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, ParticipantBic = "TESTGE22", ProxyBic = "", Endpoint = valid.Endpoint }.Validate(true));
-        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, ParticipantBic = "TESTGE22", ProxyBic = "PROXGE22", ProtocolVersion = "", Endpoint = valid.Endpoint }.Validate(true));
-        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, ParticipantBic = "TESTGE22", ProxyBic = "PROXGE22", Endpoint = new() { BaseUrl = "https://proxy.example" } }.Validate(development: false));
+        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, ProtocolVersion = "", Endpoint = valid.Endpoint }.Validate(true));
+        Assert.Throws<InvalidOperationException>(() => new ProxySettings { Enabled = true, Endpoint = new() { BaseUrl = "https://proxy.example" } }.Validate(development: false));
         new ProxySettings().Validate(development: false);
     }
 
     private static ProxySettings Settings(string url, TimeSpan? timeout = null) => new()
     {
         Enabled = true,
-        ParticipantBic = "TESTGE22",
-        ProxyBic = "PROXGE22",
         Endpoint = new()
         {
             BaseUrl = url,
@@ -158,6 +155,7 @@ public sealed class ProxyClientTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(settings);
+        services.AddSingleton(new BankIdentity("TESTGE22", "PROXGE22"));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new Pacs008SigningPolicy(false, false));
         services.AddSingleton<Pacs008MessageSigner>();

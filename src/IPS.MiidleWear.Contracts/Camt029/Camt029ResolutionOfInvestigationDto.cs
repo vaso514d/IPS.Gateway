@@ -117,7 +117,7 @@ public sealed record Camt029OriginalTransactionReferenceDto
 public static class Camt029RestApiRoutes
 {
     /// <summary>Implemented by the gateway; called by external clients to send a camt.029 negative answer to a recall.</summary>
-    public const string Send = "/api/ips/camt029/send";
+    public const string Send = "/api/v1/ips/camt029/send";
 
     /// <summary>Implemented by the core system; called by the gateway for an incoming camt.029 refusal of the core's recall.</summary>
     public const string Receive = "/api/ips/camt029/receive";

@@ -177,7 +177,6 @@ public sealed class OutgoingCrashTests
     private static OutgoingTransportSettings Transport(OutgoingHostFixture fixture) => new()
     {
         Enabled = true,
-        ParticipantBic = "BAGAGE22",
         Ips = new() { BaseUrl = fixture.Server.Url, RequestTimeout = TimeSpan.FromSeconds(3), ConnectTimeout = TimeSpan.FromMilliseconds(200) },
         Cbs = new() { BaseUrl = fixture.Server.Url },
         SigningCertificate = fixture.Certificates.Identity,

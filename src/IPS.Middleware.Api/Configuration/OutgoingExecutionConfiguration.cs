@@ -147,10 +147,8 @@ internal static class OutgoingExecutionConfiguration
     private static PaymentProfile ReadPaymentProfile(IServiceProvider services)
     {
         var settings = services.ReadSection<PolicySettings>("Payments:Outgoing:Policy") ?? new PolicySettings();
-        var participantBic = services.GetRequiredService<OutgoingTransportSettings>().ParticipantBic.ToUpperInvariant();
-        var policy = new Pacs008Policy(participantBic, settings.TreasuryBic, settings.Currencies, settings.IndirectParticipants);
-        var protocol = services.ReadSection<Pacs008ProtocolProfile>("Payments:Outgoing:Protocol")
-            ?? throw new InvalidOperationException("Outgoing execution requires Payments:Outgoing:Protocol:IpsBic.");
+        var policy = new Pacs008Policy(services.GetRequiredService<BankIdentity>(), settings.Currencies, settings.IndirectParticipants);
+        var protocol = ProtocolSettings.ReadProfile(services, "Payments:Outgoing:Protocol");
         return new PaymentProfile(policy, protocol);
     }
 
@@ -180,7 +178,6 @@ internal static class OutgoingExecutionConfiguration
 
     private sealed class PolicySettings
     {
-        public string? TreasuryBic { get; set; }
         public PaymentCurrency[] Currencies { get; set; } = [];
         public string[] IndirectParticipants { get; set; } = [];
     }

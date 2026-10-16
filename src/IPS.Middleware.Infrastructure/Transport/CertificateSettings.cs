@@ -3,7 +3,8 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace IPS.Middleware.Infrastructure.Transport;
 
-// A certificate configured either as a file (PFX or PEM) or as a Windows store thumbprint.
+// A certificate configured from exactly one source: a file (PFX or PEM), a Windows store thumbprint, or the certificate
+// itself in configuration (base64 PKCS#12 or PEM text), which needs no file system or store, as in a container.
 public sealed class CertificateSettings
 {
     private const string ClientAuthenticationOid = "1.3.6.1.5.5.7.3.2";
@@ -16,11 +17,22 @@ public sealed class CertificateSettings
     public StoreLocation StoreLocation { get; init; } = StoreLocation.LocalMachine;
     public StoreName StoreName { get; init; } = StoreName.My;
 
+    // PFX/P12 bytes in base64, with Password when the PKCS#12 is protected.
+    public string? Pkcs12Base64 { get; init; }
+
+    // PEM certificate text; the private key is KeyPem or, when absent, in the same text. Password decrypts an encrypted key.
+    public string? Pem { get; init; }
+    public string? KeyPem { get; init; }
+
     private bool FromStore => !string.IsNullOrWhiteSpace(Thumbprint);
 
-    private bool IsPkcs12File => !FromStore
+    private bool FromPkcs12Text => !string.IsNullOrWhiteSpace(Pkcs12Base64);
+
+    private bool FromPemText => !string.IsNullOrWhiteSpace(Pem);
+
+    private bool IsPkcs12 => FromPkcs12Text || (!string.IsNullOrWhiteSpace(Path)
         && System.IO.Path.GetExtension(Path) is { } extension
-        && (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase) || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase));
+        && (extension.Equals(".pfx", StringComparison.OrdinalIgnoreCase) || extension.Equals(".p12", StringComparison.OrdinalIgnoreCase)));
 
     public X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls = false) =>
         Load(privateKeyRequired, now, forTls, notYetValidAccepted: false);
@@ -32,13 +44,19 @@ public sealed class CertificateSettings
 
     private X509Certificate2 Load(bool privateKeyRequired, DateTimeOffset now, bool forTls, bool notYetValidAccepted)
     {
-        if (string.IsNullOrWhiteSpace(Path) == string.IsNullOrWhiteSpace(Thumbprint))
+        string?[] sources = [Path, Thumbprint, Pkcs12Base64, Pem];
+        if (sources.Count(source => !string.IsNullOrWhiteSpace(source)) != 1)
         {
-            throw new InvalidOperationException("Specify exactly one certificate file or store thumbprint.");
+            throw new InvalidOperationException("Specify exactly one certificate source: Path, Thumbprint, Pkcs12Base64 or Pem.");
+        }
+
+        if ((KeyPath is not null && string.IsNullOrWhiteSpace(Path)) || (KeyPem is not null && !FromPemText))
+        {
+            throw new InvalidOperationException("KeyPath belongs to a Path source and KeyPem to a Pem source.");
         }
 
         var certificate = LoadSource(privateKeyRequired, forTls);
-        if (forTls && OperatingSystem.IsWindows() && !FromStore && !IsPkcs12File)
+        if (forTls && OperatingSystem.IsWindows() && !FromStore && !IsPkcs12)
         {
             certificate = PrepareWindowsTls(certificate);
         }
@@ -84,7 +102,17 @@ public sealed class CertificateSettings
             return LoadFromStore();
         }
 
-        return IsPkcs12File ? LoadPkcs12(forTls) : LoadPem(privateKeyRequired);
+        if (FromPkcs12Text)
+        {
+            return LoadPkcs12Text(forTls);
+        }
+
+        if (FromPemText)
+        {
+            return LoadPemText(privateKeyRequired);
+        }
+
+        return IsPkcs12 ? LoadPkcs12(forTls) : LoadPem(privateKeyRequired);
     }
 
     private static void RequireUsable(X509Certificate2 certificate, bool privateKeyRequired, DateTimeOffset now, bool notYetValidAccepted)
@@ -106,7 +134,7 @@ public sealed class CertificateSettings
     {
         if (!OperatingSystem.IsWindows())
         {
-            throw new PlatformNotSupportedException("Certificate store sources require Windows.");
+            throw new PlatformNotSupportedException("Certificate store sources require Windows; use Path, Pkcs12Base64 or Pem elsewhere.");
         }
 
         if (KeyPath is not null || Password is not null)
@@ -142,11 +170,53 @@ public sealed class CertificateSettings
             throw new InvalidOperationException("PFX files cannot specify a separate key.");
         }
 
-        var keyStorage = forTls && OperatingSystem.IsWindows()
-            ? X509KeyStorageFlags.DefaultKeySet
-            : X509KeyStorageFlags.EphemeralKeySet;
-        return X509CertificateLoader.LoadPkcs12FromFile(Path!, Password, keyStorage);
+        return X509CertificateLoader.LoadPkcs12FromFile(Path!, Password, KeyStorage(forTls));
     }
+
+    private X509Certificate2 LoadPkcs12Text(bool forTls)
+    {
+        byte[] pkcs12;
+        try
+        {
+            pkcs12 = Convert.FromBase64String(Pkcs12Base64!.Trim());
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("Pkcs12Base64 is not valid base64.");
+        }
+
+        try
+        {
+            return X509CertificateLoader.LoadPkcs12(pkcs12, Password, KeyStorage(forTls));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(pkcs12);
+        }
+    }
+
+    private X509Certificate2 LoadPemText(bool privateKeyRequired)
+    {
+        if (privateKeyRequired)
+        {
+            var key = KeyPem ?? Pem!;
+            return Password is null
+                ? X509Certificate2.CreateFromPem(Pem, key)
+                : X509Certificate2.CreateFromEncryptedPem(Pem, key, Password);
+        }
+
+        if (KeyPem is not null || Password is not null)
+        {
+            throw new InvalidOperationException("Trust certificates require public certificate text only.");
+        }
+
+        return X509Certificate2.CreateFromPem(Pem);
+    }
+
+    // Schannel needs a persisted key for TLS on Windows; everything else keeps the key in memory only.
+    private static X509KeyStorageFlags KeyStorage(bool forTls) => forTls && OperatingSystem.IsWindows()
+        ? X509KeyStorageFlags.DefaultKeySet
+        : X509KeyStorageFlags.EphemeralKeySet;
 
     private X509Certificate2 LoadPem(bool privateKeyRequired)
     {

@@ -38,7 +38,7 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
         var signer = new Pacs008MessageSigner(new(false, false), TimeProvider.System);
         var signed = signer.PrepareInvestigation(xml, evidence.Ips);
         Assert.True(signed.IsSigned);
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(signed.Xml, evidence.Ips));
+        Assert.True(SignatureVerifier.Verifies(signed.Xml, evidence.Ips));
         Assert.Throws<InvalidOperationException>(() => signer.PrepareInvestigation(signed.Xml, evidence.Ips));
         Assert.Throws<SigningCertificateException>(() => signer.PrepareInvestigation(xml, null));
         var unsigned = new Pacs008MessageSigner(new(true, true), TimeProvider.System).PrepareInvestigation(xml, null);

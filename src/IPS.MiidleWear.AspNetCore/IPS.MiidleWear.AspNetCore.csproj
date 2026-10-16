@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The core-system side of the IPS middleware contract: maps an IClientPaymentReceiver implementation to the endpoints
+    the gateway calls, with the gateway's JSON, status codes and Idempotency-Key. References Contracts and the ASP.NET Core
+    shared framework only. The gateway does not reference it.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+    <PackageId>IPS.MiidleWear.AspNetCore</PackageId>
+    <Version>2.0.0-preview.1</Version>
+    <Description>ASP.NET Core hosting of IClientPaymentReceiver: the receive, status-callback and payment-status endpoints the IPS middleware calls on a core banking system.</Description>
+    <PackageTags>IPS;ISO20022;ASP.NET Core;core banking;receiver</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

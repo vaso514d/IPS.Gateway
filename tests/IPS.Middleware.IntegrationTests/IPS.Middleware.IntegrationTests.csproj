@@ -15,11 +15,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Testing/IPS.MiidleWear.Testing.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="Payments/Fixtures/*.java" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="../../tools/IPS.MiidleWear.OpenApi/IPS.MiidleWear.OpenApi.csproj" />
+    <ProjectReference Include="../../samples/IPS.MiidleWear.CoreReceiver.Sample/IPS.MiidleWear.CoreReceiver.Sample.csproj" />
   </ItemGroup>
 </Project>

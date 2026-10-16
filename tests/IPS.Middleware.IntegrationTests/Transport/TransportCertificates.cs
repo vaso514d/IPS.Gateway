@@ -92,6 +92,28 @@ internal sealed class TransportCertificates : IDisposable
         };
     }
 
+    // The client identity written into configuration instead of a file.
+    public CertificateSettings InlinePkcs12(string? password = "test-only") => new()
+    {
+        Pkcs12Base64 = Convert.ToBase64String(Client.Export(X509ContentType.Pfx, password)),
+        Password = password
+    };
+
+    public CertificateSettings InlinePem(bool encrypted, bool separateKey)
+    {
+        using var key = Client.GetECDsaPrivateKey()!;
+        var keyPem = encrypted
+            ? key.ExportEncryptedPkcs8PrivateKeyPem("test-only", new PbeParameters(PbeEncryptionAlgorithm.Aes256Cbc, HashAlgorithmName.SHA256, 1000))
+            : key.ExportPkcs8PrivateKeyPem();
+        var certificatePem = Client.ExportCertificatePem();
+        return new()
+        {
+            Pem = separateKey ? certificatePem : certificatePem + "\n" + keyPem,
+            KeyPem = separateKey ? keyPem : null,
+            Password = encrypted ? "test-only" : null
+        };
+    }
+
     public void Dispose()
     {
         foreach (var certificate in certificates)

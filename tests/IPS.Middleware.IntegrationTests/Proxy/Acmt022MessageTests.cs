@@ -194,8 +194,8 @@ public sealed class Acmt022MessageTests
 
         ProxySchema.Validate(xml);
         Assert.NotNull(XDocument.Parse(xml).Descendants(Head + "Sgntr").SingleOrDefault());
-        Assert.True(await JavaSignatureVerifier.VerifyAsync(xml, certificate));
-        Assert.False(await JavaSignatureVerifier.VerifyAsync(xml.Replace("bulk-1", "bulk-2", StringComparison.Ordinal), certificate));
+        Assert.True(SignatureVerifier.Verifies(xml, certificate));
+        Assert.False(SignatureVerifier.Verifies(xml.Replace("bulk-1", "bulk-2", StringComparison.Ordinal), certificate));
     }
 
     [Fact]

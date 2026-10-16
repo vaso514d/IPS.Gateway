@@ -13,8 +13,7 @@ internal static class IncomingWorkerConfiguration
     internal static IServiceCollection AddIncomingWorkerConfiguration(this IServiceCollection services)
     {
         services.AddSingleton(sp => sp.ReadSection<IncomingWorkerOptions>("Payments:Incoming:Workers") ?? new IncomingWorkerOptions());
-        services.AddSingleton(sp => sp.ReadSection<Pacs008ProtocolProfile>("Payments:Incoming:Protocol")
-            ?? throw new InvalidOperationException("Incoming workers require Payments:Incoming:Protocol:IpsBic."));
+        services.AddSingleton(sp => ProtocolSettings.ReadProfile(sp, "Payments:Incoming:Protocol"));
         services.AddPersistence(sp => sp.GetRequiredService<IConfiguration>().GetConnectionString(ConfigurationReading.ConnectionName)
             ?? throw new InvalidOperationException($"Incoming workers require ConnectionStrings:{ConfigurationReading.ConnectionName}."));
         services.AddOptions<HostOptions>()

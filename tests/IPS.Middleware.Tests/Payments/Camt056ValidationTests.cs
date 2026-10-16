@@ -8,7 +8,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Camt056ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL"), new("USD", Enabled: false)]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL"), new("USD", Enabled: false)]);
     private static readonly DateOnly Today = new(2026, 10, 4);
 
     private static Camt056Request Valid() => new()
@@ -92,7 +92,7 @@ public sealed class Camt056ValidationTests
         { "originalSettlementDate", r => r with { OriginalSettlementDate = new DateOnly(2026, 10, 5) } },
         { "reasonCode", r => r with { ReasonCode = null } },
         { "reasonCode", r => r with { ReasonCode = "TOOLONG" } },
-        { "reasonCode", r => r with { ReasonCode = "dupl" } },
+        { "reasonCode", r => r with { ReasonCode = "D\u0001PL" } },
         { "originalTransaction", r => r with { OriginalTransaction = null } },
         { "originalTransaction.settlementDate", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { SettlementDate = null } } },
         { "originalTransaction.settlementDate", r => r with { OriginalTransaction = Valid().OriginalTransaction! with { SettlementDate = new DateOnly(2026, 10, 5) } } },

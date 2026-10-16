@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Transport;
@@ -15,7 +16,7 @@ public static class ProxyHttpRegistration
         services.AddTransient<IProxyClient, ProxyClient>();
         // Built by hand so the Proxy signs with its own optional certificate, not the outgoing IPS one.
         services.AddTransient<IProxyProtocol>(sp => new ProxyProtocol(
-            sp.GetRequiredService<ProxySettings>(),
+            sp.GetRequiredService<BankIdentity>(),
             sp.GetRequiredService<Pacs008MessageSigner>(),
             sp.GetRequiredService<ProxyTransportCertificates>(),
             sp.GetRequiredService<TimeProvider>()));

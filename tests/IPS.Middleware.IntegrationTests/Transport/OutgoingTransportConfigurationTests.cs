@@ -43,7 +43,7 @@ public sealed class OutgoingTransportConfigurationTests
         using var host = new Host(Settings(certificates));
         using var http = host.CreateClient();
         Assert.Equal("Healthy", await http.GetStringAsync("/health/live"));
-        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await http.PostAsync("/api/ips/pacs008/send", null)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await http.PostAsync("/api/v1/ips/pacs008/send", null)).StatusCode);
         Assert.Single(host.Services.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust);
         await Assert.ThrowsAsync<InvalidOperationException>(() => host.Services.GetRequiredService<IIncomingReceiveClient>().ReceiveAsync(default));
     }
@@ -111,7 +111,6 @@ public sealed class OutgoingTransportConfigurationTests
         settings["Payments:Outgoing:Transport:SigningCertificate:Path"] = outgoing.Identity.Path;
         settings["Payments:Outgoing:Transport:SigningCertificate:Password"] = outgoing.Identity.Password;
         settings["Payments:Incoming:Transport:Enabled"] = "true";
-        settings["Payments:Incoming:Transport:ParticipantBic"] = "TESTGE22";
         settings["Payments:Incoming:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1";
         settings["Payments:Incoming:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1";
         settings["Payments:Incoming:Transport:SigningCertificate:Path"] = incoming.Identity.Path;
@@ -127,10 +126,40 @@ public sealed class OutgoingTransportConfigurationTests
         Assert.Equal(outgoing.Client.RawData, Assert.Single(outbound.IpsSignatureTrust).RawData);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Each_direction_verifies_ips_signatures_only_when_an_ips_certificate_is_configured(bool incomingTrust, bool outgoingTrust)
+    {
+        using var certificates = new TransportCertificates();
+        var settings = Settings(certificates);
+        settings["Payments:Incoming:Transport:Enabled"] = "true";
+        settings["Payments:Incoming:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1";
+        settings["Payments:Incoming:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1";
+        if (incomingTrust)
+        {
+            settings["Payments:Incoming:Transport:IpsSignatureTrust:0:Pem"] = certificates.Client.ExportCertificatePem();
+        }
+
+        if (!outgoingTrust)
+        {
+            settings.Remove("Payments:Outgoing:Transport:IpsSignatureTrust:0:Path");
+        }
+
+        using var host = new Host(settings);
+        using var http = host.CreateClient();
+        Assert.Equal("Healthy", await http.GetStringAsync("/health/live"));
+        Assert.Equal(incomingTrust, host.Services.GetRequiredService<IncomingTransportCertificates>().IpsSignatureTrust.Count == 1);
+        Assert.Equal(outgoingTrust, host.Services.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust.Count == 1);
+    }
+
     private static Dictionary<string, string?> Settings(TransportCertificates certificates) => new()
     {
         ["Payments:Outgoing:Transport:Enabled"] = "true",
-        ["Payments:Outgoing:Transport:ParticipantBic"] = "TESTGE22",
+        ["Bank:BicCode"] = "TESTGE22",
+        ["Bank:NbgCode"] = "NBGEGE22",
         ["Payments:Outgoing:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Outgoing:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Outgoing:Transport:IpsSignatureTrust:0:Path"] = certificates.SignatureTrust.Path,

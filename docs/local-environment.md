@@ -46,6 +46,18 @@ Options, as `--Name=value`: `Rate` (requests per second measured, default 50), `
 
 For a quick check that the harness works, run it for 20 seconds at 10 requests per second into a scratch directory, as in the example above.
 
+## Connect to the IPS UAT without certificates
+
+For the first UAT tests NBG accepts traffic without certificates. The `Uat (no certificates)` launch profile of the Api points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
+
+- **Development only.** The gateway runs only in Development without an IPS client certificate, and sends XML unsigned only with `Payments:Signing:AllowUnsignedInDevelopment`. The profile therefore sets `ASPNETCORE_ENVIRONMENT=Development`. Use it on a test machine only: Development also serves `/openapi/v1.json`.
+- **No signature checks.** `IpsSignatureTrust` is empty, so IPS signatures are not checked.
+- **Core system.** The CBS base URL is `http://localhost:5280`, the sample receiver (`dotnet run --project samples/IPS.MiidleWear.CoreReceiver.Sample`), which stands in for the core system until a real one is connected.
+- **From appsettings.json.** The bank codes and the SQL connection string come from `appsettings.json`; put a different connection string or password in user secrets or the environment, not in the file.
+- **Database.** `Database:MigrateOnStartup` stays off, so apply the migrations to the UAT database with the EF CLI first.
+- **Proxy.** Proxy management stays disabled until NBG gives its address.
+- **With certificates.** Use another environment name and configure the certificates (see [configuration](configuration.md)). The startup checks then require the IPS client certificate and signing again.
+
 ## Notes
 
 The generated certificates and their passwords are written to a temporary directory for the run and deleted when the AppHost stops (the certificates are valid for a year, beyond the readiness check's 30-day expiry warning, so the stack reports Healthy); only the public certificates are mounted into a container. The passwords are visible in the Aspire dashboard and in `docker inspect`, which is acceptable for throwaway files. The API image is configured as Development by the AppHost and is meant for local and test runs only. The container build publishes the API on the host first, so it needs no NuGet access of its own (which also works behind a TLS-inspecting proxy).

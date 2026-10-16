@@ -9,6 +9,7 @@ namespace IPS.MiidleWear.Contracts.Transactions;
 /// </summary>
 public sealed record TransactionStatusDto
 {
+    /// <summary>The message kind the transaction was sent as; Pacs008 for the reversal of an incoming payment.</summary>
     [JsonPropertyName("messageKind")]
     public IpsMessageKind MessageKind { get; init; }
 
@@ -31,6 +32,7 @@ public sealed record TransactionStatusDto
     [JsonPropertyName("transactionId")]
     public Guid TransactionId { get; init; }
 
+    /// <summary>The gateway's status of the transaction; see TransactionStatus.</summary>
     [JsonPropertyName("status")]
     public TransactionStatus Status { get; init; }
 
@@ -46,6 +48,7 @@ public sealed record TransactionStatusDto
     [JsonPropertyName("ipsInternalCode")]
     public int? IpsInternalCode { get; init; }
 
+    /// <summary>Free text explaining the status, for example the rejection reason given by IPS, when available.</summary>
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
@@ -53,6 +56,7 @@ public sealed record TransactionStatusDto
     [JsonPropertyName("messageId")]
     public string? MessageId { get; init; }
 
+    /// <summary>The end-to-end id of the transaction, when it has one.</summary>
     [JsonPropertyName("endToEndId")]
     public string? EndToEndId { get; init; }
 }
@@ -63,11 +67,11 @@ public sealed record TransactionStatusDto
 /// </summary>
 public sealed record InboundPaymentStatusQueryDto
 {
-    /// <summary>Pacs008, Pacs009 or Pacs004.</summary>
+    /// <summary>The kind of the delivered message: Pacs008, Pacs009, Pacs004, Pain001, Camt056, Camt055 or Camt029.</summary>
     [JsonPropertyName("messageKind")]
     public IpsMessageKind? MessageKind { get; init; }
 
-    /// <summary>The Idempotency-Key of the receive call (pacs.008/009: EndToEndId, pacs.004: the return's Id).</summary>
+    /// <summary>The Idempotency-Key of the receive call (see <see cref="IPS.MiidleWear.Contracts.Http.IpsIdempotencyKeys"/>).</summary>
     [JsonPropertyName("reference")]
     public string? Reference { get; init; }
 }
@@ -87,7 +91,7 @@ public sealed record TransactionStatusQueryDto
 public static class TransactionRestApiRoutes
 {
     /// <summary>Implemented by the gateway: the core system reads a transaction's current status.</summary>
-    public const string Status = "/api/ips/transactions/status";
+    public const string Status = "/api/v1/ips/transactions/status";
 
     /// <summary>Implemented by the core system: the gateway posts a transaction's final status.</summary>
     public const string ReceiveStatus = "/api/ips/transactions/status/receive";

@@ -27,15 +27,18 @@ namespace IPS.MiidleWear.Contracts.Abstractions;
 public interface IClientPaymentReceiver
 {
     [RestEndpoint("POST", Pacs008RestApiRoutes.Receive, Tag = "Pacs008", MessageType = "pacs.008",
-        Summary = "Receive an inbound pacs.008 (same shape as the send request, plus debtor.participantBic) and return the final posting result.")]
+        Summary = "Receive an inbound pacs.008 (same shape as the send request, plus debtor.participantBic) and return the final posting result.",
+        Description = "Idempotency-Key = endToEndId; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Leave Id and TxId empty (the delivery carries neither); EndToEndId may be omitted, and when present it must equal endToEndId. RJCT is final, so answer a technical failure with an error status, never with RJCT. The answer becomes the pacs.002 to IPS. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query until the IPS deadline. Still without a final answer, IPS is told RJCT and the gateway keeps asking: a 404 does not resend the payment and ends in manual review, and a credit confirmed later is reversed through the status callback (direction Incoming, status Rejected).")]
     Task<Pacs008PaymentResultDto> ReceivePacs008Async(Pacs008InstantPaymentRequestDto payment, CancellationToken cancellationToken);
 
     [RestEndpoint("POST", Pacs009RestApiRoutes.Receive, Tag = "Pacs009", MessageType = "pacs.009",
-        Summary = "Receive an inbound pacs.009 FI-to-FI credit transfer.")]
+        Summary = "Receive an inbound pacs.009 FI-to-FI credit transfer.",
+        Description = "Idempotency-Key = endToEndId; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id, EndToEndId and TxId may be omitted; when present they must equal the delivered id, endToEndId and txId. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken);
 
     [RestEndpoint("POST", Pacs004RestApiRoutes.Receive, Tag = "Pacs004", MessageType = "pacs.004",
-        Summary = "Receive an inbound pacs.004 payment return.")]
+        Summary = "Receive an inbound pacs.004 payment return.",
+        Description = "Idempotency-Key = id (the return id); a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id may be omitted; when present it must equal the return id. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceivePacs004Async(Pacs004PaymentReturnRequestDto payment, CancellationToken cancellationToken);
 
     /// <summary>
@@ -48,7 +51,8 @@ public interface IClientPaymentReceiver
     /// Idempotency-Key = paymentInformationId.
     /// </summary>
     [RestEndpoint("POST", Pain001RestApiRoutes.Receive, Tag = "PaymentInitiation", MessageType = "pain.001",
-        Summary = "Receive an incoming pain.001 payment initiation from a PISP (answer to IPS: pacs.008 PSP- or pain.002).")]
+        Summary = "Receive an incoming pain.001 payment initiation from a PISP (answer to IPS: pacs.008 PSP- or pain.002).",
+        Description = "Idempotency-Key = paymentInformationId; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id may be omitted; when present it must equal paymentInformationId. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceivePain001Async(Pain001PaymentInitiationDto initiation, CancellationToken cancellationToken);
 
     /// <summary>
@@ -59,7 +63,8 @@ public interface IClientPaymentReceiver
     /// Idempotency-Key = id (Assgnmt/Id); status query messageKind = Camt056, reference = id.
     /// </summary>
     [RestEndpoint("POST", Camt056RestApiRoutes.Receive, Tag = "Recall", MessageType = "camt.056",
-        Summary = "Receive an incoming camt.056 recall request (answer to the recall: pacs.004 or camt.029).")]
+        Summary = "Receive an incoming camt.056 recall request (answer to the recall: pacs.004 or camt.029).",
+        Description = "Idempotency-Key = id; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id may be omitted; when present it must equal id. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceiveCamt056Async(Camt056RecallRequestDto recall, CancellationToken cancellationToken);
 
     /// <summary>
@@ -69,7 +74,8 @@ public interface IClientPaymentReceiver
     /// to the PISP. Idempotency-Key = msgId (Assgnmt/Id); status query messageKind = Camt055, reference = msgId.
     /// </summary>
     [RestEndpoint("POST", Camt055RestApiRoutes.Receive, Tag = "PaymentInitiation", MessageType = "camt.055",
-        Summary = "Receive an incoming camt.055 cancellation request for a payment initiation.")]
+        Summary = "Receive an incoming camt.055 cancellation request for a payment initiation.",
+        Description = "Idempotency-Key = msgId; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id may be omitted; when present it must equal msgId. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceiveCamt055Async(Camt055CancellationRequestDto cancellation, CancellationToken cancellationToken);
 
     /// <summary>
@@ -81,7 +87,8 @@ public interface IClientPaymentReceiver
     /// Idempotency-Key = id (Assgnmt/Id of the camt.029); status query messageKind = Camt029, reference = id.
     /// </summary>
     [RestEndpoint("POST", Camt029RestApiRoutes.Receive, Tag = "Recall", MessageType = "camt.029",
-        Summary = "Receive an incoming camt.029 refusal of a recall the core system sent.")]
+        Summary = "Receive an incoming camt.029 refusal of a recall the core system sent.",
+        Description = "Idempotency-Key = id; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id may be omitted; when present it must equal id. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
     Task<Pacs008PaymentResultDto> ReceiveCamt029Async(Camt029ResolutionOfInvestigationDto refusal, CancellationToken cancellationToken);
 
     /// <summary>
@@ -97,7 +104,8 @@ public interface IClientPaymentReceiver
     /// </para>
     /// </summary>
     [RestEndpoint("POST", TransactionRestApiRoutes.ReceiveStatus, Tag = "Transactions",
-        Summary = "Receive the status of a transaction the core system sent.")]
+        Summary = "Receive the status of a transaction the core system sent.",
+        Description = "Any 2xx counts as delivered; anything else is retried with the same Idempotency-Key ({clientReference}:{status}, or in:{coreReference}:{status} for an incoming payment), so the same status can arrive more than once and must be handled idempotently. Direction Incoming with status Rejected asks the core system to reverse an incoming pacs.008 it credited after IPS was told RJCT.")]
     Task ReceiveTransactionStatusAsync(TransactionStatusDto status, CancellationToken cancellationToken);
 
     /// <summary>
@@ -108,6 +116,7 @@ public interface IClientPaymentReceiver
     /// pacs.009, pacs.004, pain.001, camt.056, camt.055 and camt.029).
     /// </summary>
     [RestEndpoint("GET", TransactionRestApiRoutes.PaymentStatus, Tag = "Transactions",
-        Summary = "Return the outcome of an incoming payment (404 when it was never received).")]
+        Summary = "Return the outcome of an incoming payment (404 when it was never received).",
+        Description = "Query messageKind and reference (the Idempotency-Key of the receive call). Answer 200 with the receive answer (ACCP or RJCT), 200 with Status PDNG while still processing, and 404 only when the message never arrived: the gateway then posts it again, for every kind except pacs.008, whose 404 stays unknown and ends in manual review. An empty 2xx such as 204 is not a 404.")]
     Task<Pacs008PaymentResultDto?> GetPaymentStatusAsync(InboundPaymentStatusQueryDto query, CancellationToken cancellationToken);
 }

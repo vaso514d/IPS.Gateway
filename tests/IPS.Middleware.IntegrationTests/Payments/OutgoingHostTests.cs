@@ -17,12 +17,12 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 
 public sealed class OutgoingHostTests
 {
-    private const string Send = "/api/ips/pacs008/send";
-    private const string Pacs009Send = "/api/ips/pacs009/send";
-    private const string Pacs004Send = "/api/ips/pacs004/send";
-    private const string Camt056Send = "/api/ips/camt056/send";
-    private const string Camt029Send = "/api/ips/camt029/send";
-    private const string Pain002Send = "/api/ips/pain002/send";
+    private const string Send = "/api/v1/ips/pacs008/send";
+    private const string Pacs009Send = "/api/v1/ips/pacs009/send";
+    private const string Pacs004Send = "/api/v1/ips/pacs004/send";
+    private const string Camt056Send = "/api/v1/ips/camt056/send";
+    private const string Camt029Send = "/api/v1/ips/camt029/send";
+    private const string Pain002Send = "/api/v1/ips/pain002/send";
 
     [Theory]
     [InlineData(false)]
@@ -42,7 +42,7 @@ public sealed class OutgoingHostTests
         var callback = JsonSerializer.Deserialize<TransactionStatusDto>(fixture.Callbacks.Single(), JsonSerializerOptions.Web)!;
         Assert.Equal(status, callback);
         Assert.Single(fixture.Submissions);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing");
         Assert.Equal(status, query);
     }
 
@@ -115,7 +115,7 @@ public sealed class OutgoingHostTests
         fixture.Release.TrySetResult();
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Single(fixture.Submissions);
-        var current = await second.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing");
+        var current = await second.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing");
         Assert.Equal(TransactionStatus.Accepted, current!.Status);
     }
 
@@ -148,6 +148,25 @@ public sealed class OutgoingHostTests
         Assert.Equal(lost ? 1 : 2, await db.Set<OutgoingMessageRow>().CountAsync());
     }
 
+    // The reference gateway's IpsStp:Currencies shape: a disabled currency and an amount above MaxAmount never reach IPS.
+    [Fact]
+    public async Task Configured_currencies_and_amount_limits_reject_before_sending()
+    {
+        await using var fixture = await CreateAsync();
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:0:MinAmount"] = "0.01";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:0:MaxAmount"] = "1000";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:1:Code"] = "USD";
+        fixture.Configuration["Payments:Outgoing:Policy:Currencies:1:Enabled"] = "false";
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+        foreach (var request in new[] { Request() with { Amount = 1000.01m }, Request() with { Currency = "USD", Amount = 10m } })
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(Send, request)).StatusCode);
+        }
+
+        Assert.Empty(fixture.Submissions);
+    }
+
     [Fact]
     public async Task Invalid_intake_and_status_queries_preserve_validation_and_not_found()
     {
@@ -161,8 +180,22 @@ public sealed class OutgoingHostTests
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
         using var json = JsonDocument.Parse(await invalid.Content.ReadAsStringAsync());
         Assert.True(json.RootElement.GetProperty("errors").TryGetProperty("amount", out _));
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/ips/transactions/status")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/ips/transactions/status?messageKind=Pacs009&clientReference=missing")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/v1/ips/transactions/status")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/ips/transactions/status?messageKind=Pacs009&clientReference=missing")).StatusCode);
+        await using var db = fixture.Database.Context();
+        Assert.Empty(await db.Payments.ToListAsync());
+        Assert.Empty(fixture.Submissions);
+    }
+
+    // Contracts 2.0.0 moved every route under /api/v1 (017a); the unversioned paths are not served.
+    [Fact]
+    public async Task Unversioned_send_and_status_paths_answer_404_without_intake()
+    {
+        await using var fixture = await CreateAsync();
+        using var host = fixture.Host();
+        using var client = host.CreateClient();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/api/ips/pacs008/send", Request())).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing")).StatusCode);
         await using var db = fixture.Database.Context();
         Assert.Empty(await db.Payments.ToListAsync());
         Assert.Empty(fixture.Submissions);
@@ -269,7 +302,7 @@ public sealed class OutgoingHostTests
         Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Pacs009, status.MessageKind);
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Equal([false], fixture.PossibleDuplicateFlags);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs009&clientReference=outgoing9");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Pacs009&clientReference=outgoing9");
         Assert.Equal(status, query);
     }
 
@@ -333,7 +366,7 @@ public sealed class OutgoingHostTests
         Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Pacs004, status.MessageKind);
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Equal([false], fixture.PossibleDuplicateFlags);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pacs004&clientReference=outgoing4");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Pacs004&clientReference=outgoing4");
         Assert.Equal(status, query);
     }
 
@@ -376,7 +409,7 @@ public sealed class OutgoingHostTests
         Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Camt056, status.MessageKind);
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Equal([false], fixture.PossibleDuplicateFlags);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Camt056&clientReference=outgoing56");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Camt056&clientReference=outgoing56");
         Assert.Equal(status, query);
     }
 
@@ -419,7 +452,7 @@ public sealed class OutgoingHostTests
         Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Camt029, status.MessageKind);
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Equal([false], fixture.PossibleDuplicateFlags);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Camt029&clientReference=outgoing29");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Camt029&clientReference=outgoing29");
         Assert.Equal(status, query);
     }
 
@@ -462,7 +495,7 @@ public sealed class OutgoingHostTests
         Assert.Equal(IPS.MiidleWear.Contracts.Transactions.IpsMessageKind.Pain002, status.MessageKind);
         await EventuallyAsync(() => Task.FromResult(fixture.Callbacks.Count == 1));
         Assert.Equal([false], fixture.PossibleDuplicateFlags);
-        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/ips/transactions/status?messageKind=Pain002&clientReference=outgoing2");
+        var query = await client.GetFromJsonAsync<TransactionStatusDto>("/api/v1/ips/transactions/status?messageKind=Pain002&clientReference=outgoing2");
         Assert.Equal(status, query);
     }
 
@@ -608,8 +641,19 @@ public sealed class OutgoingHostTests
     [InlineData("Payments:Outgoing:Execution:HttpWait", "00:00:09")]
     [InlineData("Payments:Outgoing:Execution:AttemptBudget", "00:00:44")]
     [InlineData("Payments:Outgoing:Execution:ShutdownBudget", "00:00:00")]
-    [InlineData("Payments:Outgoing:Protocol:IpsBic", "bad")]
+    [InlineData("Bank:BicCode", "bad")]
+    [InlineData("Bank:BicCode", "")]
+    [InlineData("Bank:NbgCode", "bad")]
+    [InlineData("Bank:NbgCode", "BAGAGE22")]
+    [InlineData("Bank:TreasuryCode", "bad")]
+    [InlineData("Bank:TreasuryCode", "NBGEGE22")]
+    [InlineData("Payments:Outgoing:Transport:ParticipantBic", "BAGAGE22")]
+    [InlineData("Payments:Outgoing:Protocol:IpsBic", "NBGEGE22")]
+    [InlineData("Payments:Outgoing:Policy:TreasuryBic", "TRESGE22")]
     [InlineData("Payments:Outgoing:Policy:Currencies:0:Code", "bad")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:MinAmount", "0")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:MaxAmount", "-1")]
+    [InlineData("Payments:Outgoing:Policy:Currencies:0:Minimum", "1")]
     public async Task Startup_rejects_invalid_execution_policy_and_capacity(string key, string value)
     {
         await using var fixture = await CreateAsync();

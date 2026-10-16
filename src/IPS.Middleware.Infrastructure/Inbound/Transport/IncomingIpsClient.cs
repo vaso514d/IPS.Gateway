@@ -2,20 +2,21 @@ using System.Globalization;
 using System.Text;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Transport;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
-public sealed class IncomingIpsClient(IHttpClientFactory clients, IncomingTransportSettings settings, TimeProvider time)
+public sealed class IncomingIpsClient(IHttpClientFactory clients, IncomingTransportSettings settings, BankIdentity bank, TimeProvider time)
     : IIncomingReceiveClient, IIncomingReplyClient, IIncomingAckClient
 {
-    private string Channel => settings.ParticipantBic.ToUpperInvariant();
+    private string Channel => bank.Bic;
 
     public async Task<IncomingReceiveResponse> ReceiveAsync(CancellationToken cancellationToken)
     {
         var evidence = await SendAsync(
-            IncomingHttpRegistration.IpsReceive, HttpMethod.Get, settings.MessagePath, settings.ParticipantBic, null, null, cancellationToken);
+            IncomingHttpRegistration.IpsReceive, HttpMethod.Get, settings.MessagePath, Channel, null, null, cancellationToken);
         return new IncomingReceiveResponse(
             Channel,
             time.GetUtcNow(),
@@ -55,7 +56,7 @@ public sealed class IncomingIpsClient(IHttpClientFactory clients, IncomingTransp
         long? sequence,
         CancellationToken cancellationToken)
     {
-        IncomingHttpRegistration.RequireParticipant(settings, participant);
+        IncomingHttpRegistration.RequireParticipant(settings, bank, participant);
         using var request = new HttpRequestMessage(method, path.TrimStart('/')) { Content = content };
         request.Headers.Add(IpsHeaders.Channel, Channel);
         request.Headers.Add(IpsHeaders.Version, settings.IpsVersion);

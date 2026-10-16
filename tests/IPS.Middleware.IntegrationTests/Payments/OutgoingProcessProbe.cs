@@ -52,6 +52,7 @@ internal static class OutgoingProcessProbe
         builder.Services.AddDbContext<TransactionDbContext>(o => o.AddInterceptors(pause));
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton(settings.Transport);
+        builder.Services.AddSingleton(new BankIdentity("BAGAGE22", "NBGEGE22"));
         builder.Services.AddSingleton(new Pacs008SigningPolicy(false, false));
         builder.Services.AddSingleton<Pacs008MessageSigner>();
         builder.Services.AddOutgoingHttpClients();

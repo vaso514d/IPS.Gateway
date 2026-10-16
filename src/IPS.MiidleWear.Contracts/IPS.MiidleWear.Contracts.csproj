@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Client contract for the IPS middleware: the JSON models and routes of our API (/api/ips/*/send) and of the
+    Client contract for the IPS middleware: the JSON models and routes of our API (/api/v1/ips/*/send) and of the
     callbacks a core banking system implements (/api/ips/*/receive, I*ClientPaymentReceiver).
     Deliberately dependency-free (no Domain, no FluentValidation, no ASP.NET) so it can be published as a NuGet
     package. net8.0 (LTS) rather than netstandard2.0 because the models use DateOnly/TimeOnly; net8+ and net10
@@ -15,9 +15,14 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
 
     <PackageId>IPS.MiidleWear.Contracts</PackageId>
-    <Version>1.1.0-preview.1</Version>
+    <Version>2.0.0-preview.1</Version>
     <Description>JSON contract (models, routes and client-implemented interfaces) of the IPS middleware REST API: pacs.008/009/004 send/receive, plus camt.055/056/029 and pain.001 models.</Description>
     <PackageTags>IPS;ISO20022;pacs.008;pacs.009;pacs.004;camt.056;camt.029</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
 </Project>

@@ -7,6 +7,8 @@ public sealed class DependencyTests
     private static readonly Dictionary<string, string[]> AllowedReferences = new(StringComparer.Ordinal)
     {
         ["IPS.MiidleWear.Contracts"] = [],
+        ["IPS.MiidleWear.AspNetCore"] = ["IPS.MiidleWear.Contracts"],
+        ["IPS.MiidleWear.Testing"] = ["IPS.MiidleWear.Contracts"],
         ["IPS.Middleware.Domain"] = [],
         ["IPS.Middleware.Application"] = ["IPS.Middleware.Domain"],
         ["IPS.Middleware.Infrastructure"] =
@@ -39,6 +41,26 @@ public sealed class DependencyTests
         Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "FluentValidation" } : [], Values(lines, "packageReference"));
         Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "FluentValidation", "Stateless" } : [], Values(lines, "assemblyReference").Order(StringComparer.Ordinal));
         Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
+    }
+
+    // The client package a core system hosts its receiver with (017b): Contracts and the ASP.NET Core shared framework only.
+    [Fact]
+    public void The_receiver_package_uses_only_Contracts_and_the_AspNetCore_framework()
+    {
+        var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.MiidleWear.AspNetCore.dependencies.txt"));
+        Assert.Empty(Values(lines, "packageReference"));
+        Assert.Empty(Values(lines, "assemblyReference"));
+        Assert.Equal(new[] { "Microsoft.AspNetCore.App", "Microsoft.NETCore.App" }, Values(lines, "frameworkReference").Order(StringComparer.Ordinal));
+    }
+
+    // The receiver test kit (018): Contracts and the base class library only, so it works with any test framework.
+    [Fact]
+    public void The_receiver_test_kit_uses_only_Contracts_and_the_base_class_library()
+    {
+        var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.MiidleWear.Testing.dependencies.txt"));
+        Assert.Empty(Values(lines, "packageReference"));
+        Assert.Empty(Values(lines, "assemblyReference"));
+        Assert.Equal(new[] { "Microsoft.NETCore.App" }, Values(lines, "frameworkReference"));
     }
 
     [Fact]

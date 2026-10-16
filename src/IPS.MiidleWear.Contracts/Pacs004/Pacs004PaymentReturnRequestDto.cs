@@ -18,15 +18,19 @@ public sealed record Pacs004PaymentReturnRequestDto
     [JsonPropertyName("ClientReference")]
     public string? ClientReference { get; init; }
 
+    /// <summary>TxInf/RtrId, equal to GrpHdr/MsgId: the return id. On send it is chosen by the caller and must be unused; on delivery it is also the Idempotency-Key and the payment-status reference.</summary>
     [JsonPropertyName("Id")]
     public string? Id { get; init; }
 
+    /// <summary>TxInf/RtrdIntrBkSttlmAmt: the returned amount.</summary>
     [JsonPropertyName("Amount")]
     public decimal? Amount { get; init; }
 
+    /// <summary>RtrdIntrBkSttlmAmt/@Ccy: the currency of the returned amount.</summary>
     [JsonPropertyName("Currency")]
     public string? Currency { get; init; }
 
+    /// <summary>IntrBkSttlmDt: the settlement date of the return.</summary>
     [JsonPropertyName("ValueDate")]
     public DateOnly? ValueDate { get; init; }
 
@@ -34,6 +38,7 @@ public sealed record Pacs004PaymentReturnRequestDto
     [JsonPropertyName("TTC")]
     public string? Ttc { get; init; }
 
+    /// <summary>BIC of the participant returning the funds (GrpHdr/InstgAgt; on delivery OrgnlTxRef/CdtrAgt when absent).</summary>
     [JsonPropertyName("InstructingAgent")]
     public string? InstructingAgent { get; init; }
 
@@ -44,9 +49,11 @@ public sealed record Pacs004PaymentReturnRequestDto
     [JsonPropertyName("SenderClrSysMmbId")]
     public string? SenderClrSysMmbId { get; init; }
 
+    /// <summary>BIC of the participant receiving the returned funds (GrpHdr/InstdAgt; on delivery OrgnlTxRef/DbtrAgt when absent).</summary>
     [JsonPropertyName("InstructedAgent")]
     public string? InstructedAgent { get; init; }
 
+    /// <summary>RtrRsnInf/Rsn/Cd (or Prtry): the return reason. On send only FOCR is accepted.</summary>
     [JsonPropertyName("ReturnReasonCode")]
     public string? ReturnReasonCode { get; init; }
 
@@ -86,33 +93,42 @@ public sealed record Pacs004PaymentReturnRequestDto
     [JsonPropertyName("AdditionalInfo")]
     public string? AdditionalInfo { get; init; }
 
+    /// <summary>The original payment being returned (the Orgnl* elements and OrgnlTxRef).</summary>
     [JsonPropertyName("Original")]
     public Pacs004OriginalPaymentReferenceDto? Original { get; init; }
 }
 
 public sealed record Pacs004OriginalPaymentReferenceDto
 {
+    /// <summary>OrgnlTxId: the transaction id of the original payment.</summary>
     [JsonPropertyName("TransactionId")]
     public string? TransactionId { get; init; }
 
+    /// <summary>OrgnlInstrId: the instruction id of the original payment, when given.</summary>
     [JsonPropertyName("InstructionId")]
     public string? InstructionId { get; init; }
 
+    /// <summary>OrgnlEndToEndId: the end-to-end id of the original payment.</summary>
     [JsonPropertyName("EndToEndId")]
     public string? EndToEndId { get; init; }
 
+    /// <summary>OrgnlUETR: the UETR of the original payment, when given.</summary>
     [JsonPropertyName("UETR")]
     public Guid? Uetr { get; init; }
 
+    /// <summary>The settlement date of the original payment (OrgnlTxRef/IntrBkSttlmDt, or OrgnlIntrBkSttlmDt).</summary>
     [JsonPropertyName("ValueDate")]
     public DateOnly? ValueDate { get; init; }
 
+    /// <summary>OrgnlGrpInf/OrgnlMsgId: the message id of the original payment, when given.</summary>
     [JsonPropertyName("OriginalMessageId")]
     public string? OriginalMessageId { get; init; }
 
+    /// <summary>OrgnlGrpInf/OrgnlMsgNmId: the original message definition, for example pacs.008.001.12, when given.</summary>
     [JsonPropertyName("OriginalMessageNameId")]
     public string? OriginalMessageNameId { get; init; }
 
+    /// <summary>OrgnlGrpInf/OrgnlCreDtTm: when the original message was created, when given.</summary>
     [JsonPropertyName("OriginalCreationDateTime")]
     public DateTimeOffset? OriginalCreationDateTime { get; init; }
 

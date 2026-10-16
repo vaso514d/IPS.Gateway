@@ -52,3 +52,7 @@ Outgoing host integration (2026-10-05, Stage 2c.2b) applies the previously appro
 ## Outgoing investigation policy decisions (2026-10-05)
 
 Owner approved preserving the source timing distinction: the first inquiry is eligible nine seconds after recording normal uncertainty, while abandoned work becomes eligible after ownership recovery without another nine-second delay. Preserve separate recovery-cycle and resend limits rather than interpreting MaxAttempts as a combined remote-call counter. New remote calls stop at the exact 24-hour investigation deadline; saved evidence is replayed first, and remaining unresolved work requires manual review. This explicitly changes the source strict greater-than expiry boundary. These are approved requirements for the pending durable investigation implementation, not an assertion of live activation. See [003a.2](../specs/003a2-durable-investigation.md).
+
+## Versioned routes (2026-10-16)
+
+The owner approved moving the routes the gateway serves (sends, the transaction status query, proxy management) under `/api/v1` (Contracts 2.0.0-preview.1) while no core system has integrated. The routes a core system implements (`IClientPaymentReceiver`, the status callback and the payment-status query) stay unversioned. Only route values change; DTOs, JSON shapes, methods, status meanings and callbacks are preserved. The baseline is hand-edited for exactly the route strings. See [017](../specs/017-core-receiver-sdk.md).

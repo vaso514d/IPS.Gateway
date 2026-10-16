@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using Xunit;
 
@@ -6,8 +7,8 @@ namespace IPS.Middleware.Tests.Payments;
 public sealed class Pacs008ValidationTests
 {
     private static readonly DateTimeOffset Created = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", "TRESGE22",
-        [new("GEL", Minimum: 0.01m, Maximum: 9999999999999.99999m)], ["INDIRECT"]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22", "TRESGE22"),
+        [new("GEL", MinAmount: 0.01m, MaxAmount: 9999999999999.99999m)], ["INDIRECT"]);
     public static Pacs008Request Minimal() => new()
     {
         ClientReference = "CORE-1",
@@ -34,7 +35,7 @@ public sealed class Pacs008ValidationTests
         }, "clientReference"];
         yield return [r with
         {
-            InstructionId = "ქართული"
+            InstructionId = new string('x', 36)
         }, "instructionId"];
         yield return [r with
         {
@@ -236,6 +237,26 @@ public sealed class Pacs008ValidationTests
         Assert.Contains(result.Errors, e => e.Field == field);
     }
 
+    // The schemas decide field formats: MaxNText is any XML character up to N. Only the client reference, which also
+    // travels in the Idempotency-Key HTTP header, stays printable ASCII.
+    [Fact]
+    public void Text_the_schema_allows_is_accepted_and_only_the_client_reference_stays_ascii()
+    {
+        var georgian = "ქართული «ტექსტი» №1 — ü";
+        AssertValid(Minimal() with
+        {
+            InstructionId = georgian,
+            EndToEndId = "E2E/ქართ€",
+            CategoryPurposeCode = "oth-",
+            Debtor = Minimal().Debtor! with { Name = georgian + "\t\n" }
+        });
+        AssertValid(Minimal() with { InstructionId = new string('ქ', 35) });
+
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = new string('ქ', 36) }, Policy).Errors, e => e.Field == "instructionId");
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = "a\u0001b" }, Policy).Errors, e => e.Field == "instructionId");
+        Assert.Contains(ValidatedPacs008.Validate(Minimal() with { ClientReference = "ქართული" }, Policy).Errors, e => e.Field == "clientReference");
+    }
+
     [Fact]
     public void Ordinary_timing_boundaries_and_initiated_payments_are_accepted()
     {
@@ -279,7 +300,7 @@ public sealed class Pacs008ValidationTests
     [Fact]
     public void Currency_enablement_and_limits_come_from_policy()
     {
-        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", Minimum: 10, Maximum: 20), new("USD", false)]);
+        var policy = new Pacs008Policy(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL", MinAmount: 10, MaxAmount: 20), new("USD", false)]);
         foreach (var amount in new[]
         {
             10m,

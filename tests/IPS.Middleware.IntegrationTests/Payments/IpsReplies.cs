@@ -1,16 +1,19 @@
-using System.Diagnostics;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Xml;
 using System.Xml.Linq;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Payments;
 
-/// <summary>Independent pacs.002 reply fixtures. Text templates follow Annex D 8.1.8; Java JSR105 signs them.</summary>
+/// <summary>Independent pacs.002 reply fixtures. Text templates follow Annex D 8.1.8, signed in process with the IPS profile.</summary>
 internal static class IpsReplies
 {
+    private const string HeaderNamespace = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
     private const string Pacs028Namespace = "urn:iso:std:iso:20022:tech:xsd:pacs.028.001.06";
     private static readonly DateTimeOffset EarliestTestClock = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
@@ -90,54 +93,27 @@ internal static class IpsReplies
         return request.CreateSelfSigned(notBefore, notAfter);
     }
 
-    /// <summary>Signs every message in one JVM run; certificates must carry an ECDSA private key.</summary>
-    internal static async Task<string[]> SignAsync(X509Certificate2 certificate, params string[] messages)
+    /// <summary>Signs each message with the IPS profile in its empty AppHdr/Sgntr; certificates must carry an ECDSA private key.</summary>
+    internal static Task<string[]> SignAsync(X509Certificate2 certificate, params string[] messages) =>
+        Task.FromResult(messages.Select(message => Sign(certificate, message)).ToArray());
+
+    private static string Sign(X509Certificate2 certificate, string xml)
     {
-        var directory = Path.Combine(Path.GetTempPath(), "IPS-ReplySigning-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        try
+        var document = new XmlDocument { PreserveWhitespace = true, XmlResolver = null };
+        using (var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader))
         {
-            var keyPath = Path.Combine(directory, "key.p8");
-            var certificatePath = Path.Combine(directory, "certificate.cer");
-            using (var key = certificate.GetECDsaPrivateKey()!)
-            {
-                await File.WriteAllBytesAsync(keyPath, key.ExportPkcs8PrivateKey());
-            }
-
-            await File.WriteAllBytesAsync(certificatePath, certificate.Export(X509ContentType.Cert));
-            var arguments = new List<string> { Path.Combine(AppContext.BaseDirectory, "Payments", "Fixtures", "SignXmlReply.java"), keyPath, certificatePath };
-            for (var index = 0; index < messages.Length; index++)
-            {
-                var input = Path.Combine(directory, $"{index}.xml");
-                await File.WriteAllTextAsync(input, messages[index]);
-                arguments.AddRange([input, input + ".signed"]);
-            }
-            await RunJavaAsync(arguments);
-            return await Task.WhenAll(messages.Select((_, index) => File.ReadAllTextAsync(Path.Combine(directory, $"{index}.xml.signed"))));
-        }
-        finally { Directory.Delete(directory, recursive: true); }
-    }
-
-    private static async Task RunJavaAsync(IEnumerable<string> arguments)
-    {
-        var javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
-        var start = new ProcessStartInfo(string.IsNullOrWhiteSpace(javaHome) ? "java" :
-            Path.Combine(javaHome, "bin", OperatingSystem.IsWindows() ? "java.exe" : "java"))
-        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
-        foreach (var argument in arguments)
-        {
-            start.ArgumentList.Add(argument);
+            document.Load(reader);
         }
 
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start Java. Reply tests require JDK17+.");
-        var error = process.StandardError.ReadToEndAsync();
-        _ = process.StandardOutput.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        try
-        {
-            await process.WaitForExitAsync(timeout.Token);
-        }
-        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
-        Assert.True(process.ExitCode == 0, await error);
+        var envelope = Assert.Single(document.GetElementsByTagName("Sgntr", HeaderNamespace).OfType<XmlElement>());
+        Assert.False(envelope.HasChildNodes, "Expected one empty AppHdr/Sgntr");
+        // The enveloped-signature transform removes ds:Signature, leaving this exact document with an empty Sgntr.
+        var digest = SHA256.HashData(SignedInfoCanonicalization.CanonicalizeInclusive10WithoutComments(document));
+        var signature = IpsSignatureXml.Create(document, digest, certificate);
+        envelope.AppendChild(signature);
+        using var key = certificate.GetECDsaPrivateKey()!;
+        var signedInfo = SignedInfoCanonicalization.Canonicalize((XmlElement)signature.FirstChild!);
+        IpsSignatureXml.SetSignatureValue(signature, key.SignData(signedInfo, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        return document.OuterXml;
     }
 }

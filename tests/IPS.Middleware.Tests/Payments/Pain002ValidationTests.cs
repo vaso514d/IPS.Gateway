@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pain002;
 using Xunit;
@@ -6,7 +7,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Pain002ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL")]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL")]);
 
     private static Pain002Request Valid() => new()
     {
@@ -48,7 +49,7 @@ public sealed class Pain002ValidationTests
         { "originalPaymentInformationId", r => r with { OriginalPaymentInformationId = new string('x', 36) } },
         { "reasonCode", r => r with { ReasonCode = null } },
         { "reasonCode", r => r with { ReasonCode = "TOOLONG" } },
-        { "reasonCode", r => r with { ReasonCode = "cust" } },
+        { "reasonCode", r => r with { ReasonCode = "C\u0001ST" } },
         { "additionalInformation", r => r with { AdditionalInformation = new string('x', 106) } },
         { "originatorName", r => r with { OriginatorName = new string('x', 141) } }
     };
