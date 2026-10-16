@@ -18,6 +18,11 @@
     <Version>2.0.0-preview.1</Version>
     <Description>JSON contract (models, routes and client-implemented interfaces) of the IPS middleware REST API: pacs.008/009/004 send/receive, plus camt.055/056/029 and pain.001 models.</Description>
     <PackageTags>IPS;ISO20022;pacs.008;pacs.009;pacs.004;camt.056;camt.029</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
 </Project>

@@ -19,9 +19,11 @@ public sealed record Pacs008AgentDto
 /// <summary>Code or proprietary value (Type 0 = Cd, 1 = Prtry). Used by pacs.009.</summary>
 public sealed record Pacs008CodeChoiceDto
 {
+    /// <summary>0 = code (Cd), 1 = proprietary (Prtry).</summary>
     [JsonPropertyName("Type")]
     public int? Type { get; init; }
 
+    /// <summary>The code or the proprietary value.</summary>
     [JsonPropertyName("Value")]
     public string? Value { get; init; }
 }

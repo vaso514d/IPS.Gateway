@@ -98,9 +98,11 @@ public sealed record Pain001PaymentInitiationDto
 /// <summary>GrpHdr/InitgPty: Nm (1.7) and Id/OrgId/AnyBIC (1.10, "BIC or BEI").</summary>
 public sealed record Pain001InitiatingPartyDto
 {
+    /// <summary>GrpHdr/InitgPty/Nm: the name of the PISP that initiated the payment.</summary>
     [JsonPropertyName("name")]
     public string? Name { get; init; }
 
+    /// <summary>GrpHdr/InitgPty/Id/OrgId/AnyBIC: the BIC of the PISP, when given.</summary>
     [JsonPropertyName("bic")]
     public string? Bic { get; init; }
 }

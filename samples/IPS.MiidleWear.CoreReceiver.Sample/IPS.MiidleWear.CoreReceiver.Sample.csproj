@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    A runnable core-system receiver built only on IPS.MiidleWear.AspNetCore (018): idempotent receipt, PDNG while
+    posting, 404 for unknown references, status callbacks and reversals, over an in-memory ledger. Not shipped as a
+    package; the in-memory ledger is not a production storage pattern.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

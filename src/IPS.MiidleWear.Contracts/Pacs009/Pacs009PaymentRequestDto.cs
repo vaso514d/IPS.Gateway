@@ -16,48 +16,63 @@ public sealed record Pacs009PaymentRequestDto
     [JsonPropertyName("ClientReference")]
     public string? ClientReference { get; init; }
 
+    /// <summary>GrpHdr/MsgId: the message id. On send it is chosen by the caller and must be unused.</summary>
     [JsonPropertyName("Id")]
     public string? Id { get; init; }
 
+    /// <summary>The debtor financial institution by BICFI (DbtrAgt, or Dbtr when the message has no debtor agent).</summary>
     [JsonPropertyName("DebtorAgent")]
     public Pacs008AgentDto? DebtorAgent { get; init; }
 
+    /// <summary>The creditor financial institution by BICFI (CdtrAgt, or Cdtr when the message has no creditor agent).</summary>
     [JsonPropertyName("CreditorAgent")]
     public Pacs008AgentDto? CreditorAgent { get; init; }
 
+    /// <summary>PmtId/InstrId: the instruction id, when given.</summary>
     [JsonPropertyName("InstrId")]
     public string? InstrId { get; init; }
 
+    /// <summary>PmtId/EndToEndId: the end-to-end id. On delivery it is also the Idempotency-Key and the payment-status reference.</summary>
     [JsonPropertyName("EndToEndId")]
     public string? EndToEndId { get; init; }
 
+    /// <summary>PmtId/TxId: the transaction id. On send it is chosen by the caller and must be unused.</summary>
     [JsonPropertyName("TxId")]
     public string? TxId { get; init; }
 
+    /// <summary>PmtId/UETR of a received message, when given. Not in the IPS v1 profile: accepted on send and not sent.</summary>
     [JsonPropertyName("UETR")]
     public Guid? Uetr { get; init; }
 
+    /// <summary>PmtTpInf/InstrPrty of a received message: 1 = HIGH, 0 = NORM, when given. Not in the IPS v1 profile: on send 0 or 1 is accepted and not sent.</summary>
     [JsonPropertyName("InstructionPriority")]
     public int? InstructionPriority { get; init; }
 
+    /// <summary>Transaction type code kept from the source contract (at most 35 characters). Not in the IPS v1 profile: not sent, and empty on delivery.</summary>
     [JsonPropertyName("TTC")]
     public string? Ttc { get; init; }
 
+    /// <summary>RTGS priority kept from the source contract (0 or 1). Not in the IPS v1 profile: not sent, and empty on delivery.</summary>
     [JsonPropertyName("RTGSPriority")]
     public int? RtgsPriority { get; init; }
 
+    /// <summary>Earliest settlement time kept from the source contract; must be before RejectTime. Not in the IPS v1 profile: not sent, and empty on delivery.</summary>
     [JsonPropertyName("FromTime")]
     public TimeOnly? FromTime { get; init; }
 
+    /// <summary>Latest settlement time kept from the source contract. Not in the IPS v1 profile: not sent, and empty on delivery.</summary>
     [JsonPropertyName("RejectTime")]
     public TimeOnly? RejectTime { get; init; }
 
+    /// <summary>IntrBkSttlmDt: the interbank settlement date.</summary>
     [JsonPropertyName("ValueDate")]
     public DateOnly? ValueDate { get; init; }
 
+    /// <summary>IntrBkSttlmAmt/@Ccy: the settlement currency.</summary>
     [JsonPropertyName("Currency")]
     public string? Currency { get; init; }
 
+    /// <summary>IntrBkSttlmAmt: the settlement amount.</summary>
     [JsonPropertyName("Amount")]
     public decimal? Amount { get; init; }
 
@@ -87,6 +102,7 @@ public sealed record Pacs009PaymentRequestDto
 /// <summary>Mirrors SWIFT.Middleware.Domain.XmlEntities.Pacs009.FiAgentAccount — a single Account field.</summary>
 public sealed record Pacs009AccountDto
 {
+    /// <summary>DbtrAcct or CdtrAcct: the IBAN (on delivery Othr/Id when the message has no IBAN).</summary>
     [JsonPropertyName("Account")]
     public string? Account { get; init; }
 }

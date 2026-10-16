@@ -18,6 +18,8 @@ flowchart TD
 | Project | Direct project references | Owns |
 |---|---|---|
 | IPS.MiidleWear.Contracts | None | Existing public models, interfaces, route constants, metadata |
+| IPS.MiidleWear.AspNetCore | Contracts (and the ASP.NET Core framework) | Client package: hosts a core system's IClientPaymentReceiver; not referenced by the gateway (017b) |
+| IPS.MiidleWear.Testing | Contracts | Client package: receiver conformance checks a core system runs from its tests; not referenced by the gateway (018) |
 | IPS.Middleware.Domain | None | Payment concepts, invariants, transaction state transitions |
 | IPS.Middleware.Application | Domain | Internal commands/results, feature workflows, external dependency interfaces |
 | IPS.Middleware.Infrastructure | Application, Domain, Contracts | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
@@ -366,3 +368,17 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 
 - Contracts 2.0.0-preview.1 prefixes the routes the gateway serves with `/api/v1`: `/api/v1/ips/*/send`, `/api/v1/ips/transactions/status` and `/api/v1/proxy/*`. The Api controllers read the constants; the unversioned paths are not served. Health endpoints are not versioned. The routes a core system implements, which the gateway calls (`/api/ips/*/receive`, `/api/ips/transactions/status/receive`, `/api/ips/payments/status`), are unchanged.
 - See [017](specs/017-core-receiver-sdk.md).
+
+## Core receiver package and its document (017b)
+
+- **`IPS.MiidleWear.AspNetCore`** (`src/`, `net10.0`, packable, Contracts and the ASP.NET Core framework only) is for core systems; the gateway does not reference it. `AddIpsCoreReceiver<TReceiver>()` registers the bank's `IClientPaymentReceiver` and the scoped `IIpsReceiveContext` (the Idempotency-Key of the call); `MapIpsCoreReceiver()` maps the nine operations at their `RestEndpoint` routes from one typed list checked against the interface at startup. It reads and writes with `IpsJson.SerializerOptions` regardless of the host's JSON settings and answers 200 (result), 204 (status callback), 404 (`null` status query), 400 (unreadable body) and 500 (receiver exception, logged).
+- **Contracts helpers** (`IPS.MiidleWear.Contracts.Http`): `IpsJson`, `IpsHttpHeaders`, `IpsIdempotencyKeys`, plus `Pacs008PaymentResultDto.Pending` (PDNG). The receiver methods' `RestEndpoint` descriptions state the answer rules; every public DTO property is documented.
+- **`docs/openapi/ips-core-receiver.json`** (OpenAPI 3.0) is written by `tools/IPS.MiidleWear.OpenApi` from the package's own endpoints with `Microsoft.AspNetCore.OpenApi`, which also takes the property descriptions from the Contracts XML documentation; the tool adds the document header, the Idempotency-Key header and examples from the Contracts wire cases. A drift test compares it with the committed file.
+- **Proof.** `CoreReceiverPackageTests` call a receiver built with the package through the gateway's real `IncomingCbsClient`, `OutgoingStatusClient` and `IncomingCoreReplyInterpreter`.
+- See [017](specs/017-core-receiver-sdk.md).
+
+## Receiver sample and test kit (018)
+
+- **`IPS.MiidleWear.Testing`** (`src/`, packable, Contracts and the base class library only, no test framework): `IpsReceiverConformance.RunAsync(HttpClient)` sends each of the seven receive kinds as the gateway does (its JSON with `null` members, the Idempotency-Key, ids unique to the run) and checks that the answer is final, that a redelivery gets the same answer and that the payment-status query returns it; then that an unknown reference answers 404 and that a status callback and a reversal are accepted twice. `AnswerReader` repeats the gateway's reading rules; `ReceiverTestKitTests` require it to agree with `IncomingCoreReplyInterpreter` on every crafted answer.
+- **`samples/IPS.MiidleWear.CoreReceiver.Sample`** is a runnable receiver on the two packages over an in-memory ledger: one posting per key (a redelivery joins it), PDNG while posting, 404 for an unknown reference, idempotent statuses and reversals; `Sample:Answers` and `Sample:PostingDelay` choose the answers. It passes every kit check.
+- See [018](specs/018-receiver-sample-and-test-kit.md).

@@ -111,9 +111,11 @@ public sealed record Camt056OriginalTransactionReferenceDto
 /// <summary>DbtrAgt / CdtrAgt: FinInstnId/BICFI and optional Nm (Max140Text).</summary>
 public sealed record Camt056AgentDto
 {
+    /// <summary>FinInstnId/BICFI: the agent's BIC.</summary>
     [JsonPropertyName("BICFI")]
     public string? Bicfi { get; init; }
 
+    /// <summary>FinInstnId/Nm: the agent's name, when given.</summary>
     [JsonPropertyName("Name")]
     public string? Name { get; init; }
 }
@@ -145,6 +147,7 @@ public sealed record Camt056PartyDto
 /// <summary>UltmtDbtr / UltmtCdtr: Pty/Nm and Pty/Id only.</summary>
 public sealed record Camt056UltimatePartyDto
 {
+    /// <summary>Pty/Nm: the party's name.</summary>
     [JsonPropertyName("Name")]
     public string? Name { get; init; }
 
@@ -152,6 +155,7 @@ public sealed record Camt056UltimatePartyDto
     [JsonPropertyName("Type")]
     public int? Type { get; init; }
 
+    /// <summary>The party's identification (organisation or private), when given.</summary>
     [JsonPropertyName("Id")]
     public string? Id { get; init; }
 }
@@ -203,9 +207,11 @@ public sealed record Camt056RemittanceInformationDto
 /// <summary>RmtInf/Strd/CdtrRefInf: Tp/Issr (#20) and Ref (#21).</summary>
 public sealed record Camt056CreditorReferenceDto
 {
+    /// <summary>CdtrRefInf/Tp/Issr: the issuer of the creditor reference, when given.</summary>
     [JsonPropertyName("Issuer")]
     public string? Issuer { get; init; }
 
+    /// <summary>CdtrRefInf/Ref: the creditor reference.</summary>
     [JsonPropertyName("Reference")]
     public string? Reference { get; init; }
 }
