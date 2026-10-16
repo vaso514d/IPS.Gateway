@@ -10,7 +10,7 @@ public sealed class SimulatorState
     private TaskCompletionSource _release = NewRelease();
 
     public ConcurrentQueue<ReceivedMessage> Messages { get; } = new();
-    public ConcurrentQueue<string> Callbacks { get; } = new();
+    public ConcurrentQueue<ReceivedCallback> Callbacks { get; } = new();
     public ConcurrentQueue<ReceivedCoreDelivery> CoreDeliveries { get; } = new();
     public ConcurrentQueue<ReceivedProxyCall> ProxyCalls { get; } = new();
 
@@ -55,6 +55,8 @@ public sealed class SimulatorState
 }
 
 public sealed record ReceivedMessage(string Xml, bool PossibleDuplicate, string? Version, string? Channel, DateTimeOffset ReceivedAtUtc);
+
+public sealed record ReceivedCallback(string Body, DateTimeOffset ReceivedAtUtc);
 
 public sealed record ReceivedCoreDelivery(string Message, string Body, string? IdempotencyKey, DateTimeOffset ReceivedAtUtc);
 

@@ -68,7 +68,7 @@ internal sealed class Stack : IAsyncDisposable
                 message.GetProperty("xml").GetString()!,
                 message.GetProperty("possibleDuplicate").GetBoolean(),
                 message.GetProperty("version").GetString())).ToArray(),
-            root.GetProperty("callbacks").EnumerateArray().Select(callback => callback.GetString()!).ToArray(),
+            root.GetProperty("callbacks").EnumerateArray().Select(callback => callback.GetProperty("body").GetString()!).ToArray(),
             root.GetProperty("proxyCalls").EnumerateArray().Select(call => call.GetProperty("operation").GetString()!).ToArray());
     }
 

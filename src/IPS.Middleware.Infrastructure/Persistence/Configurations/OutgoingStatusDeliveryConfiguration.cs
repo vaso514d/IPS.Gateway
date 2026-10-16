@@ -23,7 +23,10 @@ internal sealed class OutgoingStatusDeliveryConfiguration : IEntityTypeConfigura
         builder.HasKey(x => new { x.PaymentId, x.Sequence });
         builder.Property(x => x.LastFailure).HasMaxLength(2000);
         builder.Property(x => x.RowVersion).IsRowVersion();
-        builder.HasIndex(x => new { x.State, x.NextAtUtc, x.PaymentId, x.Sequence });
+        // Discovery reads the claim from the index: a lookup of the row would hold the index entry while a finishing delivery holds
+        // the row and moves the entry, the deadlock of the 013 baseline.
+        builder.HasIndex(x => new { x.State, x.NextAtUtc, x.PaymentId, x.Sequence })
+            .IncludeProperties(x => new { x.ClaimToken, x.ClaimExpiresAtUtc });
 
         builder.HasOne<OutgoingPayment>()
             .WithMany()

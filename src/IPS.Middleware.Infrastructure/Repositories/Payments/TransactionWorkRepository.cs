@@ -5,7 +5,6 @@ using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.EntityFrameworkCore;
-using static IPS.Middleware.Infrastructure.Persistence.PaymentColumns;
 
 namespace IPS.Middleware.Infrastructure.Repositories.Payments;
 
@@ -87,11 +86,12 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
 
     // Unowned Sending is preparation released for retry; recovery turns abandoned submissions into Uncertain.
     private static Expression<Func<OutgoingPaymentMetadata, bool>> IsDue(TransactionStatus status, DateTimeOffset now) =>
-        x => x.Payment.CurrentStatus == status
+        x => x.CurrentStatus == status
             && x.ClaimToken == null
             && (x.NextActionAtUtc == null || x.NextActionAtUtc <= now);
 
-    // pacs.008 first, then oldest status change; Id breaks ties deterministically.
+    // pacs.008 first (the stored dispatch priority), then oldest status change; Id breaks ties deterministically. The order is
+    // that of the dispatch index, so SQL reads the matching rows in order and stops at the batch instead of sorting all of them.
     private async Task<IReadOnlyList<Guid>> FindPrioritizedAsync(
         Expression<Func<OutgoingPaymentMetadata, bool>> matching,
         int take,
@@ -99,8 +99,8 @@ public sealed class TransactionWorkRepository(TransactionDbContext db) : ITransa
         await db.OutgoingMetadata
             .AsNoTracking()
             .Where(matching)
-            .OrderBy(x => x.Payment.MessageType == Pacs008 ? 0 : 1)
-            .ThenBy(x => x.Payment.CurrentStatusAtUtc)
+            .OrderBy(x => x.DispatchPriority)
+            .ThenBy(x => x.CurrentStatusAtUtc)
             .ThenBy(x => x.Id)
             .Select(x => x.Id)
             .Take(take)

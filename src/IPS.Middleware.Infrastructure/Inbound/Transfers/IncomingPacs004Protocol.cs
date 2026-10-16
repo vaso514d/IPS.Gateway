@@ -16,7 +16,6 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transfers;
 // return builder.
 public sealed class IncomingPacs004Protocol(IpsSignatureTrust trust) : IIncomingTransferProtocol
 {
-    private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pacs = Pacs004Xml.DocumentNamespace;
 
     public bool Reads(string messageType) => PaymentMessageTypes.IsPacs004(messageType);
@@ -25,28 +24,10 @@ public sealed class IncomingPacs004Protocol(IpsSignatureTrust trust) : IIncoming
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
-            var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-            if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-                header.Name != Head + "AppHdr" || body.Name != Pacs + "Document")
+            var opened = SignedEnvelope.Open(xml, receivedAtUtc, trust, Pacs, PaymentMessageTypes.Pacs004Definition.Equals);
+            if (opened.Document is not { } body)
             {
-                return Hold("Unexpected message envelope or version.");
-            }
-
-            if (header.Element(Head + "MsgDefIdr")?.Value != PaymentMessageTypes.Pacs004Definition)
-            {
-                return Hold("Unsupported message definition.");
-            }
-
-            var signature = trust.Check(xml, receivedAtUtc);
-            if (signature is IpsSignatureCheck.OutsideValidity outside)
-            {
-                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
-            }
-
-            if (signature is not IpsSignatureCheck.Trusted)
-            {
-                return Hold("Untrusted message signature.");
+                return Hold(opened.HoldReason!);
             }
 
             var payment = body.Element(Pacs + "PmtRtr");

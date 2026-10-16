@@ -212,7 +212,7 @@ public sealed class ResendRepository(TransactionDbContext db) : IResendRepositor
 
     private OutgoingMessageRow? Message(Guid resendId, OutgoingMessageDirection direction) =>
         db.OutgoingMessages.Local.SingleOrDefault(x => x.ResendId == resendId && x.Direction == direction)
-        ?? db.OutgoingMessages.SingleOrDefault(x => x.ResendId == resendId && x.Direction == direction);
+        ?? OutgoingJournal.Single(db.OutgoingMessages.Where(x => x.ResendId == resendId && x.Direction == direction));
 
     private OutgoingMessageRow CommittedMessage(Guid resendId, OutgoingMessageDirection direction)
     {

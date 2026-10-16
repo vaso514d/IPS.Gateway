@@ -163,5 +163,6 @@
     <Project Path="tests/IPS.Middleware.IntegrationTests/IPS.Middleware.IntegrationTests.csproj" />
     <Project Path="tests/IPS.Middleware.Simulators/IPS.Middleware.Simulators.csproj" />
     <Project Path="tests/IPS.Middleware.Tests/IPS.Middleware.Tests.csproj" />
+    <Project Path="tests/IPS.Middleware.Performance/IPS.Middleware.Performance.csproj" />
   </Folder>
 </Solution>

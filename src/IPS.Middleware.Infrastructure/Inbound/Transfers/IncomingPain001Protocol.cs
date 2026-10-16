@@ -18,7 +18,6 @@ public sealed class IncomingPain001Protocol(IpsSignatureTrust trust) : IIncoming
 {
     public const string DocumentNamespace = "urn:iso:std:iso:20022:tech:xsd:pain.001.001.12";
 
-    private static readonly XNamespace Head = Pacs008Xml.HeaderNamespace;
     private static readonly XNamespace Pain = DocumentNamespace;
     private static readonly IncomingPartyReader Parties = new(Pain);
 
@@ -28,28 +27,10 @@ public sealed class IncomingPain001Protocol(IpsSignatureTrust trust) : IIncoming
     {
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
-            var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-            if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-                header.Name != Head + "AppHdr" || body.Name != Pain + "Document")
+            var opened = SignedEnvelope.Open(xml, receivedAtUtc, trust, Pain, PaymentMessageTypes.IsPain001Definition);
+            if (opened.Document is not { } body)
             {
-                return Hold("Unexpected message envelope or version.");
-            }
-
-            if (!PaymentMessageTypes.IsPain001Definition(header.Element(Head + "MsgDefIdr")?.Value ?? string.Empty))
-            {
-                return Hold("Unsupported message definition.");
-            }
-
-            var signature = trust.Check(xml, receivedAtUtc);
-            if (signature is IpsSignatureCheck.OutsideValidity outside)
-            {
-                return Hold($"IPS certificate outside its validity period: {outside.Detail}");
-            }
-
-            if (signature is not IpsSignatureCheck.Trusted)
-            {
-                return Hold("Untrusted message signature.");
+                return Hold(opened.HoldReason!);
             }
 
             var initiation = body.Element(Pain + "CstmrCdtTrfInitn");
