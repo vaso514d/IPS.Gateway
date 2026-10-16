@@ -8,6 +8,23 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "Database__MigrateOnStartup": "true"
       }
+    },
+    "Uat (no certificates)": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Payments__Signing__AllowUnsignedInDevelopment": "true",
+        "Payments__Outgoing__Transport__Enabled": "true",
+        "Payments__Outgoing__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Outgoing__Transport__Cbs__BaseUrl": "http://localhost:5280",
+        "Payments__Outgoing__Execution__Enabled": "true",
+        "Payments__Incoming__Transport__Enabled": "true",
+        "Payments__Incoming__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Incoming__Transport__Cbs__BaseUrl": "http://localhost:5280",
+        "Payments__Incoming__Workers__Enabled": "true"
+      }
     }
   }
 }
