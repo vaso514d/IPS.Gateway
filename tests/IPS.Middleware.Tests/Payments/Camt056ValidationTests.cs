@@ -8,7 +8,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Camt056ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL"), new("USD", Enabled: false)]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL"), new("USD", Enabled: false)]);
     private static readonly DateOnly Today = new(2026, 10, 4);
 
     private static Camt056Request Valid() => new()

@@ -1,4 +1,5 @@
 using System.Text;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy;
 using IPS.Middleware.Infrastructure.Transport;
 using Polly.Timeout;
@@ -7,7 +8,7 @@ namespace IPS.Middleware.Infrastructure.Proxy;
 
 // One POST per operation to the Proxy Solution (Annex E 3.2 to 3.4), never retried. A timeout, a connection failure or a
 // non-success status is reported as no answer, so the outcome of the operation is unknown.
-public sealed class ProxyClient(IHttpClientFactory clients, ProxySettings settings) : IProxyClient
+public sealed class ProxyClient(IHttpClientFactory clients, ProxySettings settings, BankIdentity bank) : IProxyClient
 {
     private static readonly Dictionary<ProxyOperation, string> Paths = new()
     {
@@ -22,7 +23,7 @@ public sealed class ProxyClient(IHttpClientFactory clients, ProxySettings settin
         {
             Content = new StringContent(xml, Encoding.UTF8, "application/xml")
         };
-        request.Headers.Add(ProxyHeaders.Channel, settings.ParticipantBic.ToUpperInvariant());
+        request.Headers.Add(ProxyHeaders.Channel, bank.Bic);
         request.Headers.Add(ProxyHeaders.Version, settings.ProtocolVersion);
         request.Headers.Connection.Add("keep-alive");
         try

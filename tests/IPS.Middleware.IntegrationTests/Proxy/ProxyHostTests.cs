@@ -195,22 +195,36 @@ public sealed class ProxyHostTests
     }
 
     [Fact]
-    public void An_enabled_section_with_an_invalid_bic_stops_startup()
+    public void An_enabled_section_with_an_invalid_bank_code_stops_startup()
     {
         var settings = Enabled("http://127.0.0.1:1");
-        settings["Proxy:ParticipantBic"] = "BAD";
+        settings["Bank:BicCode"] = "BAD";
         using var host = new ProxyHost(settings);
 
         var error = Assert.Throws<InvalidOperationException>(() => host.CreateClient());
 
-        Assert.Contains("ParticipantBic", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Bank requires BicCode", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Proxy:ParticipantBic")]
+    [InlineData("Proxy:ProxyBic")]
+    public void A_removed_bank_code_key_stops_startup(string key)
+    {
+        var settings = Enabled("http://127.0.0.1:1");
+        settings[key] = Participant;
+        using var host = new ProxyHost(settings);
+
+        var error = Assert.Throws<InvalidOperationException>(() => host.CreateClient());
+
+        Assert.Contains(key.Split(':')[1], error.Message, StringComparison.Ordinal);
     }
 
     private static Dictionary<string, string?> Enabled(string url) => new()
     {
         ["Proxy:Enabled"] = "true",
-        ["Proxy:ParticipantBic"] = Participant,
-        ["Proxy:ProxyBic"] = ProxyBic,
+        ["Bank:BicCode"] = Participant,
+        ["Bank:NbgCode"] = ProxyBic,
         ["Proxy:Endpoint:BaseUrl"] = url,
         ["Proxy:Endpoint:ConnectTimeout"] = "00:00:00.200",
         ["Proxy:Endpoint:RequestTimeout"] = "00:00:05",

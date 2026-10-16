@@ -64,7 +64,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
         {
             ["ConnectionStrings:Middleware"] = db.Database.GetConnectionString(),
             ["Payments:Outgoing:Transport:Enabled"] = "true",
-            ["Payments:Outgoing:Transport:ParticipantBic"] = "BAGAGE22",
+            ["Bank:BicCode"] = "BAGAGE22",
             ["Payments:Outgoing:Transport:Ips:BaseUrl"] = fixture.Server.Url,
             ["Payments:Outgoing:Transport:Cbs:BaseUrl"] = fixture.Server.Url,
             ["Payments:Outgoing:Transport:Ips:RequestTimeout"] = "00:00:10",
@@ -77,7 +77,7 @@ internal sealed class OutgoingHostFixture : IAsyncDisposable
             ["Payments:Outgoing:Execution:DiscoveryInterval"] = "00:00:00.050",
             ["Payments:Outgoing:StatusDelivery:DiscoveryInterval"] = "00:00:00.050",
             ["Payments:Outgoing:Policy:Currencies:0:Code"] = "GEL",
-            ["Payments:Outgoing:Protocol:IpsBic"] = "NBGEGE22"
+            ["Bank:NbgCode"] = "NBGEGE22"
         };
         return fixture;
     }

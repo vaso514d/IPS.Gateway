@@ -111,7 +111,6 @@ public sealed class OutgoingTransportConfigurationTests
         settings["Payments:Outgoing:Transport:SigningCertificate:Path"] = outgoing.Identity.Path;
         settings["Payments:Outgoing:Transport:SigningCertificate:Password"] = outgoing.Identity.Password;
         settings["Payments:Incoming:Transport:Enabled"] = "true";
-        settings["Payments:Incoming:Transport:ParticipantBic"] = "TESTGE22";
         settings["Payments:Incoming:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1";
         settings["Payments:Incoming:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1";
         settings["Payments:Incoming:Transport:SigningCertificate:Path"] = incoming.Identity.Path;
@@ -137,7 +136,6 @@ public sealed class OutgoingTransportConfigurationTests
         using var certificates = new TransportCertificates();
         var settings = Settings(certificates);
         settings["Payments:Incoming:Transport:Enabled"] = "true";
-        settings["Payments:Incoming:Transport:ParticipantBic"] = "TESTGE22";
         settings["Payments:Incoming:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1";
         settings["Payments:Incoming:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1";
         if (incomingTrust)
@@ -160,7 +158,8 @@ public sealed class OutgoingTransportConfigurationTests
     private static Dictionary<string, string?> Settings(TransportCertificates certificates) => new()
     {
         ["Payments:Outgoing:Transport:Enabled"] = "true",
-        ["Payments:Outgoing:Transport:ParticipantBic"] = "TESTGE22",
+        ["Bank:BicCode"] = "TESTGE22",
+        ["Bank:NbgCode"] = "NBGEGE22",
         ["Payments:Outgoing:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Outgoing:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Outgoing:Transport:IpsSignatureTrust:0:Path"] = certificates.SignatureTrust.Path,

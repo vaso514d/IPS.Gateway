@@ -31,8 +31,7 @@ internal sealed class DebtorValidator : AbstractValidator<Pacs008DebtorInput>
         RuleFor(x => x.IndirectParticipantBic).Must(bic => string.IsNullOrWhiteSpace(bic) ||
             policy.IndirectParticipants.Contains(bic.Trim(), StringComparer.OrdinalIgnoreCase))
             .WithMessage("Indirect payer is not configured.");
-        RuleFor(x => x.ParticipantBic).Must(bic => string.IsNullOrWhiteSpace(bic) ||
-            string.Equals(bic.Trim(), policy.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        RuleFor(x => x.ParticipantBic).Must(bic => string.IsNullOrWhiteSpace(bic) || policy.Bank.IsOwn(bic))
             .WithMessage("Debtor participant must be our own participant.");
     }
 }
@@ -48,7 +47,7 @@ internal sealed class CreditorValidator : AbstractValidator<Pacs008CreditorInput
         When(x => policy.IsTreasury(x.ParticipantBic), () =>
             RuleFor(x => x.Account).ProtocolText(Pacs008Text.Text(34), required: true))
             .Otherwise(() => RuleFor(x => x.Account).Iban());
-        RuleFor(x => x.ParticipantBic).Must(bic => !string.Equals(bic?.Trim(), policy.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        RuleFor(x => x.ParticipantBic).Must(bic => !policy.Bank.IsOwn(bic))
             .WithMessage("The receiving bank must differ from our participant.");
     }
 }

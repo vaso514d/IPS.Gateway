@@ -7,7 +7,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Pacs004ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL"), new("USD", Enabled: false)], ["INDRGE22"]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL"), new("USD", Enabled: false)], ["INDRGE22"]);
 
     private static Pacs004Request Valid() => new()
     {

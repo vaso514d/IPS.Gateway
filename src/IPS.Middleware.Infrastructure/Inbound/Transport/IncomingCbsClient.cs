@@ -11,7 +11,7 @@ using IPS.MiidleWear.Contracts.Transactions;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
-public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransportSettings settings)
+public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransportSettings settings, BankIdentity bank)
     : IIncomingCoreClient, IIncomingReversalClient, IIncomingTransferCoreClient
 {
     public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request payment, CancellationToken cancellationToken)
@@ -74,7 +74,7 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
         string? idempotencyKey,
         CancellationToken cancellationToken)
     {
-        IncomingHttpRegistration.RequireParticipant(settings, participant);
+        IncomingHttpRegistration.RequireParticipant(settings, bank, participant);
         using var request = new HttpRequestMessage(method, path.TrimStart('/')) { Content = content };
         if (idempotencyKey is not null)
         {

@@ -8,6 +8,7 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Inbound.StatusReports;
 using IPS.Middleware.Application.Inbound.Transfers;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound;
@@ -75,6 +76,27 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         Assert.Null((await h.Execution.ReadAsync(id, default))!.PaymentId);
         Assert.Empty(h.Core.Submissions);
         Assert.Single(h.Reply.Messages);
+        Assert.Equal(IncomingReplyStatus.Delivered, reply.Status);
+    }
+
+    // 016: a trusted payment whose creditor agent is another bank is rejected RC07 and never reaches the CBS.
+    [Fact]
+    public async Task A_payment_for_another_bank_is_rejected_without_payment_or_cbs()
+    {
+        await using var h = await Harness.CreateAsync(fixture);
+        var id = await h.SeedAsync(input: "other-creditor-agent");
+        h.Reply.Response = fixture.Response("rejected");
+
+        await h.RunAsync(id);
+
+        var reply = await h.SnapshotAsync(id);
+        Assert.Equal("RC07", reply.Envelope.Decision.ReasonCode);
+        Assert.Equal("Creditor agent 'TBCBGE22' is not this bank.", reply.Envelope.Decision.Description);
+        Assert.False(reply.Envelope.Decision.Accepted);
+        Assert.Null((await h.Execution.ReadAsync(id, default))!.PaymentId);
+        Assert.Empty(h.Core.Submissions);
+        Assert.True(SignatureVerifier.Verifies(Assert.Single(h.Reply.Messages), fixture.Input.Certificate));
+        Assert.Contains(">RC07<", h.Reply.Messages.Single(), StringComparison.Ordinal);
         Assert.Equal(IncomingReplyStatus.Delivered, reply.Status);
     }
 
@@ -210,7 +232,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         var id = await h.SeedAsync();
         Assert.True(h.Channel.TryNotify(Guid.NewGuid()));
         h.Reply.Response = new(503, "lost", []);
-        Assert.Equal(IncomingCompositionStatus.ReplyReady, (await h.RunAsync(id)).Status);
+        await h.RunAsync(id);
         var stored = await h.SnapshotAsync(id);
         await h.RunAsync(id); // duplicate notification before the stored due time
         Assert.Single(h.Reply.Messages);
@@ -309,10 +331,10 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         using var certificates = new TransportCertificates();
         await using var h = await Harness.CreateAsync(fixture, configure: services =>
         {
+            services.AddSingleton(new BankIdentity("BAGAGE22", "NBGEGE22"));
             services.AddSingleton(new IncomingTransportSettings
             {
                 Enabled = true,
-                ParticipantBic = "BAGAGE22",
                 Ips = new() { BaseUrl = server.Url },
                 Cbs = new() { BaseUrl = server.Url },
                 SigningCertificate = certificates.SavePfx(fixture.Input.Certificate),

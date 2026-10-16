@@ -27,6 +27,8 @@ public sealed class IncomingReceiptPreparation(
     Pacs008ProtocolProfile profile,
     TimeProvider timeProvider)
 {
+    // ISO 20022 external status reason "Invalid creditor BIC identifier".
+    private const string InvalidCreditorAgent = "RC07";
     private static readonly IncomingCompositionResult OwnershipLost = new(IncomingCompositionStatus.OwnershipLost);
 
     public async Task<IncomingCompositionResult> PrepareAsync(InboundClaim claim, CancellationToken token)
@@ -64,7 +66,7 @@ public sealed class IncomingReceiptPreparation(
             return await HoldAsync(claim, "Unsupported incoming message type.", now, token);
         }
 
-        return protocol.Read(receipt.RawXml, receipt.ReceivedAtUtc) switch
+        return AddressedTo(receipt.ParticipantBic, protocol.Read(receipt.RawXml, receipt.ReceivedAtUtc)) switch
         {
             IncomingPacs008ReadResult.Hold held => await HoldAsync(claim, held.Reason, now, token),
             IncomingPacs008ReadResult.Reject rejected => await PrepareRejectionAsync(claim, receipt, rejected, now, token),
@@ -89,6 +91,24 @@ public sealed class IncomingReceiptPreparation(
         await unitOfWork.SaveAsync(token);
         var status = state.HasReply ? IncomingCompositionStatus.ReplyReady : IncomingCompositionStatus.Deferred;
         return new IncomingCompositionResult(status, state.PaymentId);
+    }
+
+    // The receipt participant is our configured bank code. A trusted payment whose creditor agent is another bank is
+    // rejected rather than credited (decision 016); IPS is not expected to route one here.
+    private static IncomingPacs008ReadResult AddressedTo(string participantBic, IncomingPacs008ReadResult read)
+    {
+        if (read is not IncomingPacs008ReadResult.Ready { Payment: var payment })
+        {
+            return read;
+        }
+
+        var creditorAgent = payment.Payment.Creditor?.ParticipantBic?.Trim();
+        if (string.Equals(creditorAgent, participantBic, StringComparison.OrdinalIgnoreCase))
+        {
+            return read;
+        }
+
+        return new IncomingPacs008ReadResult.Reject(payment.Original, InvalidCreditorAgent, $"Creditor agent '{creditorAgent}' is not this bank.");
     }
 
     private async Task<IncomingCompositionResult> PrepareRejectionAsync(

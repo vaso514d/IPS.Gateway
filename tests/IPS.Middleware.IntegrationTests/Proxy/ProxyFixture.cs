@@ -1,5 +1,6 @@
 using System.Security.Cryptography.X509Certificates;
 using System.Xml.Linq;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Proxy;
@@ -16,7 +17,7 @@ internal static class ProxyFixture
     internal static readonly XNamespace Acmt = "urn:iso:std:iso:20022:tech:xsd:acmt.022.001.04";
     internal static readonly XNamespace Head = "urn:iso:std:iso:20022:tech:xsd:head.001.001.03";
 
-    internal static ProxySettings Settings() => new() { Enabled = true, ParticipantBic = Participant, ProxyBic = ProxyBic };
+    internal static BankIdentity Bank() => new(Participant, ProxyBic);
 
     internal static ProxyAccountHolder Holder(string type = "Individual") => new(
         "01001011111", type, "გიორგი", "ბერიძე", "დავითის", false, "GE", "GE", "LLC", "Test Company", true, "GE");
@@ -36,7 +37,7 @@ internal static class ProxyFixture
         "01001011111", "Individual", Iban, "GEL", keepAccountActive, [new("MBNO", "+995599123456")], ["auth-1"], ["owner-1"]);
 
     internal static IProxyProtocol Protocol(ISigningCertificateSource? certificates = null) => new ProxyProtocol(
-        Settings(),
+        Bank(),
         new Pacs008MessageSigner(new Pacs008SigningPolicy(false, false), new FixedTime(Now)),
         certificates ?? new NoCertificate(),
         new FixedTime(Now));

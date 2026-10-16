@@ -82,7 +82,6 @@ public sealed class IncomingWorkerCrashTests(IncomingReplyFixture fixture) : ICl
         var transport = new IncomingTransportSettings
         {
             Enabled = true,
-            ParticipantBic = "BAGAGE22",
             Ips = new() { BaseUrl = server.Url },
             Cbs = new() { BaseUrl = server.Url },
             SigningCertificate = certificates.SavePfx(fixture.Input.Certificate),

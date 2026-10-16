@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
@@ -227,7 +228,6 @@ public sealed class IncomingHttpClientTests
         return new()
         {
             Enabled = true,
-            ParticipantBic = Participant,
             IpsSignatureTrust = [certificates.SignatureTrust],
             ReceiveTimeout = timeout ?? TimeSpan.FromSeconds(10),
             Ips = Endpoint(),
@@ -241,6 +241,7 @@ public sealed class IncomingHttpClientTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(settings);
+        services.AddSingleton(new BankIdentity("TESTGE22", "NBGEGE22"));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new Pacs008SigningPolicy(true, true));
         services.AddIncomingHttpClients();

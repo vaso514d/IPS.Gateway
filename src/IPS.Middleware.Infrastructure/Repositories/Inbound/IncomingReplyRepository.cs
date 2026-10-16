@@ -12,7 +12,9 @@ namespace IPS.Middleware.Infrastructure.Repositories.Inbound;
 // Reply artifacts are prepared once, then each send attempt is journaled before the call and completed once.
 public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncomingReplyRepository
 {
-    private const string StructuralRejectionReason = "FF01";
+    // Rejections decided before a payment exists: a trusted count/batch violation (FF01) and a payment for another bank
+    // (RC07, decision 016).
+    private static readonly string[] PaymentlessRejectionReasons = ["FF01", "RC07"];
 
     public async Task<IncomingReplySnapshot?> ReadAsync(Guid journalId, CancellationToken token)
     {
@@ -73,9 +75,9 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
 
         if (receipt.IncomingPaymentId is null)
         {
-            if (envelope.Decision.Accepted || envelope.Decision.ReasonCode != StructuralRejectionReason)
+            if (envelope.Decision.Accepted || !PaymentlessRejectionReasons.Contains(envelope.Decision.ReasonCode))
             {
-                throw new InvalidOperationException("Only a trusted structural rejection may reply without a payment.");
+                throw new InvalidOperationException("Only a rejection decided before registration may reply without a payment.");
             }
         }
         else if (await ReadDecisionAsync(claim.JournalId, token) != envelope.Decision)

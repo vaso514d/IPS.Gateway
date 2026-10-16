@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Xml.Linq;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Proxy;
 
 namespace IPS.Middleware.Infrastructure.Proxy;
@@ -14,15 +15,15 @@ internal static class Acmt022Message
     private static readonly XNamespace A = ProxyXml.DocumentNamespace;
     private static readonly XNamespace Wrapper = ProxyXml.WrapperNamespace;
 
-    internal static XElement BuildRegister(RegisterProxyRequest request, ProxyIds ids, ProxySettings settings, DateTimeOffset now)
+    internal static XElement BuildRegister(RegisterProxyRequest request, ProxyIds ids, BankIdentity bank, DateTimeOffset now)
     {
         var modification = new XElement(A + "Mod",
             new XElement(A + "Id", ids.OperationId),
-            UpdatedPartyAndAccount(request.AccountHolder!, request.Account, request.ProxyIdentifiers, settings));
-        return Envelope(modification, RegistrationData(request), ids, settings, now);
+            UpdatedPartyAndAccount(request.AccountHolder!, request.Account, request.ProxyIdentifiers, bank));
+        return Envelope(modification, RegistrationData(request), ids, bank, now);
     }
 
-    internal static XElement BuildUpdate(UpdateProxyRequest request, ProxyIds ids, ProxySettings settings, DateTimeOffset now)
+    internal static XElement BuildUpdate(UpdateProxyRequest request, ProxyIds ids, BankIdentity bank, DateTimeOffset now)
     {
         // The holder's identity must exactly match the registered one (Annex E p. 38), so it always comes from the
         // identifier and type; UpdatedAccountHolder only carries changed details.
@@ -30,30 +31,30 @@ internal static class Acmt022Message
         var modification = new XElement(A + "Mod",
             new XElement(A + "Id", ids.OperationId),
             new XElement(A + "OrgnlPtyAndAcctId", new XElement(A + "Pty", new XElement(A + "Id", PartyIdentity(identity)))),
-            UpdatedPartyAndAccount(identity, request.UpdatedAccount, request.ProxyIdentifiers, settings, request.AccountIdentifier, request.AccountCurrency));
-        return Envelope(modification, UpdateData(request), ids, settings, now);
+            UpdatedPartyAndAccount(identity, request.UpdatedAccount, request.ProxyIdentifiers, bank, request.AccountIdentifier, request.AccountCurrency));
+        return Envelope(modification, UpdateData(request), ids, bank, now);
     }
 
-    internal static XElement BuildRemove(RemoveProxyRequest request, ProxyIds ids, ProxySettings settings, DateTimeOffset now)
+    internal static XElement BuildRemove(RemoveProxyRequest request, ProxyIds ids, BankIdentity bank, DateTimeOffset now)
     {
         var identity = new ProxyAccountHolder(request.AccountHolderIdentifier, request.AccountHolderType, null, null, null, null, null, null, null, null, null, null);
         var original = new XElement(A + "OrgnlPtyAndAcctId",
             new XElement(A + "Pty", new XElement(A + "Id", PartyIdentity(identity)), ContactDetails(request.ProxyIdentifiersToRemove)),
             Account(request.AccountIdentifier!, isIban: true, request.AccountCurrency, type: null),
-            Agent(settings));
+            Agent(bank));
         // An account under UpdtdPtyAndAcctId means "keep the account active"; none means "remove the account". The element
         // itself is mandatory even for a full removal (Annex E p. 40-43).
         var updated = new XElement(A + "UpdtdPtyAndAcctId",
             request.KeepAccountActive ? Account(request.AccountIdentifier!, isIban: true, request.AccountCurrency, type: null) : null);
         var modification = new XElement(A + "Mod", new XElement(A + "Id", ids.OperationId), original, updated);
-        return Envelope(modification, RemovalData(request), ids, settings, now);
+        return Envelope(modification, RemovalData(request), ids, bank, now);
     }
 
     private static XElement UpdatedPartyAndAccount(
         ProxyAccountHolder holder,
         ProxyAccount? account,
         IReadOnlyList<ProxyIdentifier?>? identifiers,
-        ProxySettings settings,
+        BankIdentity bank,
         string? accountIdentifierOverride = null,
         string? accountCurrencyOverride = null)
     {
@@ -63,7 +64,7 @@ internal static class Acmt022Message
         var accountElement = accountIdentifier is null
             ? null
             : Account(accountIdentifier, account?.IsIban ?? true, account?.Currency ?? accountCurrencyOverride, account?.Type);
-        return new XElement(A + "UpdtdPtyAndAcctId", party, accountElement, accountElement is null ? null : Agent(settings));
+        return new XElement(A + "UpdtdPtyAndAcctId", party, accountElement, accountElement is null ? null : Agent(bank));
     }
 
     // CtctDtls and its Othr list are optional in the XSD, so contact details are sent only when there is a proxy identifier.
@@ -82,7 +83,7 @@ internal static class Acmt022Message
             string.IsNullOrWhiteSpace(type) ? null : new XElement(A + "Tp", new XElement(A + "Prtry", type)),
             string.IsNullOrWhiteSpace(currency) ? null : new XElement(A + "Ccy", currency));
 
-    private static XElement Agent(ProxySettings settings) => Agent(settings.ParticipantBic);
+    private static XElement Agent(BankIdentity bank) => Agent(bank.Bic);
 
     // Registration supplementary data (Annex E p. 35-38): party, account dates, authorized persons and beneficial owners.
     private static XElement RegistrationData(RegisterProxyRequest request)
@@ -207,20 +208,20 @@ internal static class Acmt022Message
     }
 
     // The Annex E envelope: hdr:Message holding the application header and the document. The signer fills in Sgntr.
-    private static XElement Envelope(XElement modification, XElement? supplementaryData, ProxyIds ids, ProxySettings settings, DateTimeOffset now)
+    private static XElement Envelope(XElement modification, XElement? supplementaryData, ProxyIds ids, BankIdentity bank, DateTimeOffset now)
     {
         var timestamp = now.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         var assignment = new XElement(A + "Assgnmt",
             new XElement(A + "MsgId", ids.BulkMessageId),
             new XElement(A + "CreDtTm", timestamp),
-            new XElement(A + "Assgnr", Agent(settings.ParticipantBic)),
-            new XElement(A + "Assgne", Agent(settings.ProxyBic)));
+            new XElement(A + "Assgnr", Agent(bank.Bic)),
+            new XElement(A + "Assgne", Agent(bank.NbgBic)));
         return new XElement(Wrapper + "Message",
             new XAttribute(XNamespace.Xmlns + "hdr", Wrapper.NamespaceName),
             new XElement(H + "AppHdr",
                 new XAttribute("xmlns", H.NamespaceName),
-                new XElement(H + "Fr", new XElement(H + "FIId", new XElement(H + "FinInstnId", new XElement(H + "BICFI", settings.ParticipantBic)))),
-                new XElement(H + "To", new XElement(H + "FIId", new XElement(H + "FinInstnId", new XElement(H + "BICFI", settings.ProxyBic)))),
+                new XElement(H + "Fr", new XElement(H + "FIId", new XElement(H + "FinInstnId", new XElement(H + "BICFI", bank.Bic)))),
+                new XElement(H + "To", new XElement(H + "FIId", new XElement(H + "FinInstnId", new XElement(H + "BICFI", bank.NbgBic)))),
                 new XElement(H + "BizMsgIdr", ids.BulkMessageId),
                 new XElement(H + "MsgDefIdr", ProxyXml.MessageDefinition),
                 new XElement(H + "CreDt", timestamp)),

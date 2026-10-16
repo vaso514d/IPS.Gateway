@@ -49,7 +49,7 @@ internal class RecallOriginalValidator<T> : AbstractValidator<T>
     }
 
     private static bool IsParticipant(string? bic, Pacs008Policy policy) =>
-        string.Equals(bic?.Trim(), policy.ParticipantBic, StringComparison.OrdinalIgnoreCase);
+        policy.Bank.IsOwn(bic);
 
     // Name is required; an identifier needs its type to choose OrgId or PrvtId; the account is an IBAN.
     private sealed class PartyValidator : AbstractValidator<RecallPartyInput>

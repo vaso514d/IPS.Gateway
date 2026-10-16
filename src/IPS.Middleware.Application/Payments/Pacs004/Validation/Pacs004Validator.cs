@@ -23,8 +23,7 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
         RuleFor(x => x.TransactionTypeCode).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.InstructedAgent).ProtocolText(Pacs008Text.Bic, required: true);
         RuleFor(x => x.InstructingAgent).ProtocolText(Pacs008Text.Bic);
-        RuleFor(x => x.InstructingAgent).Must(bic => string.IsNullOrWhiteSpace(bic) ||
-                string.Equals(bic.Trim(), policy.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        RuleFor(x => x.InstructingAgent).Must(bic => string.IsNullOrWhiteSpace(bic) || policy.Bank.IsOwn(bic))
             .WithMessage("The instructing agent must be our participant.");
         RuleFor(x => x.SenderIndirectParticipant).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.SenderIndirectParticipant).Must(bic => string.IsNullOrWhiteSpace(bic) ||

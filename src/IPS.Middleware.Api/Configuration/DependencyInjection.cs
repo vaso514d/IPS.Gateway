@@ -7,6 +7,7 @@ internal static class DependencyInjection
     internal static IServiceCollection AddMiddleware(this IServiceCollection services)
     {
         return services
+            .AddBankConfiguration()
             .AddPaymentSettings()
             .AddIncomingTransportConfiguration()
             .AddOutgoingTransportConfiguration()
@@ -22,6 +23,7 @@ internal static class DependencyInjection
     internal static void ValidateMiddleware(this IServiceProvider services)
     {
         services.ValidatePaymentSettings();
+        services.ValidateBank();
         _ = services.GetRequiredService<Pacs008SigningPolicy>();
         services.ValidateIncomingTransport();
         services.ValidateOutgoingTransport();

@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Camt029;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Recalls;
@@ -7,7 +8,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Camt029ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL"), new("USD", Enabled: false)]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL"), new("USD", Enabled: false)]);
     private static readonly DateOnly Today = new(2026, 10, 4);
 
     private static Camt029Request Valid() => new()

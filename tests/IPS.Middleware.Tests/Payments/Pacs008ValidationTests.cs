@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using Xunit;
 
@@ -6,7 +7,7 @@ namespace IPS.Middleware.Tests.Payments;
 public sealed class Pacs008ValidationTests
 {
     private static readonly DateTimeOffset Created = new(2026, 10, 4, 10, 0, 0, TimeSpan.Zero);
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", "TRESGE22",
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22", "TRESGE22"),
         [new("GEL", MinAmount: 0.01m, MaxAmount: 9999999999999.99999m)], ["INDIRECT"]);
     public static Pacs008Request Minimal() => new()
     {
@@ -299,7 +300,7 @@ public sealed class Pacs008ValidationTests
     [Fact]
     public void Currency_enablement_and_limits_come_from_policy()
     {
-        var policy = new Pacs008Policy("BAGAGE22", null, [new("GEL", MinAmount: 10, MaxAmount: 20), new("USD", false)]);
+        var policy = new Pacs008Policy(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL", MinAmount: 10, MaxAmount: 20), new("USD", false)]);
         foreach (var amount in new[]
         {
             10m,

@@ -13,7 +13,6 @@ namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 public sealed class IncomingTransportSettings
 {
     public bool Enabled { get; init; }
-    public string ParticipantBic { get; init; } = "";
     public HttpEndpointSettings Ips { get; init; } = new();
     public HttpEndpointSettings Cbs { get; init; } = new();
     public string IpsVersion { get; init; } = "1";
@@ -39,11 +38,6 @@ public sealed class IncomingTransportSettings
         if (!Enabled)
         {
             return;
-        }
-
-        if (ParticipantBic.Length is not (8 or 11) || ParticipantBic.Any(c => !char.IsAsciiLetterOrDigit(c)))
-        {
-            throw new InvalidOperationException("Incoming transport requires an 8 or 11 character participant BIC.");
         }
 
         if (string.IsNullOrWhiteSpace(IpsVersion) || IpsVersion.Any(c => c < 33 || c > 126))

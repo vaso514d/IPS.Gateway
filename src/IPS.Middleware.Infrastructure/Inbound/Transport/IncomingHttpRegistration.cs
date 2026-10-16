@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Inbound.StatusReports;
 using IPS.Middleware.Application.Inbound.Transfers;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.StatusReports;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
@@ -55,14 +56,14 @@ public static class IncomingHttpRegistration
         }
     }
 
-    internal static void RequireParticipant(IncomingTransportSettings settings, string participant)
+    internal static void RequireParticipant(IncomingTransportSettings settings, BankIdentity bank, string participant)
     {
         if (!settings.Enabled)
         {
             throw new InvalidOperationException("Incoming live transport is disabled.");
         }
 
-        if (!string.Equals(participant, settings.ParticipantBic, StringComparison.OrdinalIgnoreCase))
+        if (!bank.IsOwn(participant))
         {
             throw new InvalidOperationException("Payment participant does not match the configured transport participant.");
         }

@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 using Xunit;
@@ -6,7 +7,7 @@ namespace IPS.Middleware.Tests.Payments;
 
 public sealed class Pacs009ValidationTests
 {
-    private static readonly Pacs008Policy Policy = new("BAGAGE22", null, [new("GEL"), new("USD", Enabled: false)], ["INDRGE22"]);
+    private static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22"), [new("GEL"), new("USD", Enabled: false)], ["INDRGE22"]);
 
     private static Pacs009Request Valid() => new()
     {

@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.StatusReports;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound;
@@ -550,10 +551,10 @@ public sealed class IncomingStatusReportTests
         builder.Services.AddPersistence(db.Database.GetConnectionString()!);
         // The host loads real test certificates, whose validity starts at the actual current time.
         builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton(new BankIdentity("BAGAGE22", "NBGEGE22"));
         builder.Services.AddSingleton(new IncomingTransportSettings
         {
             Enabled = true,
-            ParticipantBic = "BAGAGE22",
             Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.Identity,

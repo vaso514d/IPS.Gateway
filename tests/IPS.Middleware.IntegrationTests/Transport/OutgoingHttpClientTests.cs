@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using IPS.Middleware.Application.Abstractions.Payments;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.StatusDelivery;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
@@ -178,7 +179,6 @@ public sealed class OutgoingHttpClientTests
         return new()
         {
             Enabled = true,
-            ParticipantBic = "TESTGE22",
             Ips = incoming.Ips,
             Cbs = incoming.Cbs,
             IpsSignatureTrust = incoming.IpsSignatureTrust
@@ -190,6 +190,7 @@ public sealed class OutgoingHttpClientTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(settings);
+        services.AddSingleton(new BankIdentity("TESTGE22", "NBGEGE22"));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new Pacs008SigningPolicy(true, true));
         services.AddOutgoingHttpClients();

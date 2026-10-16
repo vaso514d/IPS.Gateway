@@ -1,3 +1,4 @@
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 
 namespace IPS.Middleware.IntegrationTests.Payments;
@@ -5,7 +6,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 internal static class Pacs008Fixture
 {
     internal static readonly DateTimeOffset Created = new(2026, 10, 3, 23, 59, 59, TimeSpan.Zero);
-    internal static readonly Pacs008Policy Policy = new("BAGAGE22", "TRESGE22", [new("GEL")], ["MEMBER-1"]);
+    internal static readonly Pacs008Policy Policy = new(new BankIdentity("BAGAGE22", "NBGEGE22", "TRESGE22"), [new("GEL")], ["MEMBER-1"]);
 
     internal static Pacs008Request Request() => new()
     {

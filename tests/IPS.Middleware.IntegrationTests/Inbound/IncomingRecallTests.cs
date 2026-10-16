@@ -7,6 +7,7 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Transfers;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Recalls;
 using IPS.Middleware.Domain.Inbound;
@@ -849,10 +850,10 @@ public sealed class IncomingRecallTests
         builder.Services.AddPersistence(db.Database.GetConnectionString()!);
         // The host loads real test certificates, whose validity starts at the actual current time.
         builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton(new BankIdentity(Participant, "NBGEGE22"));
         builder.Services.AddSingleton(new IncomingTransportSettings
         {
             Enabled = true,
-            ParticipantBic = Participant,
             Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.Identity,

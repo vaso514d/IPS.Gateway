@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
@@ -296,13 +297,13 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
             ["ConnectionStrings:Middleware"] = db.Database.GetConnectionString(),
             ["Payments:Incoming:Workers:Enabled"] = "true",
             ["Payments:Incoming:Transport:Enabled"] = "true",
-            ["Payments:Incoming:Transport:ParticipantBic"] = "BAGAGE22",
+            ["Bank:BicCode"] = "BAGAGE22",
             ["Payments:Incoming:Transport:Ips:BaseUrl"] = server.Url,
             ["Payments:Incoming:Transport:Cbs:BaseUrl"] = server.Url,
             ["Payments:Incoming:Transport:SigningCertificate:Path"] = signing.Path,
             ["Payments:Incoming:Transport:SigningCertificate:Password"] = signing.Password,
             ["Payments:Incoming:Transport:IpsSignatureTrust:0:Path"] = trust.Path,
-            ["Payments:Incoming:Protocol:IpsBic"] = "NBGEGE22"
+            ["Bank:NbgCode"] = "NBGEGE22"
         });
         using var client = factory.CreateClient();
         Assert.Equal("Healthy", await client.GetStringAsync("/health/live"));
@@ -326,10 +327,10 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Services.AddPersistence(db.Database.GetConnectionString()!);
         builder.Services.AddSingleton<TimeProvider>(time);
+        builder.Services.AddSingleton(new BankIdentity("BAGAGE22", "NBGEGE22"));
         builder.Services.AddSingleton(new IncomingTransportSettings
         {
             Enabled = true,
-            ParticipantBic = "BAGAGE22",
             Ips = new() { BaseUrl = url, ConnectionLimit = 5 },
             Cbs = new() { BaseUrl = url, ConnectionLimit = 4 },
             SigningCertificate = certificates.SavePfx(fixture.Input.Certificate),

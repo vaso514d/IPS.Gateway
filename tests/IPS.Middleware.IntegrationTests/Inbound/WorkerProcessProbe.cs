@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Text.Json;
+using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
@@ -43,6 +44,7 @@ internal static class WorkerProcessProbe
         builder.Services.AddDbContext<TransactionDbContext>(options => options.AddInterceptors(new PauseAfterCommit(settings)));
         builder.Services.AddSingleton<TimeProvider>(new Clock(settings.Now));
         builder.Services.AddSingleton(settings.Transport);
+        builder.Services.AddSingleton(new BankIdentity("BAGAGE22", "NBGEGE22"));
         builder.Services.AddSingleton(new IncomingWorkerOptions { Enabled = true, EmptyDelay = TimeSpan.FromMilliseconds(20), ErrorDelay = TimeSpan.FromMilliseconds(20) });
         builder.Services.AddSingleton(new InboundSchedulingOptions(discoveryInterval: TimeSpan.FromMilliseconds(20)));
         builder.Services.AddSingleton(new Pacs008ProtocolProfile("NBGEGE22"));

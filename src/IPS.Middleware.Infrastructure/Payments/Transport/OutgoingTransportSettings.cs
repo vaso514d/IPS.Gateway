@@ -6,7 +6,6 @@ namespace IPS.Middleware.Infrastructure.Payments.Transport;
 public sealed class OutgoingTransportSettings
 {
     public bool Enabled { get; init; }
-    public string ParticipantBic { get; init; } = "";
     public HttpEndpointSettings Ips { get; init; } = new() { RequestTimeout = TimeSpan.FromSeconds(25) };
     public HttpEndpointSettings Cbs { get; init; } = new();
     public string IpsVersion { get; init; } = "1";
@@ -22,11 +21,6 @@ public sealed class OutgoingTransportSettings
         if (!Enabled)
         {
             return;
-        }
-
-        if (ParticipantBic.Length is not (8 or 11) || ParticipantBic.Any(c => !char.IsAsciiLetterOrDigit(c)))
-        {
-            throw new InvalidOperationException("Outgoing transport requires an 8 or 11 character participant BIC.");
         }
 
         if (string.IsNullOrWhiteSpace(IpsVersion) || IpsVersion.Any(c => c < 33 || c > 126))

@@ -202,7 +202,8 @@ public sealed class IncomingTransportConfigurationTests
     private static Dictionary<string, string?> HostSettings(TransportCertificates fixture) => new()
     {
         ["Payments:Incoming:Transport:Enabled"] = "true",
-        ["Payments:Incoming:Transport:ParticipantBic"] = "TESTGE22",
+        ["Bank:BicCode"] = "TESTGE22",
+        ["Bank:NbgCode"] = "NBGEGE22",
         ["Payments:Incoming:Transport:Ips:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Incoming:Transport:Cbs:BaseUrl"] = "http://127.0.0.1:1",
         ["Payments:Incoming:Transport:IpsSignatureTrust:0:Path"] = fixture.SignatureTrust.Path,
