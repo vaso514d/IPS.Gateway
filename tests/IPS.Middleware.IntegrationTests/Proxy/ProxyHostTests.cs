@@ -16,9 +16,9 @@ namespace IPS.Middleware.IntegrationTests.Proxy;
 public sealed class ProxyHostTests
 {
     [Theory]
-    [InlineData("/api/proxy/register")]
-    [InlineData("/api/proxy/update")]
-    [InlineData("/api/proxy/remove")]
+    [InlineData("/api/v1/proxy/register")]
+    [InlineData("/api/v1/proxy/update")]
+    [InlineData("/api/v1/proxy/remove")]
     public async Task The_routes_do_not_exist_while_proxy_management_is_disabled(string path)
     {
         using var host = new ProxyHost(new Dictionary<string, string?>());
@@ -38,9 +38,9 @@ public sealed class ProxyHostTests
         var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
 
         var paths = document.RootElement.GetProperty("paths");
-        Assert.Equal("RegisterProxy", paths.GetProperty("/api/proxy/register").GetProperty("post").GetProperty("operationId").GetString());
-        Assert.Equal("UpdateProxy", paths.GetProperty("/api/proxy/update").GetProperty("post").GetProperty("operationId").GetString());
-        Assert.Equal("RemoveProxy", paths.GetProperty("/api/proxy/remove").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("RegisterProxy", paths.GetProperty("/api/v1/proxy/register").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("UpdateProxy", paths.GetProperty("/api/v1/proxy/update").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("RemoveProxy", paths.GetProperty("/api/v1/proxy/remove").GetProperty("post").GetProperty("operationId").GetString());
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class ProxyHostTests
         using var host = new ProxyHost(Enabled(proxy.Url));
         using var client = host.CreateClient();
 
-        using var response = await client.PostAsJsonAsync("/api/proxy/register", RegisterDto());
+        using var response = await client.PostAsJsonAsync("/api/v1/proxy/register", RegisterDto());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = (await response.Content.ReadFromJsonAsync<ProxyOperationResultDto>())!;
@@ -77,7 +77,7 @@ public sealed class ProxyHostTests
         using var host = new ProxyHost(Enabled(proxy.Url));
         using var client = host.CreateClient();
 
-        using var response = await client.PostAsJsonAsync("/api/proxy/remove", RemoveDto());
+        using var response = await client.PostAsJsonAsync("/api/v1/proxy/remove", RemoveDto());
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(new ProxyOperationResultDto(false, "AC01", "Account not found"), await response.Content.ReadFromJsonAsync<ProxyOperationResultDto>());
@@ -97,7 +97,7 @@ public sealed class ProxyHostTests
         using var client = host.CreateClient();
         var request = new ProxyUpdateRequestDto("01001011111", "Individual", null, null, null, null, null, null, null);
 
-        using var response = await client.PostAsJsonAsync("/api/proxy/update", request);
+        using var response = await client.PostAsJsonAsync("/api/v1/proxy/update", request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("/PRX/update", path);
@@ -116,7 +116,7 @@ public sealed class ProxyHostTests
         using var client = host.CreateClient();
         var request = RemoveDto() with { AccountIdentifier = "not-an-iban", AccountHolderType = "Company" };
 
-        using var response = await client.PostAsJsonAsync("/api/proxy/remove", request);
+        using var response = await client.PostAsJsonAsync("/api/v1/proxy/remove", request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var errors = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("errors");
@@ -131,15 +131,15 @@ public sealed class ProxyHostTests
         using var host = new ProxyHost(Enabled("http://127.0.0.1:1"));
         using var client = host.CreateClient();
 
-        using var response = await client.PostAsync("/api/proxy/register", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
+        using var response = await client.PostAsync("/api/v1/proxy/register", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Theory]
-    [InlineData("/api/proxy/register", "{\"accountHolder\":{\"identifier\":\"01001011111\",\"type\":\"LegalEntity\"}}")]
-    [InlineData("/api/proxy/update", "{\"accountHolderIdentifier\":\"01001011111\",\"accountHolderType\":\"Individual\"}")]
-    [InlineData("/api/proxy/remove", "{\"accountHolderIdentifier\":\"01001011111\",\"accountHolderType\":\"Individual\",\"accountIdentifier\":\"GE29NB0000000101904917\",\"accountCurrency\":\"GEL\",\"keepAccountActive\":false}")]
+    [InlineData("/api/v1/proxy/register", "{\"accountHolder\":{\"identifier\":\"01001011111\",\"type\":\"LegalEntity\"}}")]
+    [InlineData("/api/v1/proxy/update", "{\"accountHolderIdentifier\":\"01001011111\",\"accountHolderType\":\"Individual\"}")]
+    [InlineData("/api/v1/proxy/remove", "{\"accountHolderIdentifier\":\"01001011111\",\"accountHolderType\":\"Individual\",\"accountIdentifier\":\"GE29NB0000000101904917\",\"accountCurrency\":\"GEL\",\"keepAccountActive\":false}")]
     public async Task A_minimal_request_with_only_the_required_fields_is_accepted_over_http(string path, string json)
     {
         await using var proxy = await HttpSimulator.StartAsync(async context =>
@@ -184,9 +184,9 @@ public sealed class ProxyHostTests
         using var host = new ProxyHost(settings);
         using var client = host.CreateClient();
 
-        using var failed = await client.PostAsJsonAsync("/api/proxy/register", RegisterDto());
+        using var failed = await client.PostAsJsonAsync("/api/v1/proxy/register", RegisterDto());
         slow = true;
-        using var timedOut = await client.PostAsJsonAsync("/api/proxy/register", RegisterDto());
+        using var timedOut = await client.PostAsJsonAsync("/api/v1/proxy/register", RegisterDto());
 
         Assert.Equal(HttpStatusCode.BadGateway, failed.StatusCode);
         Assert.Equal(HttpStatusCode.GatewayTimeout, timedOut.StatusCode);

@@ -361,3 +361,8 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **SQL failures at intake.** A SqlException while a send is served answers 503 with `Retry-After: 1` (`DatabaseFailure` in Infrastructure, mapped by `OutgoingPaymentsController`); a read cancelled by the HTTP wait answers 504.
 - **Configuration.** EF Core's command log is at Warning, and execution concurrency ships as 32, from the measurement.
 - See [013a](specs/013a-performance-corrections.md) and the [concurrency comparison](performance/2026-10-08-1015-concurrency.md).
+
+## Versioned routes (017a)
+
+- Contracts 2.0.0-preview.1 prefixes the routes the gateway serves with `/api/v1`: `/api/v1/ips/*/send`, `/api/v1/ips/transactions/status` and `/api/v1/proxy/*`. The Api controllers read the constants; the unversioned paths are not served. Health endpoints are not versioned. The routes a core system implements, which the gateway calls (`/api/ips/*/receive`, `/api/ips/transactions/status/receive`, `/api/ips/payments/status`), are unchanged.
+- See [017](specs/017-core-receiver-sdk.md).

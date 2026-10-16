@@ -49,9 +49,9 @@ public sealed class HostTests
     }
 
     [Theory]
-    [InlineData("/api/ips/pacs008/send")]
-    [InlineData("/api/ips/pacs009/send")]
-    [InlineData("/api/ips/pacs004/send")]
+    [InlineData("/api/v1/ips/pacs008/send")]
+    [InlineData("/api/v1/ips/pacs009/send")]
+    [InlineData("/api/v1/ips/pacs004/send")]
     public async Task Foundation_does_not_accept_placeholder_payment_requests(string path)
     {
         using var factory = new MiddlewareFactory("Development");

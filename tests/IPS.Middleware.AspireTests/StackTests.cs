@@ -87,7 +87,7 @@ public sealed class StackTests(SingleInstanceStack shared)
         var received = await Stack.WaitForSettledAsync(r => r.Callbacks.Count == 1 && r.Messages.Count == 2, TimeSpan.FromSeconds(90));
         Assert.Equal(new[] { false, true }, received.Messages.Select(message => message.PossibleDuplicate).ToArray());
         Assert.Equal(received.Messages[0].Xml, received.Messages[1].Xml);
-        using var status = await api.GetAsync($"/api/ips/transactions/status?messageKind=Pain002&clientReference={reference}");
+        using var status = await api.GetAsync($"/api/v1/ips/transactions/status?messageKind=Pain002&clientReference={reference}");
         Assert.Equal(TransactionStatus.Accepted, (await status.Content.ReadFromJsonAsync<TransactionStatusDto>())!.Status);
     }
 
@@ -99,12 +99,12 @@ public sealed class StackTests(SingleInstanceStack shared)
 
         var accepted = new[]
         {
-            await api.PostAsJsonAsync("/api/proxy/register", Requests.ProxyRegister()),
-            await api.PostAsJsonAsync("/api/proxy/update", Requests.ProxyUpdate()),
-            await api.PostAsJsonAsync("/api/proxy/remove", Requests.ProxyRemove())
+            await api.PostAsJsonAsync("/api/v1/proxy/register", Requests.ProxyRegister()),
+            await api.PostAsJsonAsync("/api/v1/proxy/update", Requests.ProxyUpdate()),
+            await api.PostAsJsonAsync("/api/v1/proxy/remove", Requests.ProxyRemove())
         };
         await Stack.BehaveAsync(new { rejectProxy = true });
-        using var rejected = await api.PostAsJsonAsync("/api/proxy/register", Requests.ProxyRegister());
+        using var rejected = await api.PostAsJsonAsync("/api/v1/proxy/register", Requests.ProxyRegister());
 
         foreach (var response in accepted)
         {
@@ -126,7 +126,7 @@ public sealed class StackTests(SingleInstanceStack shared)
         using var api = Stack.Api();
 
         using var payment = await api.PostAsJsonAsync(Requests.Pain002Send, Requests.Pain002(Requests.Reference("bad")) with { ReasonCode = "TOOLONG" });
-        using var proxy = await api.PostAsJsonAsync("/api/proxy/remove", Requests.ProxyRemove() with { AccountIdentifier = "not-an-iban" });
+        using var proxy = await api.PostAsJsonAsync("/api/v1/proxy/remove", Requests.ProxyRemove() with { AccountIdentifier = "not-an-iban" });
 
         Assert.Equal(HttpStatusCode.BadRequest, payment.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, proxy.StatusCode);

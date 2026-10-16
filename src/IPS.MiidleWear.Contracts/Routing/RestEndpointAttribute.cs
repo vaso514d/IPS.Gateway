@@ -22,7 +22,7 @@ public sealed class RestEndpointAttribute : Attribute
     /// <summary>HTTP method, e.g. "POST".</summary>
     public string HttpMethod { get; }
 
-    /// <summary>Canonical route, e.g. "/api/ips/pacs008/send".</summary>
+    /// <summary>Canonical route, e.g. "/api/v1/ips/pacs008/send".</summary>
     public string Route { get; }
 
     /// <summary>One-line summary shown in the OpenAPI document.</summary>
