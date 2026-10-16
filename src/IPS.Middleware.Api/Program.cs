@@ -10,6 +10,7 @@ builder.Services.AddMiddleware();
 
 var app = builder.Build();
 app.Services.ValidateMiddleware();
+app.Services.LogMiddlewareSettings(app.Logger);
 await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
 
 if (app.Environment.IsDevelopment())

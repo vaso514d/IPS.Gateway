@@ -46,6 +46,8 @@ public sealed class IncomingReceiveWorker(
     {
         // One receive call may wait its whole timeout, then the loop may sleep for the longest of its delays.
         var period = transport.ReceiveTimeout + Options.EmptyDelay + Options.ErrorDelay + Options.MessageDelay;
+        // Logged on each change only: the first answer, and the first answer after a failure.
+        var answering = false;
         while (!stop.IsCancellationRequested)
         {
             Beat(ReceiveLoop, period);
@@ -62,13 +64,21 @@ public sealed class IncomingReceiveWorker(
                     throw new HttpRequestException($"IPS receive returned HTTP {response.Transport.HttpStatusCode}.");
                 }
 
+                if (!answering)
+                {
+                    Logger.LogInformation("IPS receive at {BaseUrl} is answering (HTTP {Status})", transport.Ips.BaseUrl, response.Transport.HttpStatusCode);
+                    answering = true;
+                }
+
                 if (response.Transport.Body.Length == 0)
                 {
+                    Logger.LogDebug("IPS has no message to deliver");
                     await Task.Delay(Options.EmptyDelay, Time, stop);
                     continue;
                 }
 
                 var receipt = CreateReceipt(response);
+                Logger.LogInformation("IPS delivered {MessageType} sequence {Sequence} ({Length} characters)", receipt.MessageType, receipt.Sequence, response.Transport.Body.Length);
                 using var receiving = WorkScope.Begin(Logger, "receive", receipt.Sequence, ("MessageType", receipt.MessageType));
                 await PersistReceiptAsync(receipt, work);
                 QueueAcknowledgement(acknowledgements, receipt);
@@ -80,7 +90,8 @@ public sealed class IncomingReceiveWorker(
             }
             catch (Exception error)
             {
-                Logger.LogError(error, "IPS receive failed; polling will retry");
+                Logger.LogError(error, "IPS receive from {BaseUrl} failed; polling will retry", transport.Ips.BaseUrl);
+                answering = false;
                 PaymentMetrics.ErrorLogged(nameof(IncomingReceiveWorker));
                 await Task.Delay(Options.ErrorDelay, Time, stop);
             }
@@ -226,7 +237,10 @@ public sealed class IncomingReceiveWorker(
             {
                 PaymentMetrics.ErrorLogged("IncomingAcknowledgement");
                 Logger.LogWarning("IPS acknowledgement of sequence {Sequence} returned HTTP {Status}", acknowledgement.Sequence, response.HttpStatusCode);
+                return;
             }
+
+            Logger.LogInformation("IPS acknowledged {MessageType} sequence {Sequence}", acknowledgement.MessageType, acknowledgement.Sequence);
         }
         catch (Exception error) when (error is not OperationCanceledException || !token.IsCancellationRequested)
         {

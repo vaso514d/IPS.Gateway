@@ -91,8 +91,10 @@ public abstract class SupervisedBackgroundService(bool enabled, TimeSpan shutdow
 
     protected sealed override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Said once at startup, so a silent host is not mistaken for one that cannot reach IPS.
         if (!enabled)
         {
+            Logger.LogInformation("{Service} is disabled by configuration and does not run", GetType().Name);
             return;
         }
 
