@@ -1,6 +1,6 @@
 # Local environment (Aspire)
 
-A whole deployment of the middleware on one machine, for local runs and for the Aspire tests: SQL Server in a container, simulators standing in for IPS, the CBS and the Proxy Solution, and one or more instances of the API. It is test support, not part of the deployable service; see [012](specs/012-aspire-test-environment.md).
+A whole deployment of the middleware on one machine, for local runs and for the Aspire tests: SQL Server in a container, simulators standing in for IPS, the CBS and the Proxy Solution, and one or more instances of the API. It is test support, not part of the deployable service; see [012](archive/specs/012-aspire-test-environment.md).
 
 ## What starts
 
@@ -36,7 +36,7 @@ On the simulators' plain endpoint: `GET /_sim/received` (messages with the possi
 
 ## Measure performance
 
-`tests/IPS.Middleware.Performance` measures the outgoing pacs.008 path on this stack against the owner's targets ([013](specs/013-measured-performance.md)). It starts the AppHost itself (two API instances as projects at the shipped execution concurrency and timings, signing on), sets the simulated IPS delay, warms up, sends on a fixed schedule round-robin over the instances, drains, checks what the simulators received and writes `docs/performance/<yyyy-MM-dd-HHmm>-baseline.md` (named by the start of the load, so a run never overwrites an earlier report). Besides the verdict per target, the report breaks the outcomes down by instance and by minute, lists the API's answers and the final statuses with their reason codes, and judges repeated callbacks by the service's delivery records (a repeat is allowed only after an unknown delivery outcome, [013a](specs/013a-performance-corrections.md)). Docker must be running; nothing else heavy should run on the machine during the measurement. The baseline takes about 15 minutes:
+`tests/IPS.Middleware.Performance` measures the outgoing pacs.008 path on this stack against the owner's targets ([013](archive/specs/013-measured-performance.md)). It starts the AppHost itself (two API instances as projects at the shipped execution concurrency and timings, signing on), sets the simulated IPS delay, warms up, sends on a fixed schedule round-robin over the instances, drains, checks what the simulators received and writes `docs/performance/<yyyy-MM-dd-HHmm>-baseline.md` (named by the start of the load, so a run never overwrites an earlier report). Besides the verdict per target, the report breaks the outcomes down by instance and by minute, lists the API's answers and the final statuses with their reason codes, and judges repeated callbacks by the service's delivery records (a repeat is allowed only after an unknown delivery outcome, [013a](archive/specs/013a-performance-corrections.md)). Docker must be running; nothing else heavy should run on the machine during the measurement. The baseline takes about 15 minutes:
 
 ```
 dotnet run --project tests/IPS.Middleware.Performance --configuration Release

@@ -99,7 +99,7 @@ Recorded for the owner:
 
 ## 30-minute run (2026-10-08 12:10 UTC, after the commit)
 
-The [report](../performance/2026-10-08-1210-baseline.md) used the same conditions as the 10-minute baseline: 50 requests per second, two instances, signed, shipped timings, concurrency 32.
+The [report](../../performance/2026-10-08-1210-baseline.md) used the same conditions as the 10-minute baseline: 50 requests per second, two instances, signed, shipped timings, concurrency 32.
 
 - **Passed.**
   - All 90,600 requests were answered 200, with response p95 978 ms and p99 3.7 s.

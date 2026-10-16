@@ -4,7 +4,7 @@ The Api reads the `Payments` sections in `src/IPS.Middleware.Api/appsettings.jso
 
 | Section | Typed settings | Controls |
 |---|---|---|
-| Bank | BankIdentity | The bank's own `BicCode` (sender of every message, receiver of every payment), the NBG `NbgCode` (IPS and Proxy Solution counterparty) and optional `TreasuryCode`; see [016](specs/016-bank-identity.md) |
+| Bank | BankIdentity | The bank's own `BicCode` (sender of every message, receiver of every payment), the NBG `NbgCode` (IPS and Proxy Solution counterparty) and optional `TreasuryCode`; see [016](archive/specs/016-bank-identity.md) |
 | Payments:Outgoing:Pacs008 | Pacs008Options | Submission window, ownership, preparation retry delay, post-exchange persistence budget |
 | Payments:Outgoing:Execution | OutgoingExecutionOptions | Explicit endpoint/worker activation, payment/callback admission, HTTP wait, attempt/shutdown budgets, recovery and observation cadence |
 | Payments:Outgoing:Policy | Pacs008Policy | Required enabled currency list, amount bounds and indirect participants |
@@ -85,7 +85,7 @@ Payments:Outgoing:Pacs008:PersistenceBudget defaults to 2 seconds and must be po
 
 Payments:Outgoing:Execution:Enabled defaults false. Explicit enablement adds POST /api/v1/ips/pacs008/send and GET /api/v1/ips/transactions/status and starts supervised processing, SQL recovery and callback discovery. Transport must also be enabled. Configure Policy:Currencies (Code, Enabled, optional MinAmount/MaxAmount, the same shape as the reference gateway's IpsStp:Currencies), and optional IndirectParticipants; the Treasury and IPS codes come from the Bank section. Enabled applies to every outgoing message that carries a currency (pacs.008, pacs.009, pacs.004, camt.056, camt.029); MinAmount/MaxAmount are per-transaction limits for pacs.008 only, positive and Min <= Max; a request outside them is answered 400 and never sent. Incoming messages are not filtered by this list: IPS validates currency and amount against its payment schema (Annex D, codes 1001 and the payment-schema errors) and CBS decides the booking. appsettings.json ships GEL enabled with 0.01-1000 and USD/EUR disabled. Startup validates configuration and certificate sources; it never applies migrations. Enabled discovery naturally queries SQL after startup.
 
-Defaults: Concurrency8 (shipped as 32 in `appsettings.json`: two instances at 32 met the 013 targets at 50 requests per second, where 8 and 16 queued payments; see [013a](specs/013a-performance-corrections.md#implementation-notes)), CallbackConcurrency8, ChannelCapacity256, DiscoveryBatch100, DiscoveryInterval1second, StatusPollInterval100ms, StatusPollMaxInterval1second, HttpWait30seconds, AttemptBudget35seconds and ShutdownBudget30seconds. Positive limits/durations and batch <= channel capacity are required. Admission must fit the independent outgoing IPS/CBS connection limits; IPS request timeout < HTTP wait < attempt budget; attempt + persistence budget < payment ownership; CBS request timeout <= callback workflow call timeout. General host shutdown timeout includes the larger outgoing persistence allowance without reducing incoming requirements.
+Defaults: Concurrency8 (shipped as 32 in `appsettings.json`: two instances at 32 met the 013 targets at 50 requests per second, where 8 and 16 queued payments; see [013a](archive/specs/013a-performance-corrections.md#implementation-notes)), CallbackConcurrency8, ChannelCapacity256, DiscoveryBatch100, DiscoveryInterval1second, StatusPollInterval100ms, StatusPollMaxInterval1second, HttpWait30seconds, AttemptBudget35seconds and ShutdownBudget30seconds. Positive limits/durations and batch <= channel capacity are required. Admission must fit the independent outgoing IPS/CBS connection limits; IPS request timeout < HTTP wait < attempt budget; attempt + persistence budget < payment ownership; CBS request timeout <= callback workflow call timeout. General host shutdown timeout includes the larger outgoing persistence allowance without reducing incoming requirements.
 
 A request waiting for its new payment reads the committed status as soon as an attempt on that payment finishes on its own instance (an in-process signal); otherwise it polls SQL, first after StatusPollInterval, doubling up to StatusPollMaxInterval (which must not be shorter). The instance that finishes an attempt also starts the callback of the committed outcome at once; callback discovery remains the path for retries, for outcomes committed by another instance and when no callback slot is free (013a). A SQL failure while a send request is served (a command timeout, a deadlock victim, a broken connection) answers 503 with `Retry-After: 1`; the request is idempotent by client reference, so repeating it returns the stored payment's status.
 
@@ -107,6 +107,26 @@ The first investigation identity freezes its absolute deadline from the accepted
 ## Readiness and diagnostics (010)
 
 `GET /health/ready` returns only `Healthy`, `Degraded` (HTTP 200) or `Unhealthy` (HTTP 503); what failed is logged. It checks the database (reachable and every migration applied, only when an enabled feature uses it), the supervised workers (running, progressing within `WorkerStallFactor` times their period plus `WorkerPassAllowance` for one pass of the loop, not draining) and the loaded certificates (Degraded within `CertificateWarning` of expiry, Unhealthy once expired). `/health/live` is unchanged. The meter `IPS.Middleware` carries counters, one HTTP duration histogram and backlog gauges refreshed from SQL every `SnapshotInterval`; attach OpenTelemetry or another listener in the host to export them. `Diagnostics:BacklogSnapshot` turns the SQL snapshot off.
+
+## API documentation (019a)
+
+`Api:Documentation:Enabled` defaults false and is ignored in Development, where the documentation is always served. When it is served:
+
+- `/openapi/v1.json` is the gateway's own OpenAPI 3.0 document, generated from the controllers and the `IGatewayApi` attributes. It lists only the operations the enabled features map, so the outgoing sends need `Payments:Outgoing:Execution:Enabled` and the proxy routes need `Proxy:Enabled`.
+- `/swagger` is Swagger UI over that document. Requests can be sent from the page in Development only; elsewhere the page is read-only.
+
+With the setting off, outside Development, both answer 404. Enable it in a bank's test environment rather than in production: nothing in the documentation is secret, but the gateway has no authentication of its own yet.
+
+The endpoints a core system implements are described by the core system's own application: `AddIpsCoreReceiverOpenApi()` and `MapOpenApi()` from `IPS.MiidleWear.AspNetCore` serve `/openapi/ips-core-receiver.json`.
+
+No document is committed. To write either one as a file (OpenAPI 3.0, into the gitignored `artifacts/openapi/`):
+
+```powershell
+dotnet build src/IPS.Middleware.Api -p:OpenApiGenerateDocumentsOnBuild=true
+dotnet build samples/IPS.MiidleWear.CoreReceiver.Sample -p:OpenApiGenerateDocumentsOnBuild=true
+```
+
+The gateway file describes every operation whatever the configuration: while the generator runs the host, it skips validation and migration and maps every controller.
 
 ## Database migration
 

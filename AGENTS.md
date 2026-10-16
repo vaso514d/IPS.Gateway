@@ -11,6 +11,8 @@ Keep development and Git operations in this rebuilt repository. The original rep
 - Before continuing aggregate or outbound work, read [the approved stages](docs/rebuild-plan.md) and the active specification linked by the checkpoint. Complete the current review before starting the next stage; wait for owner merge approval.
 - For EF Core changes, generate migrations with the official EF CLI and verify the artifacts; never hand-write migrations or snapshots.
 
-- Before changing persistence or repository layout, read [the shared unit of work revision](docs/specs/001e-shared-unit-of-work.md). Keep shared save orchestration separate from payment persistence policy.
+- Before changing persistence or repository layout, read [shared persistence](docs/architecture.md#shared-persistence) and [the current unit of work](docs/architecture.md#current-implementation-006). Keep shared save orchestration separate from payment persistence policy.
 
-- Before changing authored C# code, follow [coding style](docs/coding-style.md) and its reference examples in [006](docs/specs/006-clean-code-rewrite.md). The 006 clean-code rewrite is merged into codex/capability-rebuild.
+- Before changing authored C# code, follow [coding style](docs/coding-style.md), including its reference examples.
+
+- `docs/specs/` holds only active or unbuilt specifications. `docs/archive/` holds implemented specifications and their reviews as history; they may describe code that has since changed, so treat architecture, ADRs, coding style and the code as current truth and read the archive only to trace why something was decided.

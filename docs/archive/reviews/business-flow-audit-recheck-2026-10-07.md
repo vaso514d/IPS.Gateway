@@ -51,4 +51,4 @@ Runtime certificate-date validation remains unimplemented; 012b is only a specif
 
 ## Diagram handoff
 
-See [the Georgian flow diagrams](../diagrams/README.md) and [the combined editable draw.io atlas](../diagrams/IPS_All_Flows_KA.drawio). They describe implemented behavior at `0636b9c`, including the corrected nonblocking ACK and shared SQL recovery, and explicitly mark responsibility boundaries and incomplete business flows.
+See [the Georgian flow diagrams](../../diagrams/README.md) and [the combined editable draw.io atlas](../../diagrams/IPS_All_Flows_KA.drawio). They describe implemented behavior at `0636b9c`, including the corrected nonblocking ACK and shared SQL recovery, and explicitly mark responsibility boundaries and incomplete business flows.

@@ -8,7 +8,7 @@ Application IncomingComposition connects owned receipt preparation, canonical CB
 
 IncomingCompositionRepository uses existing tables to read routing and stage first-reply readiness under rowversion. It excludes live owners and existing replies, so an immediate first reply never shortens a retry/preparation schedule. The bounded reply channel carries only journal IDs; notification follows committed scheduling and full/lost notifications leave SQL intact. Queue mechanics are shared with the existing processing channel.
 
-No schema migration, Contracts/route changes, workers, discovery split, admission pools or production activation. Explicit composition registration is invoked by tests and reserved for Review 3 host wiring. [Specification](../specs/004c2-incoming-composition.md), [settings](../configuration.md).
+No schema migration, Contracts/route changes, workers, discovery split, admission pools or production activation. Explicit composition registration is invoked by tests and reserved for Review 3 host wiring. [Specification](../specs/004c2-incoming-composition.md), [settings](../../configuration.md).
 
 Final cleanup separates composition interfaces, options and immutable results into focused feature files and names the reply envelope and scheduling values. Queue deduplication and workflow behavior are unchanged.
 

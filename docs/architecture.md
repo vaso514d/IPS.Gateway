@@ -18,7 +18,7 @@ flowchart TD
 | Project | Direct project references | Owns |
 |---|---|---|
 | IPS.MiidleWear.Contracts | None | Existing public models, interfaces, route constants, metadata |
-| IPS.MiidleWear.AspNetCore | Contracts (and the ASP.NET Core framework) | Client package: hosts a core system's IClientPaymentReceiver; not referenced by the gateway (017b) |
+| IPS.MiidleWear.AspNetCore | Contracts (and the ASP.NET Core framework, Microsoft.AspNetCore.OpenApi) | Client package: hosts a core system's IClientPaymentReceiver and generates its OpenAPI document; not referenced by the gateway (017b, 019a) |
 | IPS.MiidleWear.Testing | Contracts | Client package: receiver conformance checks a core system runs from its tests; not referenced by the gateway (018) |
 | IPS.Middleware.Domain | None | Payment concepts, invariants, transaction state transitions |
 | IPS.Middleware.Application | Domain | Internal commands/results, feature workflows, external dependency interfaces |
@@ -57,9 +57,9 @@ Infrastructure directly maps OutgoingPayment current state and stores full versi
 
 ## Shared persistence
 
-Application/Abstractions/Persistence owns IUnitOfWork and general concurrency/uniqueness exceptions. Application/Abstractions/Payments owns repository interfaces; workflow models remain with Transactions. Infrastructure/Repositories/Payments implements those interfaces. Inbound code is grouped by capability under Application/Inbound (Receipts, Registration, Processing, Pacs008); each inbound feature owns its ports, implemented by Infrastructure/Repositories/Inbound. Application/Abstractions keeps only Persistence and Payments. Infrastructure/UnitOfWork saves every tracked change through one scoped context and acknowledges AggregateRoot events after commit. DomainEventsInterceptor validates sequences and prepares aggregate identity and event records; PaymentPersistenceInterceptor enforces ownership and immutable payment storage rules. Intake interprets duplicate references.
+Application/Abstractions/Persistence owns IUnitOfWork and general concurrency/uniqueness exceptions. Application/Abstractions/Payments owns repository interfaces; workflow models remain with Transactions. Infrastructure/Repositories/Payments implements those interfaces. Inbound code is grouped by capability under Application/Inbound (Receipts, Registration, Processing, Pacs008); each inbound feature owns its ports, implemented by Infrastructure/Repositories/Inbound. Application/Abstractions keeps only Persistence and Payments. Infrastructure/UnitOfWork saves every tracked change, ordinary entities included, through one scoped context and one local transaction, and acknowledges AggregateRoot events after commit; the steps are under [Current implementation](#current-implementation-006). It makes no payment, claim, client-reference or request-JSON decisions. SaveAsync returns the number of entries written, or zero when nothing changed. Persistence failures surface as PersistenceConcurrencyException or UniqueConstraintException with the underlying exception preserved; only intake interprets a uniqueness failure as a duplicate reference, by reading the persisted winner, and rethrows when there is none.
 
-Mappings and interceptors live under Infrastructure/Persistence. TransactionDbContext retains its historical CLR identity so existing generated migrations are still discovered. It is the shared database context; ordinary tracked entities save through the same unit of work. Historical migration paths and the schema remain unchanged. See [the revision specification](specs/001e-shared-unit-of-work.md).
+Mappings live under Infrastructure/Persistence. TransactionDbContext retains its historical CLR identity so existing generated migrations are still discovered. It is the shared database context; ordinary tracked entities save through the same unit of work. Historical migration paths and the schema remain unchanged.
 
 
 ## Outgoing preparation storage
@@ -97,7 +97,7 @@ Stage 2b.1 adds IPaymentSubmissionRepository using the same scoped context and u
 
 Commit the selected artifact before staging submission and commit submission before remote I/O or response storage. An existing marker cannot authorize another initial send. Development unsigned disposition selects UnsignedXml without filling SignedXml; the workflow must enforce the existing environment-bound signing policy before dispatch. Responses require the original live submission owner. Preparation cannot add artifacts after submission begins.
 
-This storage slice does not change recovery or add a sender. The next Application workflow must inspect marker/response evidence before deciding whether to prepare, interpret or investigate; the initial marker is not a retry-attempt history. See [the checkpoint specification](specs/002b1-submission-checkpoints.md).
+This storage slice does not change recovery or add a sender. The next Application workflow must inspect marker/response evidence before deciding whether to prepare, interpret or investigate; the initial marker is not a retry-attempt history. See [the checkpoint specification](archive/specs/002b1-submission-checkpoints.md).
 
 ## Resumable pacs.008 processing
 
@@ -105,13 +105,13 @@ Stage 2b.2 adds Pacs008Intake and Pacs008Processing in Application/Payments/Pacs
 
 ProcessAsync acquires ownership, then resumes from committed checkpoints: unsigned XML, signed XML, submission marker, raw response, outcome. Each checkpoint is its own unit-of-work commit; a lost race ends the run with the last committed outcome. Only three Application interfaces exist for the variation: IPacs008MessagePreparation (XML and signing, deferring certificate problems), IIpsTransport and IIpsReplyInterpreter. Infrastructure implements preparation over the existing builder and signer, with ISigningCertificateSource as the seam until 2c configures certificate sources. IpsReplyInterpreter validates the pacs.002.001.14 reply, verifies the IPS signature profile against supplied trusted certificates and correlates identifiers before a final outcome.
 
-Recovery releases abandoned pacs.008 preparation (no marker) and stored responses for the next owner without a status change; a marker without a response becomes Uncertain. Discovery includes unowned due Sending. See [the specification](specs/002b2-pacs008-processing.md).
+Recovery releases abandoned pacs.008 preparation (no marker) and stored responses for the next owner without a status change; a marker without a response becomes Uncertain. Discovery includes unowned due Sending. See [the specification](archive/specs/002b2-pacs008-processing.md).
 
 ## Incoming receipt foundations
 
 InboundMessageJournal is Infrastructure persistence, independent of payment aggregates and TransactionEvents. Application owns validated envelope values, immutable snapshots, intake and ownership operations; the Receipts, Registration and Processing ports are implemented by Repositories/Inbound. All changes use the existing context and shared unit of work. Identity is normalized participant BIC + positive IPS sequence with binary SQL comparison; missing/nonpositive sequences are held. XML is immutable and unparsed at this boundary.
 
-InboundReceiptRegistration creates a fresh scope for each bounded registration retry and notifies the local channel only after a successful new receipt commit. Rowversion conflicts and uniqueness races discard the failed scope. InboundWork commits ownership before returning a claim. A duplicate update can invalidate an owner's loaded rowversion; it must discard that scope and reload, never replay remote effects. InboundProcessingChannel carries IDs, is bounded/nonblocking and coalesces queued IDs locally. InboundWorkDiscovery refills from due SQL rows in bounded batches. No channel conveys ownership or replaces SQL, and no worker is activated by this foundation. See the [specification](specs/004a-inbound-foundations.md).
+InboundReceiptRegistration creates a fresh scope for each bounded registration retry and notifies the local channel only after a successful new receipt commit. Rowversion conflicts and uniqueness races discard the failed scope. InboundWork commits ownership before returning a claim. A duplicate update can invalidate an owner's loaded rowversion; it must discard that scope and reload, never replay remote effects. InboundProcessingChannel carries IDs, is bounded/nonblocking and coalesces queued IDs locally. InboundWorkDiscovery refills from due SQL rows in bounded batches. No channel conveys ownership or replaces SQL, and no worker is activated by this foundation. See the [specification](archive/specs/004a-inbound-foundations.md).
 
 ## Incoming payment identity
 
@@ -119,7 +119,7 @@ Stage 004b.2a adds the Domain IncomingPayment aggregate: normalized receiving pa
 
 Infrastructure metadata keeps the versioned request snapshot (RequestJson), payment claim, next action and rowversion. SQL uniqueness is participant plus EndToEndId under a binary collation, plus the stored byte length, because SQL equality ignores trailing spaces. Lookup filters in SQL and then picks the ordinal match. Restored snapshots are frozen: nested lists are read-only and compare by ordered contents, so record equality of the request is the structural comparison.
 
-Journal entries keep write-once original protocol references independently of their optional payment attachment. Conflict holds save trusted references atomically without attaching the receipt. Attached receipts require valid, non-null reference JSON. Holding is now also allowed for valid sequences. Application/Inbound IncomingPaymentIntake registers an already-read payment for an owned receipt: created, existing identical, held conflict, or lost ownership. IncomingPaymentWork acquires and releases payment ownership, independently of receipt ownership. Infrastructure's IncomingPaymentRegistration and InboundReceiptRegistration share bounded fresh-scope retries. See [the specification](specs/004b2-incoming-processing.md#implemented-004b2a).
+Journal entries keep write-once original protocol references independently of their optional payment attachment. Conflict holds save trusted references atomically without attaching the receipt. Attached receipts require valid, non-null reference JSON. Holding is now also allowed for valid sequences. Application/Inbound IncomingPaymentIntake registers an already-read payment for an owned receipt: created, existing identical, held conflict, or lost ownership. IncomingPaymentWork acquires and releases payment ownership, independently of receipt ownership. Infrastructure's IncomingPaymentRegistration and InboundReceiptRegistration share bounded fresh-scope retries. See [the specification](archive/specs/004b2-incoming-processing.md#implemented-004b2a).
 
 ## Incoming CBS processing
 
@@ -127,7 +127,7 @@ Stage 004b.2b extends IncomingPayment with guarded CBS outcomes, a write-once IP
 
 Intake freezes the originating receipt, original correlation references and deadline in ContextJson. IncomingCoreCalls stores a unique submission marker plus status-query attempts and write-once raw completions. The processing repository stages checkpoints under committed ownership, touches the parent rowversion, and shares the existing context and general unit of work. The interceptor enforces persistence invariants only. No database transaction spans a CBS call.
 
-Recovery consumes stored evidence before calling CBS, and never repeats a marked submission. Explicit final status is required; omitted optional identifiers are allowed, while supplied identifiers must match. Final CBS state, IPS decision, event history, follow-up due time and ownership release commit together. Follow-up execution and immutable reply storage/delivery are later slices; see [004b.2b](specs/004b2b-cbs-processing.md).
+Recovery consumes stored evidence before calling CBS, and never repeats a marked submission. Explicit final status is required; omitted optional identifiers are allowed, while supplied identifiers must match. Final CBS state, IPS decision, event history, follow-up due time and ownership release commit together. Follow-up execution and immutable reply storage/delivery are later slices; see [004b.2b](archive/specs/004b2b-cbs-processing.md).
 
 ## Incoming reconciliation and reversal
 
@@ -145,23 +145,23 @@ ReconciliationDeadlineUtc is write-once Infrastructure metadata, captured with t
 
 Application/Inbound/Replies owns a receipt-scoped workflow. It freezes protocol identifiers, mapping profile, decision and attempt limit; saves unsigned and signed artifacts separately; then performs one transport attempt per invocation. Recovery replays saved evidence before any new send. Preparation and delivery share the receipt claim, so there is no competing ownership mechanism for the same reply. Each checkpoint updates the journal parent rowversion in the same shared unit-of-work transaction as reply data. Completed/held receipt status commits with the final delivery result.
 
-Infrastructure stores IncomingReplies and write-once IncomingReplyAttempts without adding a payment aggregate or business events for technical delivery. The adapter reuses the established schema, signature and original-payment correlation checks, then compares the final IPS outcome with the immutable decision. A small concrete MessageSigning helper now shares the demonstrated certificate acquisition/deferred-signing policy between outgoing payment and incoming reply preparation. No live clients, workers or endpoint wiring are added. See [004b.2c.2](specs/004b2c2-incoming-replies.md).
+Infrastructure stores IncomingReplies and write-once IncomingReplyAttempts without adding a payment aggregate or business events for technical delivery. The adapter reuses the established schema, signature and original-payment correlation checks, then compares the final IPS outcome with the immutable decision. A small concrete MessageSigning helper now shares the demonstrated certificate acquisition/deferred-signing policy between outgoing payment and incoming reply preparation. No live clients, workers or endpoint wiring are added. See [004b.2c.2](archive/specs/004b2c2-incoming-replies.md).
 
 ## Incoming live HTTP boundary
 
-Review 004c.1 implements Infrastructure/Inbound/Transport adapters for the existing CBS/reply ports and the new raw receive port. The Application receives immutable HTTP evidence, not HttpClient or configuration types. Api binds/validates final configuration; Infrastructure owns wire mapping, connection pools, the single-attempt Microsoft resilience pipeline and startup certificate lifetime. The response body is buffered within the timeout/breaker boundary. No retry, redirect, acknowledgement, migration or worker activation is registered. See [configuration](configuration.md) and [004c](specs/004c-live-incoming.md).
+Review 004c.1 implements Infrastructure/Inbound/Transport adapters for the existing CBS/reply ports and the new raw receive port. The Application receives immutable HTTP evidence, not HttpClient or configuration types. Api binds/validates final configuration; Infrastructure owns wire mapping, connection pools, the single-attempt Microsoft resilience pipeline and startup certificate lifetime. The response body is buffered within the timeout/breaker boundary. No retry, redirect, acknowledgement, migration or worker activation is registered. See [configuration](configuration.md) and [004c](archive/specs/004c-live-incoming.md).
 
 ## Incoming workflow composition
 
 Review 004c.2 adds the concrete Application IncomingComposition coordinator and owned IncomingReceiptPreparation phase. The feature-owned IIncomingWorkflowExecution port represents fresh execution scopes and nonblocking reply notification; Infrastructure implements scope lifetimes, not payment decisions. Registration retries only the database phase under a committed receipt claim. Successful attachment, references, continuation scheduling and receipt release share a commit; CBS and reply workflows subsequently use their own fresh scopes and claims. Failed scopes never cross phase boundaries.
 
-IncomingCompositionRepository reads existing receipt/payment/reply routing and stages first-reply readiness under the journal rowversion. Only a pending receipt with a committed payment decision, no live owner and no existing reply can move its due time forward. Existing reply schedules remain exclusively controlled by delivery. Two named bounded journal-ID channels share the proven coalescing/FIFO implementation. SQL is authoritative; a fresh read of committed reply scheduling precedes notification. Explicit AddIncomingComposition is available to tests and later wiring but registers no hosted workers. See [004c.2](specs/004c2-incoming-composition.md).
+IncomingCompositionRepository reads existing receipt/payment/reply routing and stages first-reply readiness under the journal rowversion. Only a pending receipt with a committed payment decision, no live owner and no existing reply can move its due time forward. Existing reply schedules remain exclusively controlled by delivery. Two named bounded journal-ID channels share the proven coalescing/FIFO implementation. SQL is authoritative; a fresh read of committed reply scheduling precedes notification. Explicit AddIncomingComposition is available to tests and later wiring but registers no hosted workers. See [004c.2](archive/specs/004c2-incoming-composition.md).
 
 ## Incoming hosted execution
 
 Review 004c.3 supplies four Infrastructure BackgroundService roles in the existing Api: receive, processing dispatch, reply dispatch and CBS follow-up. They start work only when explicitly enabled. Application composition and existing feature workflows retain payment decisions. Persistence registration accepts a connection-string factory so final host configuration is used without resolving SQL during disabled startup.
 
-Receive commits the journal before notifying. Separate SQL discovery queries route receipts with stored replies to the reply channel and other pending receipts to processing; both reuse the same due/ownership predicate as receipt claims. Processing concurrency is derived from transport pools, CBS follow-up has reserved slots, and a shared reply semaphore admits both immediate and retry execution before claiming. All handler tasks are tracked and awaited on shutdown. No additional database schema, broker, MessageAck path or outgoing HTTP endpoint is introduced. See [worker specification](specs/004c3-incoming-workers.md) and [runtime settings](configuration.md).
+Receive commits the journal before notifying. Separate SQL discovery queries route receipts with stored replies to the reply channel and other pending receipts to processing; both reuse the same due/ownership predicate as receipt claims. Processing concurrency is derived from transport pools, CBS follow-up has reserved slots, and a shared reply semaphore admits both immediate and retry execution before claiming. All handler tasks are tracked and awaited on shutdown. No additional database schema, broker, MessageAck path or outgoing HTTP endpoint is introduced. See [worker specification](archive/specs/004c3-incoming-workers.md) and [runtime settings](configuration.md).
 
 ## Explicit outgoing message journal
 
@@ -169,7 +169,7 @@ Stage 2c.0 keeps OutgoingPayment as the business aggregate and adds Infrastructu
 
 Journal records use the committed payment claim and parent rowversion, without separate ownership. The journal interceptor validates exact authorized mutations, temporarily detaches journal writes for the parent entity save, and restores them during the existing second save alongside events. Thus a parent concurrency failure precedes journal uniqueness and rolls back the entire shared transaction. The shared UnitOfWork remains unchanged. Failed scopes are discarded. Technical journal changes do not create business events by themselves.
 
-SQL currently permits one initial pacs.008 and one response per payment and enforces correlation within that payment. Investigation messages need a reviewed extension when that capability arrives. Incoming journals/replies remain separate and unchanged. See [002c.0](specs/002c0-outgoing-journal.md).
+SQL currently permits one initial pacs.008 and one response per payment and enforces correlation within that payment. Investigation messages need a reviewed extension when that capability arrives. Incoming journals/replies remain separate and unchanged. See [002c.0](archive/specs/002c0-outgoing-journal.md).
 
 ## Durable outgoing status delivery
 
@@ -210,7 +210,7 @@ OutgoingPaymentMetadata and IncomingPaymentMetadata hold request snapshots, iden
 - **Hosting.** Hosted runtimes derive from SupervisedBackgroundService. Shutdown stops admission, drains running work within the shutdown budget, then cancels its bounded attempts.
 - **API.** The host composes everything through Api DependencyInjection.AddMiddleware and validates settings once with ValidateMiddleware. OutgoingPaymentsController preserves the existing routes, JSON and HTTP results, and is removed from the application model while outgoing execution is disabled.
 
-See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above and the next one describe the current implementation.
+See [coding style](coding-style.md). Earlier stage descriptions above record historical layouts; the two sections above and the next one describe the current implementation.
 
 ## Outgoing pacs.009 and the shared outgoing core (005a)
 
@@ -218,7 +218,7 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **pacs.009.** Intake validates the source rules, checks that the caller-chosen message and transaction ids are unused (unique indexes fence a race), and snapshots the payment. The XML follows the IPS v1 profile: financial institutions by BICFI, IBAN-only accounts, no UETR or priority fields. There is no pre-send deadline.
 - **Recovery.** A pacs.009 has no investigation. After an unknown outcome `OutgoingDuplicateResend` sends the exact original again as a possible duplicate (`X-MONTRAN-RTP-PossibleDuplicate`), each attempt one-shot under its committed marker, on the 30 s, 1 min, 5 min, then 15 min backoff, inside a 24-hour window frozen on the first attempt, and ends in manual review. It shares the send, interpret, abandon and deadline steps with the pacs.008 resend through `ResendExchange`.
 - **Persistence.** `OutgoingResends.InvestigationId` is optional; a possible-duplicate attempt stores its own deadline instead, and SQL requires exactly one of the two. Initial-exchange queries select journal rows with neither an investigation nor a resend reference.
-- See [005a](specs/005a-outgoing-pacs009.md).
+- See [005a](archive/specs/005a-outgoing-pacs009.md).
 
 ## Outgoing pacs.004 (005b)
 
@@ -226,14 +226,14 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Reply correlation per type.** `IAcceptedPayment.ReplyCorrelation` says which ids the pacs.002 about a payment must carry. For pacs.008 and pacs.009 that is what was sent; for pacs.004 it is our message id with the original payment's transaction and end-to-end ids. Processing, both resends and unsolicited status reports ask the snapshot instead of building the correlation themselves.
 - **XML.** `pacs.004.001.13` (`PmtRtr`) in the IPS v1 profile, validated against the embedded schema and signed like the other types. No lookup of the original payment is made.
 - **Recovery** is the possible-duplicate resend shared with pacs.009; there is no pre-send deadline.
-- See [005b](specs/005b-outgoing-pacs004.md).
+- See [005b](archive/specs/005b-outgoing-pacs004.md).
 
 ## Incoming pacs.009 (005c)
 
 - **Receipt to transfer.** `IncomingReceiptPreparation` routes a pacs.009 receipt to `IncomingPacs009Processing`, which reads it through `IIncomingPacs009Protocol` (envelope, definition, trusted signature, one transfer, schema, BICFI agents), requires our participant as creditor agent and registers an `IncomingFiTransfer` keyed by participant BIC and EndToEndId. The receipt is complete once the transfer is stored; anything unverifiable, misaddressed or conflicting holds it.
 - **Delivery.** `IncomingTransferProcessing`, run by the follow-up worker, claims a due transfer, commits the attempt, then submits to the core (first call) or asks it (after an unanswered one). The EndToEndId is the idempotency key, so a replaced owner is safe. ACCP or RJCT with matching identifiers is final; otherwise it is retried on the reconciliation backoff until the 24-hour window ends in manual review; a 404 to a status question repeats the submission.
 - **IPS.** Only a `MessageAck` after the receipt commit; no pacs.002 and no decision or reversal.
-- See [005c](specs/005c-incoming-pacs009.md).
+- See [005c](archive/specs/005c-incoming-pacs009.md).
 
 ## Outgoing camt.056 (007a)
 
@@ -241,83 +241,83 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Reply correlation.** `AcceptedCamt056.ReplyCorrelation` is our message id with the recalled payment's transaction and end-to-end ids and `camt.056.001.11`. "Accepted" is only IPS's technical verdict; the creditor bank's business answer (pacs.004 or camt.029) is separate and not correlated.
 - **XML and recovery.** `camt.056.001.11` in the IPS v1 profile, validated against the embedded schema and signed like the other types; recovery is the possible-duplicate resend shared with pacs.009 and pacs.004; there is no pre-send deadline.
 - **Shared profile.** `IpsMessageProfile` (IPS BIC and service level) serves pacs.009, pacs.004 and camt.056.
-- See [007a](specs/007a-outgoing-camt056.md).
+- See [007a](archive/specs/007a-outgoing-camt056.md).
 
 ## Incoming pain.001 (008a)
 
 - A pain.001 payment initiation is a third `IncomingTransfer` kind (`pain.001`, key `PmtInfId`). `IncomingPain001Protocol` verifies the signature before trusting anything, requires one payment instruction, an initiation id of at most 31 characters (so `PSP-` plus it fits the 35-character EndToEndId of the accepting pacs.008) and our participant as debtor agent, and holds anything else. Parties, accounts, agents, addresses and remittance are read by `IncomingPartyReader`, shared with the incoming pacs.008.
 - Delivery, recovery and the acknowledgement are those of 005c and 005d; the `PmtInfId` is the CBS key and status reference (`messageKind=Pain001`). The core answers IPS itself (a `PSP-` pacs.008, or a pain.002 from 008b); the initiation deadline is not enforced here.
-- See [008a](specs/008a-incoming-pain001.md).
+- See [008a](archive/specs/008a-incoming-pain001.md).
 
 ## Outgoing pain.002 (008b)
 
 - **One more type on the shared core.** `PaymentMessageTypes.Pain002` joins the outgoing set. `Pain002Intake` validates the source rules (message id, refused message id and payment information id of at most 35 ASCII characters, reason code 1-4 uppercase characters) and snapshots `AcceptedPain002`. The message id is the caller's `Id`, which is also the stored protocol transaction id; it must be unused. The refusal is always RJCT in both status elements.
 - **IPS's answer is a header.** `IpsReplyInterpreter.Interpret(response, sent)` hands a pain.002 correlation (definition `pain.002.001.14`) to `Pain002ReplyInterpreter`: `X-MONTRAN-IPS-ReqSts` `ACCP` is Accepted, `RJCT/<code>` is Rejected with IPS's code, anything else, conflicting headers or a non-200 status is Unresolved and so resent. The response body is neither required nor verified.
 - **XML and recovery.** `pain.002.001.14` in the IPS v1 profile, validated against the embedded schema and signed like the other types; the possible-duplicate resend is shared; there is no pre-send deadline. `OrgnlMsgNmId` is `pain.001.001.12`.
-- See [008b](specs/008b-outgoing-pain002.md).
+- See [008b](archive/specs/008b-outgoing-pain002.md).
 
 ## Incoming recalls (007c)
 
 - An incoming camt.056 or camt.029 is acknowledged and archived, as in the source. After the sequence check `IncomingReceiptPreparation` completes the receipt as processed (no payment, transfer, reply or remote call), and `IncomingReceiveWorker` acknowledges it after the receipt commit. Nothing is verified and the core system is not told; other unsupported types stay held and unacknowledged.
-- See [007c](specs/007c-incoming-recalls.md). Superseded by 012c: these messages are now verified and delivered.
+- See [007c](archive/specs/007c-incoming-recalls.md). Superseded by 012c: these messages are now verified and delivered.
 
 ## Aspire test environment (012)
 
 - `tests/IPS.Middleware.AppHost` declares a SQL Server container, the simulators and one or more API instances (projects, or containers built from `src/IPS.Middleware.Api/Dockerfile` with `Middleware:Container=true`); `tests/IPS.Middleware.Simulators` is the test-support stand-in for IPS, the CBS callback and the Proxy Solution with a `/_sim` control API; `tests/IPS.Middleware.AspireTests` starts the stack with `Aspire.Hosting.Testing` and skips with a reason when Docker is not running. None of it is referenced by `src/`.
-- See [012](specs/012-aspire-test-environment.md) and the [local environment guide](local-environment.md).
+- See [012](archive/specs/012-aspire-test-environment.md) and the [local environment guide](local-environment.md).
 
 ## Business-flow audit corrections (012a)
 
 - **Acknowledgement never blocks receiving.** `IncomingReceiveWorker` commits a receipt, queues its MessageAck on a bounded in-memory queue (`AcknowledgementBacklog`) and polls again. An acknowledgement loop in the same worker sends at most `AcknowledgementCapacity` at once, beats its own "IPS acknowledgement" heartbeat and drains the queue after polling stops, within the shutdown budget. A full queue skips the acknowledgement; IPS redelivery acknowledges the duplicate. The acknowledgement connections are reserved: replies get `IncomingWorkerOptions.IpsSendCapacity` (IPS ConnectionLimit - 1 - AcknowledgementCapacity) through `IncomingReplyAdmission`, which `AddIncomingWorkers` registers before composition's default.
 - **Fair CBS follow-up.** `FollowUpAdmission` offers due pacs.008 reconciliation and transfer work alternately and starts each admission with the kind not admitted last, across sweeps.
 - **pacs.004 ceiling.** `Pacs004Validator` compares the amounts with the same normalized currencies (`ValidatedPacs004.CurrencyOf`/`OriginalCurrencyOf`) the message is built with.
-- See [012a](specs/012a-audit-corrections.md) and the [audit](reviews/business-flow-audit-2026-10-07.md).
+- See [012a](archive/specs/012a-audit-corrections.md) and the [audit](archive/reviews/business-flow-audit-2026-10-07.md).
 
 ## IPS signature certificate validity (012b)
 
 - **At verification.** `IpsSignatureTrust` (Infrastructure, `Payments/Pacs008/Signing`) pairs the configured IPS signature certificates with the service `TimeProvider`; every IPS verifier (`IpsReplyInterpreter`, `Pacs028ReplyInterpreter`, `StatusReportProtocol`, `IncomingReplyProtocol`, `IncomingPacs008Reader`, the incoming pacs.009, pacs.004 and pain.001 protocols) receives it from `OutgoingHttpRegistration`/`IncomingHttpRegistration`. `IpsSignatureVerifier` checks the matched certificate's validity before the digest and signature: incoming messages at their stored receipt time (the incoming ports take `ReceivedAtUtc`), replies to our sends at the current time; and reports a certificate outside its period separately from an untrusted signature, so the hold or unresolved reason names the expiry. Proxy signatures are not affected.
 - **Rotation.** `CertificateSettings.LoadSignatureTrust` accepts a trust certificate that is not valid yet; TLS and signing certificates are still refused outside their period, and an expired trust certificate still fails startup. `CertificateHealthCheck` logs a not-yet-valid certificate as information without changing the status.
-- See [012b](specs/012b-signature-certificate-validity.md).
+- See [012b](archive/specs/012b-signature-certificate-validity.md).
 
 ## Shutdown and multi-instance guarantees (011)
 
 - **Ownership.** Any number of instances may share one database. A payment, a callback, an investigation or a resend is worked by the instance that holds its SQL claim; a claim expires after its ownership period and another instance then takes the work. A marker is committed before every IPS or core call, so a takeover after an unknown outcome sends the flagged possible-duplicate resend of the same bytes, never a fresh message (a pacs.008 is investigated with a pacs.028 first and resent only if IPS does not know it).
 - **Stop.** A stopping instance first refuses new work (new intake is stored and answered with its current status after the HTTP wait, which is 504 while it is unfinished, and finished by another instance or the restart), then drains running work within its shutdown budget and commits the outcome and the callback row, and only past the budget cancels, persists what it observed and leaves the claim to expire. Readiness is Unhealthy from the first moment of the stop. The host shutdown timeout is at least the drain budget plus the longest evidence persistence budget.
 - **Proved by** `OutgoingMultiInstanceTests` (two instances recovering the same work send and report each payment once; a stop inside the budget; a stop past it recovered by another instance with one flagged resend of the same bytes; hand-over after a stop; intake during a drain; the host timeout) and the earlier crash, claim and incoming two-worker tests. Not exercised: a hosting platform's SIGTERM and load-balancer draining, and clock skew between instances (claims use each instance's clock).
-- See [011](specs/011-shutdown-and-multi-instance.md).
+- See [011](archive/specs/011-shutdown-and-multi-instance.md).
 
 ## Readiness and diagnostics (010)
 
 - **Readiness.** `/health/ready` runs the `ready`-tagged checks (`DatabaseHealthCheck`, `WorkerHealthCheck`, `CertificateHealthCheck` in the Api) and returns only the status. Workers expose `SupervisedBackgroundService.Health` from loop heartbeats; certificate owners expose their expiries.
 - **Metrics.** `PaymentMetrics` (Application) is the one meter. Outcome counters are recorded from committed domain events in the unit of work; HTTP durations in `HttpEvidence`; proxy, callback, validation, acknowledgement and error counters at their workflow steps; backlog gauges from a cached `BacklogReader` snapshot refreshed by `BacklogSnapshotService`.
 - **Correlation.** `WorkScope` opens a log scope per unit of outgoing, incoming and receive work.
-- See [010](specs/010-readiness-diagnostics.md).
+- See [010](archive/specs/010-readiness-diagnostics.md).
 
 ## Proxy management (009)
 
 - **Stateless.** `ProxyManagement` (Application) validates a register, update or remove request with the source's XSD-derived limits, asks `IProxyProtocol` for the signed acmt.022 and `IProxyClient` for one POST, then reads the answer. Nothing is stored, retried or scheduled; each call has a fresh operation and bulk reference.
 - **Infrastructure `Proxy/`.** `Acmt022Message` builds the three documents in the Annex E `hdr:Message` wrapper, `ProxySchema` validates them against the embedded `acmt.022.001.04` schema, `ProxyProtocol` signs with the shared ECDSA signer (or sends unsigned without a certificate), `ProxyReplyReader` reads the pacs.002.001.13 answer by element local names, and `ProxyClient` posts to `PRX/register`, `PRX/update` and `PRX/remove` with the PRX headers on a single-attempt HTTP client.
 - **Api.** `ProxyController` calls `ProxyManagement` with the requests `ProxyRequestMapping` builds from the imported Contracts. Accept and reject are both 200; validation is 400; no answer is 504 (timeout) or 502 (other failure). The routes exist only while `Proxy:Enabled` is true.
-- See [009](specs/009-proxy-management.md).
+- See [009](archive/specs/009-proxy-management.md).
 
 ## Incoming camt.055 (008c)
 
 - An incoming camt.055 (a PISP's cancellation request for a payment initiation; short type, `.12`, `.012` or `.08`) is acknowledged and archived exactly like the recalls of 007c: `PaymentMessageTypes.IsArchivedCancellation` names all three types once, `IncomingReceiptPreparation` completes the receipt as processed and `IncomingReceiveWorker` acknowledges it after the commit. Nothing is verified, delivered to the core or answered.
-- See [008c](specs/008c-incoming-camt055.md). Superseded by 012c: these messages are now verified and delivered.
+- See [008c](archive/specs/008c-incoming-camt055.md). Superseded by 012c: these messages are now verified and delivered.
 
 ## Outgoing camt.029 and the shared recall parts (007b)
 
 - **One more type on the shared core.** `PaymentMessageTypes.Camt029` joins the outgoing set. `Camt029Intake` validates the source rules (the creditor agent must be us, the quoted currency enabled, settlement date not in the future, reason code 1-4 uppercase characters) and snapshots `AcceptedCamt029`. The message id is the caller's `Id` and the transaction id its cancellation status id. The answer is always a refusal (RJCR).
 - **Shared with camt.056.** `Payments/Recalls` holds the recalled-transaction inputs, `RecalledTransaction.From` (normalization), `RecallOriginalValidator` (which takes the sending side: debtor agent for a recall, creditor agent for the answer) and `RecallXml` (assignment, reason and original-reference elements). One `RecallRequestMapping` maps both DTOs.
 - **Reply correlation and recovery** are as for camt.056: our message id with the recalled payment's transaction and end-to-end ids and `camt.029.001.13`; possible-duplicate resend; no pre-send deadline.
-- See [007b](specs/007b-outgoing-camt029.md).
+- See [007b](archive/specs/007b-outgoing-camt029.md).
 
 ## Incoming pacs.004 and the generalised transfer (005d)
 
 - **One transfer aggregate for two kinds.** `IncomingTransfer` is keyed by participant BIC, kind (`pacs.009`, `pacs.004`) and business key (EndToEndId, or the return id for a return). `IIncomingTransferContent` carries the kind, key, receiver and the identifiers a core reply may echo; `IIncomingTransferProtocol` implementations read one kind each, and `IncomingTransferRegistration` and `IncomingTransferProcessing` serve both.
 - **Reading a return.** `IncomingPacs004Protocol` verifies the signature before trusting anything, requires one returned transaction, a return id equal to the group message id, the original transaction id and both agents by BICFI, and holds anything else. The receiver is `OrgnlTxRef/DbtrAgt`.
 - **Core and IPS.** The return id is the CBS idempotency key and status reference (`messageKind=Pacs004`), delivery and recovery are those of 005c, and IPS gets only a `MessageAck`. A return is not matched to the outgoing payment it names.
-- See [005d](specs/005d-incoming-pacs004.md).
+- See [005d](archive/specs/005d-incoming-pacs004.md).
 
 ## Unsolicited incoming pacs.002 (003a.4)
 
@@ -325,7 +325,7 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **Processing.** `IncomingReceiptPreparation` routes a claimed pacs.002 receipt to `IncomingStatusReportProcessing`. It finds the outgoing payment by protocol message id and verifies the report with `IpsReplyInterpreter` (through `IStatusReportProtocol`): schema, trusted IPS signature, exact identifiers and one status table shared with direct replies. Anything unverifiable or unmatched holds the receipt and changes nothing.
 - **Effect.** `OutgoingPayment.RecordReport` settles a payment that awaits its outcome (Sending, Uncertain, Investigating or Resending); every other payment only records an observation event. A payment under a live claim defers its receipt.
 - **Atomicity.** Payment state, events, the callback outbox row and the receipt completion commit in one `UnitOfWork` save, fenced by the parent row version.
-- See [003a.4](specs/003a4-incoming-status-reports.md).
+- See [003a.4](archive/specs/003a4-incoming-status-reports.md).
 
 ## Outgoing investigation and authorized resend (003a.3)
 
@@ -341,20 +341,20 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
   - The investigation deadline frozen on the first cycle bounds every resend.
 - **Initial-record queries.** Queries for the initial exchange select records with neither an investigation nor a resend reference.
 - **Recovery.** Recovery keeps an expired Resending claim resumable, so the next owner records an abandoned submission itself.
-- **Runtime.** OutgoingRuntime routes each recovered payment by status: Pacs008Processing, OutgoingInvestigation or OutgoingResend. A separate sweep starts due investigations and resends. See [003a.3](specs/003a3-authorized-resend.md).
+- **Runtime.** OutgoingRuntime routes each recovered payment by status: Pacs008Processing, OutgoingInvestigation or OutgoingResend. A separate sweep starts due investigations and resends. See [003a.3](archive/specs/003a3-authorized-resend.md).
 
 ## Incoming recalls, cancellations and recall refusals delivered to the core (012c)
 
 - **Three more transfer kinds.** An incoming camt.056 (a recall of a pacs.008 we received), camt.055 (a PISP's cancellation of a pain.001 we received) and camt.029 (a refusal of our recall) are `IncomingTransfer` kinds (`camt.056`, `camt.055`, `camt.029`; key = Assgnmt/Id). `IncomingCamt056Protocol`, `IncomingCamt055Protocol` and `IncomingCamt029Protocol` verify them like the other kinds: envelope and `MsgDefIdr`, trusted IPS signature at the receipt time, one transaction, schema (camt.055.001.12 is now embedded), and our participant as the receiving agent (camt.056 `CdtrAgt`, camt.055 and camt.029 `DbtrAgt`); a camt.029 must also be RJCR. `RecallReferenceReader` reads the parts they share into the recall input shapes. Anything else holds the receipt. `PaymentMessageTypes.IsIncomingTransfer` now names them, so `IncomingReceiptPreparation` no longer archives anything and the acknowledgement rule is unchanged.
 - **Matching a refusal.** `IncomingRecallRefusals` (Application) finds our camt.056 by `OrgnlGrpInf/OrgnlMsgId` (the outgoing `MessageId`) and requires its original end-to-end and transaction ids from `AcceptedCamt056`; a refusal without `OrgnlGrpInf`, naming no recall of ours, or with other ids is held. `IncomingTransferRegistration` stores a matched refusal with the recall's `ClientReference` and, for a new transfer, calls `OutgoingPayment.RecordRecallRefusal`, all in one unit-of-work commit fenced by the recall's row version. The domain records `RecallRefused` (`payment.recall-refused`: reason code, camt.029 message and cancellation status ids) once per recall (`RecallRefusedAtUtc`, migration `RecallRefusal`), only on a recall, with no state change and so no callback.
 - **Delivery.** `IncomingTransferProcessing` and its recovery are unchanged. `IncomingCbsClient` posts the existing Contracts DTOs to `Camt056SubmissionPath`, `Camt055SubmissionPath` and `Camt029SubmissionPath` (Idempotency-Key = the key) and asks the status with `messageKind` `Camt056`, `Camt055` or `Camt029`. Contracts 1.1.0-preview.1 adds the three `IClientPaymentReceiver` methods, the `Receive` routes and `IpsMessageKind.Camt055`.
-- See [012c](specs/012c-recall-delivery.md).
+- See [012c](archive/specs/012c-recall-delivery.md).
 
 ## Measured performance (013)
 
 - **Harness.** `tests/IPS.Middleware.Performance` is a test-support console project (not referenced by `src/`, never shipped). It starts the AppHost with `Aspire.Hosting.Testing` at two or more instances, the shipped execution concurrency (`Middleware:Concurrency`) and signed messages (`Middleware:Signing`), delays every simulated IPS answer, and sends outgoing pacs.008 payments on an open-model fixed-rate schedule round-robin over the instances, recording each request's lag behind its plan. Settlement latency runs from the send to the simulated core's receipt of the final callback (the simulators record a receive time on each callback); response latency to the HTTP response; percentiles are exact over the raw samples.
 - **Verdict.** After a drain it matches what the simulators received with what was sent, by message definition (pacs.008 sends, pacs.028 investigations) and client reference: lost, not sent, duplicate sends, duplicate callbacks, 5xx and anything but 200 or 504. It samples `/health/ready` on every instance throughout, reads the work still due from the database with the query behind `ips.backlog.due`, and writes a Markdown report with pass or fail per target and a per-instance and per-minute breakdown under `docs/performance/`.
-- See [013](specs/013-measured-performance.md), the baseline (removed from the tree; in git history at 2190e81) and the [local environment guide](local-environment.md#measure-performance).
+- See [013](archive/specs/013-measured-performance.md), the baseline (removed from the tree; in git history at 2190e81) and the [local environment guide](local-environment.md#measure-performance).
 
 ## Performance corrections (013a)
 
@@ -362,23 +362,28 @@ See [006](specs/006-clean-code-rewrite.md) and [coding style](coding-style.md). 
 - **The attempt signals its waiting request and starts its callback.** `OutgoingAttemptSignals` (Application) wakes the request waiting on this instance after an attempt's last commit. The request otherwise polls SQL from `StatusPollInterval`, doubling to `StatusPollMaxInterval`. `OutgoingRuntime` then starts the committed outcome's callback directly; SQL discovery remains the path for retries and other instances.
 - **SQL failures at intake.** A SqlException while a send is served answers 503 with `Retry-After: 1` (`DatabaseFailure` in Infrastructure, mapped by `OutgoingPaymentsController`); a read cancelled by the HTTP wait answers 504.
 - **Configuration.** EF Core's command log is at Warning, and execution concurrency ships as 32, from the measurement.
-- See [013a](specs/013a-performance-corrections.md) and the [concurrency comparison](performance/2026-10-08-1015-concurrency.md).
+- See [013a](archive/specs/013a-performance-corrections.md) and the [concurrency comparison](performance/2026-10-08-1015-concurrency.md).
 
 ## Versioned routes (017a)
 
 - Contracts 2.0.0-preview.1 prefixes the routes the gateway serves with `/api/v1`: `/api/v1/ips/*/send`, `/api/v1/ips/transactions/status` and `/api/v1/proxy/*`. The Api controllers read the constants; the unversioned paths are not served. Health endpoints are not versioned. The routes a core system implements, which the gateway calls (`/api/ips/*/receive`, `/api/ips/transactions/status/receive`, `/api/ips/payments/status`), are unchanged.
-- See [017](specs/017-core-receiver-sdk.md).
+- See [017](archive/specs/017-core-receiver-sdk.md).
 
 ## Core receiver package and its document (017b)
 
-- **`IPS.MiidleWear.AspNetCore`** (`src/`, `net10.0`, packable, Contracts and the ASP.NET Core framework only) is for core systems; the gateway does not reference it. `AddIpsCoreReceiver<TReceiver>()` registers the bank's `IClientPaymentReceiver` and the scoped `IIpsReceiveContext` (the Idempotency-Key of the call); `MapIpsCoreReceiver()` maps the nine operations at their `RestEndpoint` routes from one typed list checked against the interface at startup. It reads and writes with `IpsJson.SerializerOptions` regardless of the host's JSON settings and answers 200 (result), 204 (status callback), 404 (`null` status query), 400 (unreadable body) and 500 (receiver exception, logged).
+- **`IPS.MiidleWear.AspNetCore`** (`src/`, `net10.0`, packable, Contracts, the ASP.NET Core framework and Microsoft.AspNetCore.OpenApi only) is for core systems; the gateway does not reference it. `AddIpsCoreReceiver<TReceiver>()` registers the bank's `IClientPaymentReceiver` and the scoped `IIpsReceiveContext` (the Idempotency-Key of the call); `MapIpsCoreReceiver()` maps the nine operations at their `RestEndpoint` routes from one typed list checked against the interface at startup. It reads and writes with `IpsJson.SerializerOptions` regardless of the host's JSON settings and answers 200 (result), 204 (status callback), 404 (`null` status query), 400 (unreadable body) and 500 (receiver exception, logged).
 - **Contracts helpers** (`IPS.MiidleWear.Contracts.Http`): `IpsJson`, `IpsHttpHeaders`, `IpsIdempotencyKeys`, plus `Pacs008PaymentResultDto.Pending` (PDNG). The receiver methods' `RestEndpoint` descriptions state the answer rules; every public DTO property is documented.
-- **`docs/openapi/ips-core-receiver.json`** (OpenAPI 3.0) is written by `tools/IPS.MiidleWear.OpenApi` from the package's own endpoints with `Microsoft.AspNetCore.OpenApi`, which also takes the property descriptions from the Contracts XML documentation; the tool adds the document header, the Idempotency-Key header and examples from the Contracts wire cases. A drift test compares it with the committed file.
+- **The receiver document** (OpenAPI 3.0, revised in 019a) is generated by the core system's own application. `AddIpsCoreReceiverOpenApi()` registers the `ips-core-receiver` document over the endpoints `MapIpsCoreReceiver()` puts in that group; `Microsoft.AspNetCore.OpenApi` takes the property descriptions from the Contracts XML documentation, and `CoreReceiverOpenApi` adds the header, the Idempotency-Key header and typed examples. No document is committed; the sample writes one on demand.
+
+## Gateway API document (019a)
+
+- The Api generates `/openapi/v1.json` from its controllers. Each action names the `IGatewayApi` method it serves with `[GatewayOperation]`; `GatewayOperationTransformer` copies that method's `RestEndpoint` summary, description, tag and message type, and `ExampleOperationTransformer` attaches the typed `GatewayExamples` named by `[RequestExample]`/`[ResponseExample]`. Swagger UI shows it; both are served in Development and elsewhere only with `Api:Documentation:Enabled`.
+- `Microsoft.Extensions.ApiDescription.Server` writes the file on demand. While `dotnet-getdocument` runs the host, it skips validation and migration and maps every controller. See [019](specs/019-gateway-api-document-and-client.md).
 - **Proof.** `CoreReceiverPackageTests` call a receiver built with the package through the gateway's real `IncomingCbsClient`, `OutgoingStatusClient` and `IncomingCoreReplyInterpreter`.
-- See [017](specs/017-core-receiver-sdk.md).
+- See [017](archive/specs/017-core-receiver-sdk.md).
 
 ## Receiver sample and test kit (018)
 
 - **`IPS.MiidleWear.Testing`** (`src/`, packable, Contracts and the base class library only, no test framework): `IpsReceiverConformance.RunAsync(HttpClient)` sends each of the seven receive kinds as the gateway does (its JSON with `null` members, the Idempotency-Key, ids unique to the run) and checks that the answer is final, that a redelivery gets the same answer and that the payment-status query returns it; then that an unknown reference answers 404 and that a status callback and a reversal are accepted twice. `AnswerReader` repeats the gateway's reading rules; `ReceiverTestKitTests` require it to agree with `IncomingCoreReplyInterpreter` on every crafted answer.
 - **`samples/IPS.MiidleWear.CoreReceiver.Sample`** is a runnable receiver on the two packages over an in-memory ledger: one posting per key (a redelivery joins it), PDNG while posting, 404 for an unknown reference, idempotent statuses and reversals; `Sample:Answers` and `Sample:PostingDelay` choose the answers. It passes every kit check.
-- See [018](specs/018-receiver-sample-and-test-kit.md).
+- See [018](archive/specs/018-receiver-sample-and-test-kit.md).

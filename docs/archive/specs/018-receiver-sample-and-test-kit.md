@@ -1,6 +1,6 @@
 # Specification 018: a sample core receiver and a receiver test kit
 
-Status: on codex/core-receiver-sdk, after 017b. On 2026-10-16 the owner accepted all four parts of the client-integration proposal (Contracts additions, the receiver package, documentation, and this sample and test kit) and asked for them to be built. Implemented and uncommitted on the same branch. This specification extends the [rebuild plan](../rebuild-plan.md), which excludes mock hosts, for exactly these two deliverables.
+Status: on codex/core-receiver-sdk, after 017b. On 2026-10-16 the owner accepted all four parts of the client-integration proposal (Contracts additions, the receiver package, documentation, and this sample and test kit) and asked for them to be built. Implemented and uncommitted on the same branch. This specification extends the [rebuild plan](../../rebuild-plan.md), which excludes mock hosts, for exactly these two deliverables.
 
 ## Why
 

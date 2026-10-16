@@ -6,7 +6,7 @@ Branch: codex/incoming-clients. Base: af9b090, fast-forwarded into codex/capabil
 
 Infrastructure IPS receive/reply and CBS submission/status/reversal clients preserve existing wire contracts. Application receives immutable raw receive evidence. Microsoft.Extensions.Http.Resilience 10.10.0 supplies circuit breakers/timeouts only; response buffering sits inside the pipeline. No redirects, retries, hedging or fallback business responses. Settings cover URLs, paths, connection pools and timeouts, breaker behavior and separate certificate roles. Startup loads PFX/PEM/encrypted PEM/Windows-store sources, validates keys and configuration, and retains TLS hostname/chain checks. Windows file TLS identities use temporary named keys required by Schannel.
 
-Api binds settings after final configuration and eagerly validates enabled clients without making remote or SQL calls. Transport defaults disabled. No workers, payment endpoints, workflow composition, schema/migrations or Contracts changes. [Specification](../specs/004c-live-incoming.md); [configuration](../configuration.md).
+Api binds settings after final configuration and eagerly validates enabled clients without making remote or SQL calls. Transport defaults disabled. No workers, payment endpoints, workflow composition, schema/migrations or Contracts changes. [Specification](../specs/004c-live-incoming.md); [configuration](../../configuration.md).
 
 Source evidence: original d498de6, IPS.MiidleWear.Application/Transport/IpsHttpStpClient.cs and IpsHttpHeaders.cs; Gateway/Services/CoreSystemClient.cs, CoreSystemRequest.cs, CoreReferences.cs; Application/Security/CertificateSource.cs and IpsTls.cs. Existing contract constants and existing mappings are reused.
 

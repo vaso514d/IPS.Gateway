@@ -9,7 +9,8 @@ This branch preserves the capability-led process requested by the owner on 2026-
 3. Reuse completed foundation, lifecycle, and durable intake/storage work. Implement one coherent slice within the allowed dependencies on a codex/<capability> review branch. Introduce endpoints, workers, typed clients, and XML mapping when that slice needs their implemented behavior.
 4. Test through meaningful interfaces; use SQL Server for database concurrency and transaction guarantees. Run the verification commands below. Review correctness, unnecessary indirection, duplicated rules, oversized workflows, naming, comments, and coupling.
 5. Present the diff, test results, source references, and remaining concerns. Wait for owner approval before merging. Local branches and reviewed diffs are the PR equivalent until a remote exists.
-6. Update the ledger checkpoint before ending work or handing off: implemented slice, branch/base, checks, unresolved decisions, approval status, and exact next action. Read it again after compaction or in a new session.
+6. After the owner merges a slice, move its specification and review to `docs/archive/` and fold any rule that must keep guiding future work into architecture, an ADR, coding style or `CONTEXT.md`.
+7. Update the ledger checkpoint before ending work or handing off: implemented slice, branch/base, checks, unresolved decisions, approval status, and exact next action. Read it again after compaction or in a new session.
 
 Capability order: aggregate refactor (Stage 1), outgoing pacs.008 protocol preparation (2a), durable workflow (2b), host/HTTP/delivery (2c), outgoing reliability, incoming payments, pacs.009/pacs.004, recalls/payment initiation, proxy management, operational completion. Include essential reliability and diagnostics with each capability.
 

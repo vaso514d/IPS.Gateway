@@ -16,4 +16,6 @@ The next capability will process outbound attempts synchronously with durable ch
 
 ## Shared save revision
 
-The owner requested a general IUnitOfWork.SaveAsync over all tracked changes. The unit collects pending events through AggregateRoot; payment storage validation belongs in a dedicated interceptor and duplicate-reference interpretation belongs in Application intake. Repositories have dedicated Application/Infrastructure folders. Save returns the written-entry count and reports general persistence exceptions. Preserve the existing database schema and historical context CLR identity. See [the revision specification](../specs/001e-shared-unit-of-work.md).
+The owner requested a general IUnitOfWork.SaveAsync over all tracked changes. The unit collects pending events through AggregateRoot; payment storage validation belongs in a dedicated interceptor and duplicate-reference interpretation belongs in Application intake. Repositories have dedicated Application/Infrastructure folders. Save returns the written-entry count and reports general persistence exceptions. Preserve the existing database schema and historical context CLR identity. See [the revision specification](../archive/specs/001e-shared-unit-of-work.md).
+
+Amended by the 006 clean-code rewrite (2026-10-06): the save interceptors were removed. UnitOfWork prepares event rows and fences the parent before evidence explicitly; see [architecture](../architecture.md#current-implementation-006).

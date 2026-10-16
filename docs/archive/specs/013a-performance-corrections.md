@@ -204,7 +204,7 @@ Two runs of 3 minutes at 50 per second, two signed instances, concurrency 8, `--
    - **The harness target** is decision 1's.
    - **The cause of the 5 repeats** was locks holding the finish past its persistence budget, and the covering index removes that blocking. No repeat occurred in the concurrency runs.
 7. **Concurrency.**
-   - **The comparison.** See the [comparison](../performance/2026-10-08-1015-concurrency.md): 32 meets every target, 8 and 16 queue. SQL sessions peaked at 23 to 40 per API process (Max Pool Size 100). Admission stays within the IPS (100) and CBS (100) connection limits.
+   - **The comparison.** See the [comparison](../../performance/2026-10-08-1015-concurrency.md): 32 meets every target, 8 and 16 queue. SQL sessions peaked at 23 to 40 per API process (Max Pool Size 100). Admission stays within the IPS (100) and CBS (100) connection limits.
    - **The default.** The owner chose 32 if feasible, so `appsettings.json` ships `Concurrency` 32. No coupled limit changes: investigations and resends run inside the same slots, and callbacks keep their own 8. The options' built-in default stays 8.
    - **Docs.** `docs/configuration.md` is updated.
 8. **The harness's load.** Log collection is optional and off by default (above).
@@ -229,7 +229,7 @@ Two runs of 3 minutes at 50 per second, two signed instances, concurrency 8, `--
 
 The owner chose 32 if feasible, so the baseline ran at 32. Settings: 50 per second, two signed instances, shipped timings, log collection off. `--Diagnose` was on, for comparability with the concurrency runs and to explain a failure.
 
-| Target | First run, 11:04 (report (removed from the tree; in git history at 2190e81)) | Rerun after the journal fix, 11:32 ([report](../performance/2026-10-08-1132-baseline.md)) |
+| Target | First run, 11:04 (report (removed from the tree; in git history at 2190e81)) | Rerun after the journal fix, 11:32 ([report](../../performance/2026-10-08-1132-baseline.md)) |
 |---|---|---|
 | Settlement p95 / p99 | 365.8 s / 496.4 s, **fail** | 587.9 ms pass / 2,361.1 ms **fail** |
 | Lost (no final callback) | 5,662, **fail** | 0, pass |
