@@ -67,8 +67,8 @@ public sealed class UnitOfWorkTests
         }
         else
         {
-            // Payment, its shared aggregate identity, the note and the intake event.
-            Assert.Equal(4, await unit.SaveAsync());
+            // Payment, its shared aggregate identity, the note, the intake event and its transfer history row.
+            Assert.Equal(5, await unit.SaveAsync());
             Assert.Empty(payment.PendingEvents);
         }
         await using var read = Context(database);
