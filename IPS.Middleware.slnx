@@ -167,10 +167,10 @@
     <Project Path="tests/IPS.Middleware.Tests/IPS.Middleware.Tests.csproj" />
     <Project Path="tests/IPS.Middleware.Performance/IPS.Middleware.Performance.csproj" />
   </Folder>
-  <Folder Name="/samples/">
+  <Folder Name="/_samples/">
     <Project Path="samples/IPS.MiidleWear.CoreAPI/IPS.MiidleWear.CoreAPI.csproj" />
   </Folder>
-  <Folder Name="/tools/">
+  <Folder Name="/_tools/">
     <Project Path="tools/IPS.MiidleWear.OpenApi/IPS.MiidleWear.OpenApi.csproj" />
   </Folder>
 </Solution>
