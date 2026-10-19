@@ -9,10 +9,16 @@
         "Payments__Signing__AllowUnsignedInDevelopment": "true",
         "Payments__Outgoing__Transport__Enabled": "true",
         "Payments__Outgoing__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Outgoing__Transport__Ips__ServerTrust__0__Path": "Certificates/ips-uat-root.cer",
+        "Payments__Outgoing__Transport__Ips__ServerTrust__1__Path": "Certificates/ips-uat-subca.cer",
+        "Payments__Outgoing__Transport__Ips__CheckCertificateRevocation": "false",
         "Payments__Outgoing__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Outgoing__Execution__Enabled": "true",
         "Payments__Incoming__Transport__Enabled": "true",
         "Payments__Incoming__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Incoming__Transport__Ips__ServerTrust__0__Path": "Certificates/ips-uat-root.cer",
+        "Payments__Incoming__Transport__Ips__ServerTrust__1__Path": "Certificates/ips-uat-subca.cer",
+        "Payments__Incoming__Transport__Ips__CheckCertificateRevocation": "false",
         "Payments__Incoming__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Incoming__Workers__Enabled": "true"
       }
