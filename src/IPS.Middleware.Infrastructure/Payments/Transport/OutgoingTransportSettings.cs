@@ -35,9 +35,6 @@ public sealed class OutgoingTransportSettings
             TransportPath.Validate(path);
         }
 
-        if (!development && Ips.ClientCertificate is null)
-        {
-            throw new InvalidOperationException("IPS mutual TLS requires a client certificate.");
-        }
+        Ips.RequireClientCertificate(development, "IPS");
     }
 }

@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Transport;
+using IPS.Middleware.Infrastructure.Transport;
 using IPS.Middleware.IntegrationTests.Diagnostics;
 using IPS.Middleware.IntegrationTests.Payments;
 using Microsoft.AspNetCore.Hosting;
@@ -34,6 +35,29 @@ public sealed class OutgoingTransportConfigurationTests
         settings["Payments:Outgoing:Transport:" + key] = value;
         using var host = new Host(settings);
         Assert.ThrowsAny<Exception>(() => host.CreateClient());
+    }
+
+    [Theory]
+    [InlineData("https://127.0.0.1:5000", true, true)]
+    [InlineData("https://ips.uat.example", true, false)]
+    [InlineData("https://127.0.0.1:5000", false, false)]
+    public void Ips_requires_a_client_certificate_except_for_a_loopback_simulator_in_development(string ipsUrl, bool development, bool valid)
+    {
+        HttpEndpointSettings Endpoint(string url) => new() { BaseUrl = url, RequestTimeout = TimeSpan.FromSeconds(25) };
+        var outgoing = new OutgoingTransportSettings { Enabled = true, Ips = Endpoint(ipsUrl), Cbs = Endpoint("https://127.0.0.1:5280") };
+        var incoming = new IncomingTransportSettings { Enabled = true, Ips = Endpoint(ipsUrl), Cbs = Endpoint("https://127.0.0.1:5280") };
+
+        foreach (var validate in new Action[] { () => outgoing.Validate(development), () => incoming.Validate(development) })
+        {
+            if (valid)
+            {
+                validate();
+            }
+            else
+            {
+                Assert.Contains("requires a client certificate", Assert.Throws<InvalidOperationException>(validate).Message);
+            }
+        }
     }
 
     [Fact]

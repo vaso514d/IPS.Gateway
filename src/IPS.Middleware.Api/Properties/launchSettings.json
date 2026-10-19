@@ -1,27 +1,27 @@
 {
   "profiles": {
-    "Local": {
+    "Uat": {
       "commandName": "Project",
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5080",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "Database__MigrateOnStartup": "true"
-      }
-    },
-    "Uat (no certificates)": {
-      "commandName": "Project",
-      "launchBrowser": false,
-      "applicationUrl": "http://localhost:5080",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "Payments__Signing__AllowUnsignedInDevelopment": "true",
         "Payments__Outgoing__Transport__Enabled": "true",
         "Payments__Outgoing__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Outgoing__Transport__Ips__ClientCertificate__Thumbprint": "B264BEB0329F4CDB55CFC84E12558CE7A9075A72",
+        "Payments__Outgoing__Transport__Ips__ServerTrust__0__Thumbprint": "D7EBAB3464BF9F04FC84EBF37ED6E445CFCDD1BD",
+        "Payments__Outgoing__Transport__Ips__ServerTrust__1__Thumbprint": "59A0E74A883DF309BEF5A27190788945BEFCB7C2",
+        "Payments__Outgoing__Transport__Ips__CheckCertificateRevocation": "false",
+        "Payments__Outgoing__Transport__SigningCertificate__Thumbprint": "D93CFF446F02C2B265DEB9FDF39D4E3F622F868F",
         "Payments__Outgoing__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Outgoing__Execution__Enabled": "true",
         "Payments__Incoming__Transport__Enabled": "true",
         "Payments__Incoming__Transport__Ips__BaseUrl": "https://ips.uat.ipsgeorgia.ge:444/ips",
+        "Payments__Incoming__Transport__Ips__ClientCertificate__Thumbprint": "B264BEB0329F4CDB55CFC84E12558CE7A9075A72",
+        "Payments__Incoming__Transport__Ips__ServerTrust__0__Thumbprint": "D7EBAB3464BF9F04FC84EBF37ED6E445CFCDD1BD",
+        "Payments__Incoming__Transport__Ips__ServerTrust__1__Thumbprint": "59A0E74A883DF309BEF5A27190788945BEFCB7C2",
+        "Payments__Incoming__Transport__Ips__CheckCertificateRevocation": "false",
+        "Payments__Incoming__Transport__SigningCertificate__Thumbprint": "D93CFF446F02C2B265DEB9FDF39D4E3F622F868F",
         "Payments__Incoming__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Incoming__Workers__Enabled": "true"
       }

@@ -14,14 +14,14 @@ dotnet restore IPS.Middleware.slnx
 dotnet build IPS.Middleware.slnx --configuration Release --no-restore
 sqllocaldb start MSSQLLocalDB
 dotnet test IPS.Middleware.slnx --configuration Release --no-build
-dotnet run --project src/IPS.Middleware.Api --launch-profile Local
+dotnet run --project src/IPS.Middleware.Api --launch-profile Uat
 ```
 
-The local profile listens on `http://localhost:5080`:
+The `Uat` profile listens on `http://localhost:5080` and connects to the IPS UAT (see [local environment](docs/local-environment.md#connect-to-the-ips-uat)):
 
 - `GET /health/live` returns `Healthy`.
 - `GET /openapi/v1.json` describes the foundation endpoint in Development.
-- With incoming workers and outgoing execution/transport disabled (the default), the host requires no database, certificates, IPS connection, or core banking connection.
+- Run outside the profile, with incoming workers and outgoing execution/transport disabled (the `appsettings.json` default), the host requires no database, certificates, IPS connection, or core banking connection.
 - Opt-in incoming processing requires the explicit [worker configuration](docs/configuration.md#incoming-workers).
 - Enabled outgoing execution exposes the existing pacs.008 send and transaction-status routes. Final or duplicate status returns 200; an unresolved initial request returns 504 after the configured wait.
 

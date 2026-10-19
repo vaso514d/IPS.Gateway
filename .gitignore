@@ -11,3 +11,4 @@ artifacts/
 .env
 appsettings.*.local.json
 .scratch/
+src/IPS.Middleware.Api/certs/
