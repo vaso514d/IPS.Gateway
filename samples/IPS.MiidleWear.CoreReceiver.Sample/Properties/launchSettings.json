@@ -2,11 +2,11 @@
   "profiles": {
     "IPS.MiidleWear.CoreReceiver.Sample": {
       "commandName": "Project",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "https://localhost:61320;http://localhost:61321"
+      "applicationUrl": "http://localhost:5280"
     }
   }
 }
