@@ -53,7 +53,7 @@ Implement the first capability directly. Add a shared module when multiple imple
 - [Single executable host](adr/0001-single-host.md)
 - [Preserved external contracts](adr/0002-contract-compatibility.md)
 
-Infrastructure directly maps OutgoingPayment current state and stores full versioned JSON events alongside it; loading state never replays history. Scoped transaction/work repositories and an explicit unit of work share one EF context. The version-checked parent is written before events in one transaction. A preparation-only interceptor adds event rows; events are acknowledged after commit and failed scopes are discarded. Request JSON, rowversion, ownership, and scheduling remain Infrastructure metadata. Domain business methods enforce transitions; Application owns workflow decisions. The Api registers persistence and workers when payment processing arrives. See [ADR 0003](adr/0003-aggregate-events.md) and [the approved outbound stages](rebuild-plan.md).
+Infrastructure directly maps OutgoingPayment current state and stores full versioned JSON events alongside it; loading state never replays history. Scoped transaction/work repositories and an explicit unit of work share one EF context. The version-checked parent is written before events in one transaction. The unit of work adds event rows; events are acknowledged after commit and failed scopes are discarded. Request JSON, rowversion, ownership, and scheduling remain Infrastructure metadata. Domain business methods enforce transitions; Application owns workflow decisions. The Api registers persistence and workers when payment processing arrives. See [ADR 0003](adr/0003-aggregate-events.md) and [the outgoing durability rules](#outgoing-durability-rules).
 
 ## Shared persistence
 
@@ -106,6 +106,28 @@ Stage 2b.2 adds Pacs008Intake and Pacs008Processing in Application/Payments/Pacs
 ProcessAsync acquires ownership, then resumes from committed checkpoints: unsigned XML, signed XML, submission marker, raw response, outcome. Each checkpoint is its own unit-of-work commit; a lost race ends the run with the last committed outcome. Only three Application interfaces exist for the variation: IPacs008MessagePreparation (XML and signing, deferring certificate problems), IIpsTransport and IIpsReplyInterpreter. Infrastructure implements preparation over the existing builder and signer, with ISigningCertificateSource as the seam until 2c configures certificate sources. IpsReplyInterpreter validates the pacs.002.001.14 reply, verifies the IPS signature profile against supplied trusted certificates and correlates identifiers before a final outcome.
 
 Recovery releases abandoned pacs.008 preparation (no marker) and stored responses for the next owner without a status change; a marker without a response becomes Uncertain. Discovery includes unowned due Sending. See [the specification](archive/specs/002b2-pacs008-processing.md).
+
+## Outgoing durability rules
+
+Approved with the rebuild plan on 2026-10-04 and still binding on every outgoing workflow:
+
+- Commit the submission marker before remote I/O. A crash between the marker and the call is uncertain, never a reason to resend.
+- No database transaction spans a remote call.
+- A lost reply after the remote side may have processed the message leads to investigation, never a blind resend.
+- Ownership acquisition and every checkpoint commit exclude competing execution and stale results.
+- The initial attempt runs in a service-owned, supervised scope. The HTTP caller awaits it; response completion or caller disconnect stops the wait, not the attempt, which follows its own deadline and shutdown policy.
+- Recovery resumes from the last committed checkpoint:
+
+| Durable checkpoint | Resume |
+|---|---|
+| Request and identifiers saved | Prepare message |
+| XML saved | Sign |
+| Signed message saved | Use stored signed message |
+| Submission started without durable response | Treat outcome as uncertain; investigate before repeating |
+| Raw response saved | Interpret saved response |
+| Final outcome saved | Return stored outcome |
+
+The HTTP 200/504 and duplicate-200 rules are in [ADR 0002](adr/0002-contract-compatibility.md).
 
 ## Incoming receipt foundations
 

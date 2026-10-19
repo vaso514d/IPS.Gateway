@@ -17,8 +17,8 @@ Stage 2a is split for focused review:
 ## Stage 2b: durable workflow
 
 Implement Stage 2b in focused reviews:
-- 2b.1: immutable initial-submission marker and raw response, shared ownership/concurrency and SQL verification; see [the specification](archive/specs/002b1-submission-checkpoints.md).
-- 2b.2: Application processing and recovery using the stored artifacts/checkpoints, with explicit failure decisions and resume tests; see [the specification](archive/specs/002b2-pacs008-processing.md).
+- 2b.1: immutable initial-submission marker and raw response, shared ownership/concurrency and SQL verification; see [the specification](specs/002b1-submission-checkpoints.md).
+- 2b.2: Application processing and recovery using the stored artifacts/checkpoints, with explicit failure decisions and resume tests; see [the specification](specs/002b2-pacs008-processing.md).
 
 Persist checkpoints and required artifacts:
 
@@ -35,7 +35,7 @@ Persist the submission marker before remote I/O. A crash between the marker and 
 
 ## Stage 2c: host, transport, HTTP and delivery
 
-Owner adaptation (2026-10-05): first implement [2c.0 explicit outgoing message journal](archive/specs/002c0-outgoing-journal.md), keeping the aggregate/Contracts. Separate reviews then add callbacks and synchronous HTTP. Use the owner-supplied outbound flow with separately committed response evidence, pre-send recovery, and service-owned execution.
+Owner adaptation (2026-10-05): first implement [2c.0 explicit outgoing message journal](specs/002c0-outgoing-journal.md), keeping the aggregate/Contracts. Separate reviews then add callbacks and synchronous HTTP. Use the owner-supplied outbound flow with separately committed response evidence, pre-send recovery, and service-owned execution.
 
 Run the initial attempt immediately in a service-owned, supervised scope. The HTTP caller awaits the attempt; response completion or caller disconnect must not dispose its execution scope.
 
@@ -53,7 +53,7 @@ Integration tests must cover final 200, unresolved 504, immediate duplicates, ca
 
 ## Owner-approved incoming priority — 2026-10-04
 
-After Stage 2b.2, incoming foundations now precede outgoing Stage 2c. Follow [004a](archive/specs/004a-inbound-foundations.md): durable receipt and recoverable ID-only scheduling first; incoming pacs.008 processing second; live receive/processing/response-retry pools third. These are separate reviews. Stage 2c remains deferred with its existing behavior decisions intact.
+After Stage 2b.2, incoming foundations now precede outgoing Stage 2c. Follow [004a](specs/004a-inbound-foundations.md): durable receipt and recoverable ID-only scheduling first; incoming pacs.008 processing second; live receive/processing/response-retry pools third. These are separate reviews. Stage 2c remains deferred with its existing behavior decisions intact.
 
 ## Remaining capability order (original; incoming priority above supersedes it)
 

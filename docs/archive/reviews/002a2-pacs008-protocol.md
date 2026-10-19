@@ -18,7 +18,7 @@ Contracts, Domain, database model/migrations, routes, status meanings, and execu
 
 Original behavior reference: d498de6c4638aa71cdb20189d13642b41abab5f1; source paths and exact XSD hashes are in the specification. Existing Treasury comment/runtime discrepancy is retained as documented. The prior postal-address review correction remains covered.
 
-A dotnet-xscgen 3.0.1405 trial generated both pinned schemas successfully, producing 199,475 bytes of full-schema C#. Authored supported-profile XmlSerializer models were selected for the smaller supported surface and explicit seven-digit UTC/decimal lexical representation. No generator is required to restore/build. See [research](../../research/pacs008-xml-validation-design.md).
+A dotnet-xscgen 3.0.1405 trial generated both pinned schemas successfully, producing 199,475 bytes of full-schema C#. Authored supported-profile XmlSerializer models were selected for the smaller supported surface and explicit seven-digit UTC/decimal lexical representation. No generator is required to restore/build. See [research](../research/pacs008-xml-validation-design.md).
 
 A temporary differential harness matched the prior implementation for 269 request-validation variations and XML for 141 valid requests. This is preservation evidence, not correctness proof: independent source review additionally caught a pre-existing currency-normalization gap and the regression now verifies the corrected behavior against the pinned source.
 

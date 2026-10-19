@@ -31,23 +31,12 @@ The `Uat` profile listens on `http://localhost:5080` and connects to the IPS UAT
 
 The existing `IPS.MiidleWear.Contracts` package and namespaces intentionally keep their original spelling for consumers. New internal projects use `IPS.Middleware`.
 
-- [Approved aggregate and synchronous outbound stages](docs/rebuild-plan.md)
-- [Aggregate refactor specification](docs/specs/001d-aggregate-events.md)
-- [Aggregate refactor review and checks](docs/reviews/001d-aggregate-events.md)
-- [Shared unit of work revision and checks](docs/reviews/001e-shared-unit-of-work.md)
 - [Architecture and dependency diagram](docs/architecture.md)
 - [Coding conventions](docs/coding-style.md)
-- [Clean-code rewrite and reference examples](docs/specs/006-clean-code-rewrite.md)
 - [Contribution and review process](CONTRIBUTING.md)
 - [Capability migration ledger](docs/migration-ledger.md)
-- [Transaction lifecycle specification](docs/specs/001a-transaction-lifecycle.md)
-- [Transaction lifecycle review](docs/reviews/001a-transaction-lifecycle.md)
-- [Durable intake specification and source commits](docs/specs/001b-durable-intake.md)
-- [Durable intake review](docs/reviews/001b-durable-intake.md)
-- [Pending-work specification](docs/specs/001c-pending-work.md)
-- [Pending-work review](docs/reviews/001c-pending-work.md)
 - [Transaction terminology](CONTEXT.md)
-- [Foundation review and verification](docs/foundation-review.md)
+- [Active specifications](docs/specs) and [history: implemented specifications, reviews and plans](docs/archive/README.md)
 - [Contract baseline provenance](tests/IPS.Middleware.Tests/Baselines/README.md)
 
 ## Source and compatibility

@@ -1,5 +1,30 @@
 # Local environment (Aspire)
 
+## Start for development
+
+`tools/IPS.Middleware.DevAppHost` starts everything you need to work on the gateway with one command. Start Docker Desktop first. Then choose a launch profile in the IDE, or run:
+
+```
+dotnet run --project tools/IPS.Middleware.DevAppHost --launch-profile Local
+```
+
+| Profile | What runs | Needs |
+|---|---|---|
+| `Local` | SQL Server, the simulators (as IPS and the Proxy Solution), the API and the sample core system. Incoming is off because the simulators don't serve the receive path yet. | Docker only |
+| `Uat` | The API with its own settings (`appsettings.json`, its `Uat` launch profile and user secrets) against the real IPS UAT, and the sample core system. No container: the database is the one in the API's `ConnectionStrings:Middleware`. | The [IPS certificates](#connect-to-the-ips-uat) installed and that SQL Server reachable |
+
+The dashboard is at `http://localhost:15080`. The API is at `http://localhost:5080`, and the core system is at `http://localhost:5280/swagger`. In `Local`, SQL Server runs in a persistent container with a volume, so data survives restarts. The database is `IpsGatewayLocal`, and the API migrates it at startup. The generated SQL password is kept in the AppHost's user secrets. If you delete the secret, also delete the `ips-middleware-dev-sql` volume.
+
+To use a different database in either mode, set `ConnectionStrings:Middleware` for the AppHost. In `Local` it replaces the container, and in `Uat` it overrides the API's own setting. You can set it in the AppHost's user secrets, or pass it as `--ConnectionStrings:Middleware=...` after `--`:
+
+```
+dotnet user-secrets set "ConnectionStrings:Middleware" "Server=...;Database=...;User Id=...;Password=...;TrustServerCertificate=True" --project tools/IPS.Middleware.DevAppHost
+```
+
+The AppHost then starts no SQL container. The API still migrates that database at startup, so don't point it at a database you don't want migrated. Remove the secret to go back to the defaults.
+
+The rest of this page describes the test AppHost in `tests/IPS.Middleware.AppHost`, which the Aspire tests and the performance harness use.
+
 A whole deployment of the middleware on one machine, for local runs and for the Aspire tests: SQL Server in a container, simulators standing in for IPS, the CBS and the Proxy Solution, and one or more instances of the API. It is test support, not part of the deployable service; see [012](archive/specs/012-aspire-test-environment.md).
 
 ## What starts

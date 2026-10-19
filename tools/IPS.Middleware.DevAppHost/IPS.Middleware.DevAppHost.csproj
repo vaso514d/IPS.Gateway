@@ -1,0 +1,26 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.1">
+  <!--
+    One-click start for development: SQL Server in a container, the gateway API and the sample core system, in one of two
+    modes chosen by launch profile (Local against the simulators, Uat against the real IPS UAT). See docs/local-environment.md.
+    Not referenced by src/, never shipped. The tests keep their own AppHost in tests/IPS.Middleware.AppHost.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Keeps the generated SQL password stable across runs, so the persistent container and its volume keep working. -->
+    <UserSecretsId>ips-middleware-dev-apphost</UserSecretsId>
+    <!-- The Aspire CLI bundle is not needed to run this AppHost. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The run's throwaway certificates, shared with the test AppHost rather than copied. -->
+    <Compile Include="../../tests/IPS.Middleware.AppHost/DevelopmentCertificates.cs" Link="DevelopmentCertificates.cs" />
+    <Compile Include="../../tests/IPS.Middleware.AppHost/TemporaryDirectories.cs" Link="TemporaryDirectories.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.SqlServer" />
+    <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" />
+    <ProjectReference Include="../../samples/IPS.MiidleWear.CoreAPI/IPS.MiidleWear.CoreAPI.csproj" />
+    <ProjectReference Include="../../tests/IPS.Middleware.Simulators/IPS.Middleware.Simulators.csproj" />
+  </ItemGroup>
+</Project>

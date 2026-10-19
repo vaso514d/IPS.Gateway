@@ -167,6 +167,9 @@
     <Project Path="tests/IPS.Middleware.Tests/IPS.Middleware.Tests.csproj" />
     <Project Path="tests/IPS.Middleware.Performance/IPS.Middleware.Performance.csproj" />
   </Folder>
+  <Folder Name="/_tools/">
+    <Project Path="tools/IPS.Middleware.DevAppHost/IPS.Middleware.DevAppHost.csproj" />
+  </Folder>
   <Folder Name="/_samples/">
     <Project Path="samples/IPS.MiidleWear.CoreAPI/IPS.MiidleWear.CoreAPI.csproj" />
   </Folder>
