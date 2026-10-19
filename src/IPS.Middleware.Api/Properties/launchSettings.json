@@ -1,15 +1,6 @@
 {
   "profiles": {
-    "Local": {
-      "commandName": "Project",
-      "launchBrowser": false,
-      "applicationUrl": "http://localhost:5080",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "Database__MigrateOnStartup": "true"
-      }
-    },
-    "Uat (no certificates)": {
+    "Uat": {
       "commandName": "Project",
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5080",

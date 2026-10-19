@@ -1,3 +1,3 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("IPS.Middleware.Integration")]
+[assembly: InternalsVisibleTo("IPS.Middleware.IntegrationTests")]

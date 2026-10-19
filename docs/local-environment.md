@@ -46,9 +46,9 @@ Options, as `--Name=value`: `Rate` (requests per second measured, default 50), `
 
 For a quick check that the harness works, run it for 20 seconds at 10 requests per second into a scratch directory, as in the example above.
 
-## Connect to the IPS UAT without certificates
+## Connect to the IPS UAT
 
-For the first UAT tests NBG accepts traffic without certificates. The `Uat (no certificates)` launch profile of the Api points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
+For the first UAT tests NBG accepts traffic without certificates. The `Uat` launch profile, the Api's only profile, points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
 
 - **Development only.** The gateway runs only in Development without an IPS client certificate, and sends XML unsigned only with `Payments:Signing:AllowUnsignedInDevelopment`. The profile therefore sets `ASPNETCORE_ENVIRONMENT=Development`. Use it on a test machine only: Development also serves `/openapi/v1.json`.
 - **No signature checks.** `IpsSignatureTrust` is empty, so IPS signatures are not checked.
