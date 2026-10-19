@@ -109,7 +109,7 @@ public sealed class CertificateSettings
     {
         if (FromStore)
         {
-            return LoadFromStore();
+            return LoadFromStore(privateKeyRequired);
         }
 
         if (FromPkcs12Text)
@@ -140,7 +140,7 @@ public sealed class CertificateSettings
         }
     }
 
-    private X509Certificate2 LoadFromStore()
+    private X509Certificate2 LoadFromStore(bool privateKeyRequired)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -152,6 +152,7 @@ public sealed class CertificateSettings
             throw new InvalidOperationException("Store certificates cannot specify file credentials.");
         }
 
+        string? unusableKeyIn = null;
         foreach (var (name, location) in Stores)
         {
             using var store = new X509Store(name, location);
@@ -167,10 +168,20 @@ public sealed class CertificateSettings
             var matches = store.Certificates.Find(X509FindType.FindByThumbprint, Thumbprint!, validOnly: false);
             try
             {
-                if (matches.Count > 0)
+                if (matches.Count == 0)
                 {
-                    return new X509Certificate2(matches[0]);
+                    continue;
                 }
+
+                // A copy whose private key this account cannot open is skipped, so another store's copy can still be used.
+                var certificate = new X509Certificate2(matches[0]);
+                if (!privateKeyRequired || CanOpenPrivateKey(certificate))
+                {
+                    return certificate;
+                }
+
+                certificate.Dispose();
+                unusableKeyIn ??= $@"{location}\{name}";
             }
             finally
             {
@@ -181,7 +192,23 @@ public sealed class CertificateSettings
             }
         }
 
-        throw new InvalidOperationException($"No certificate with thumbprint {Thumbprint} is installed in the CurrentUser or LocalMachine Personal, Root or Intermediate stores.");
+        throw new InvalidOperationException(unusableKeyIn is null
+            ? $"No certificate with thumbprint {Thumbprint} is installed in the CurrentUser or LocalMachine Personal, Root or Intermediate stores."
+            : $@"Certificate {Thumbprint} is installed in {unusableKeyIn}, but {Environment.UserDomainName}\{Environment.UserName} cannot open its private key. " +
+              "Grant this account Read on the key (certlm.msc, the certificate, All Tasks, Manage Private Keys) or install the certificate for this user.");
+    }
+
+    private static bool CanOpenPrivateKey(X509Certificate2 certificate)
+    {
+        try
+        {
+            using var key = (AsymmetricAlgorithm?)certificate.GetECDsaPrivateKey() ?? certificate.GetRSAPrivateKey();
+            return key is not null;
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
     }
 
     private X509Certificate2 LoadPkcs12(bool forTls)
