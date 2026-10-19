@@ -14,6 +14,8 @@ public static class SampleApp
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<CoreLedger>();
         builder.Services.AddIpsCoreReceiver<SampleReceiver>();
+        // The receiver's own document, exactly as a bank's core system serves it, and the sample's extras in v1.
+        builder.Services.AddIpsCoreReceiverOpenApi();
         builder.Services.AddOpenApi();
         configure?.Invoke(builder);
 
@@ -22,7 +24,11 @@ public static class SampleApp
         // For people trying the sample: what the gateway delivered and what the core answered.
         app.MapGet("/sample/ledger", (CoreLedger ledger) => ledger.Snapshot());
         app.MapOpenApi();
-        app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "IPS Core API"));
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint($"/openapi/{CoreReceiverOpenApi.DocumentName}.json", "IPS core receiver");
+            options.SwaggerEndpoint("/openapi/v1.json", "Sample extras");
+        });
         app.MapGet("/", () => Results.Redirect("/swagger"))
             .ExcludeFromDescription();
         return app;

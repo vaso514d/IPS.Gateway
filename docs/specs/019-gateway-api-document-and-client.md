@@ -1,6 +1,6 @@
 # Specification 019: the gateway's API document, Swagger UI and a typed gateway client
 
-Status: proposed on main (base 19a9bb6); the owner chose to work on main on 2026-10-17. The owner made three choices on 2026-10-17: Swagger UI, the document served behind a configuration switch, and a new typed client package. On 2026-10-17 the owner approved the specification with the recommended D1, D2 and D3 and asked for 019a.
+Status: proposed on main (base 19a9bb6); the owner chose to work on main on 2026-10-17. The owner made three choices on 2026-10-17: Swagger UI, the document served behind a configuration switch, and a new typed client package. On 2026-10-17 the owner approved the specification with the recommended D1, D2 and D3 and asked for 019a. On 2026-10-19 the owner asked for the receiver part of 019a first: `AddIpsCoreReceiverOpenApi` in the package, served by CoreAPI with Swagger UI; the tool and `docs/openapi/` are removed.
 
 ## Why
 

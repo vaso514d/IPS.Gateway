@@ -35,7 +35,8 @@ public static class IpsCoreReceiverExtensions
     public static RouteGroupBuilder MapIpsCoreReceiver(this IEndpointRouteBuilder endpoints)
     {
         RequireReceiver(endpoints.ServiceProvider);
-        var group = endpoints.MapGroup(string.Empty);
+        // The endpoints belong to the receiver document only, so the application's own documents do not list them.
+        var group = endpoints.MapGroup(string.Empty).WithGroupName(CoreReceiverOpenApi.DocumentName);
         CoreReceiverEndpoints.Map(group);
         return group;
     }

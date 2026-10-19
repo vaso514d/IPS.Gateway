@@ -10,6 +10,17 @@ app.MapIpsCoreReceiver();                                 // returns the endpoin
 
 The package reads every request and writes every answer with `IpsJson.SerializerOptions`, whatever JSON settings the application uses, and maps the routes from the contract.
 
+## OpenAPI document
+
+```csharp
+builder.Services.AddIpsCoreReceiverOpenApi();            // the "ips-core-receiver" document, OpenAPI 3.0
+var app = builder.Build();
+app.MapIpsCoreReceiver();
+app.MapOpenApi();                                         // serves /openapi/ips-core-receiver.json
+```
+
+The document lists only the receiver operations, with the `Idempotency-Key` header of each delivery and typed examples of what the gateway sends and reads. The application's own endpoints stay in its own documents.
+
 ## Endpoints
 
 | Method | Route | Operation | Idempotency-Key |

@@ -4,15 +4,25 @@
     The core-system stand-in for local and UAT runs, built only on IPS.MiidleWear.AspNetCore (018): idempotent receipt,
     PDNG while posting, 404 for unknown references, status callbacks and reversals, over an in-memory ledger, with
     Swagger UI. Not shipped as a package; the in-memory ledger is not a production storage pattern.
+
+    The receiver document is written on demand (not on every build) into the gitignored artifacts/openapi/:
+      dotnet build samples/IPS.MiidleWear.CoreAPI -p:OpenApiGenerateDocumentsOnBuild=true
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiGenerateDocumentsOnBuild>false</OpenApiGenerateDocumentsOnBuild>
+    <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)../../artifacts/openapi</OpenApiDocumentsDirectory>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
   </ItemGroup>
 

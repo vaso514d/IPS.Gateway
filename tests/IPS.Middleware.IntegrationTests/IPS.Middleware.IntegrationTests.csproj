@@ -20,7 +20,6 @@
     <ProjectReference Include="../../src/IPS.MiidleWear.Testing/IPS.MiidleWear.Testing.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../../src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
-    <ProjectReference Include="../../tools/IPS.MiidleWear.OpenApi/IPS.MiidleWear.OpenApi.csproj" />
     <ProjectReference Include="../../samples/IPS.MiidleWear.CoreAPI/IPS.MiidleWear.CoreAPI.csproj" />
   </ItemGroup>
 </Project>

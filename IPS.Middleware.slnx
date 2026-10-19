@@ -170,7 +170,4 @@
   <Folder Name="/_samples/">
     <Project Path="samples/IPS.MiidleWear.CoreAPI/IPS.MiidleWear.CoreAPI.csproj" />
   </Folder>
-  <Folder Name="/_tools/">
-    <Project Path="tools/IPS.MiidleWear.OpenApi/IPS.MiidleWear.OpenApi.csproj" />
-  </Folder>
 </Solution>

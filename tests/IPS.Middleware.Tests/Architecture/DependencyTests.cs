@@ -43,13 +43,14 @@ public sealed class DependencyTests
         Assert.All(Values(lines, "frameworkReference"), framework => Assert.Equal("Microsoft.NETCore.App", framework));
     }
 
-    // The client package a core system hosts its receiver with (017b): Contracts and the ASP.NET Core shared framework only.
+    // The client package a core system hosts its receiver with (017b): Contracts and the ASP.NET Core shared framework, plus
+    // Microsoft.AspNetCore.OpenApi for the receiver document it registers (019a).
     [Fact]
-    public void The_receiver_package_uses_only_Contracts_and_the_AspNetCore_framework()
+    public void The_receiver_package_uses_only_Contracts_the_AspNetCore_framework_and_its_OpenApi()
     {
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.MiidleWear.AspNetCore.dependencies.txt"));
-        Assert.Empty(Values(lines, "packageReference"));
-        Assert.Empty(Values(lines, "assemblyReference"));
+        Assert.Equal(new[] { "Microsoft.AspNetCore.OpenApi" }, Values(lines, "packageReference"));
+        Assert.Equal(new[] { "Microsoft.AspNetCore.OpenApi", "Microsoft.OpenApi" }, Values(lines, "assemblyReference").Order(StringComparer.Ordinal));
         Assert.Equal(new[] { "Microsoft.AspNetCore.App", "Microsoft.NETCore.App" }, Values(lines, "frameworkReference").Order(StringComparer.Ordinal));
     }
 
