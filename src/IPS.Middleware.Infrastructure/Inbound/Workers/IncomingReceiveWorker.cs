@@ -111,9 +111,10 @@ public sealed class IncomingReceiveWorker(
             response.Transport.Body, response.PossibleDuplicate, response.ReceivedAtUtc);
     }
 
-    // IPS expects a status report, a financial-institution transfer, a payment return, a payment initiation, a recall or a
-    // cancellation to be acknowledged, and only once it is stored. A failed or skipped acknowledgement loses nothing: IPS
-    // redelivers the message and the duplicate receipt is acknowledged again.
+    // IPS expects every message to be acknowledged once it is stored, whether or not the gateway processes its type; only a
+    // pacs.008 is confirmed by its pacs.002 reply instead (Annex D 2.2). An unacknowledged message is redelivered forever.
+    // A failed or skipped acknowledgement loses nothing: IPS redelivers the message and the duplicate receipt is
+    // acknowledged again.
     private void QueueAcknowledgement(ChannelWriter<Acknowledgement> acknowledgements, InboundReceipt receipt)
     {
         if (!NeedsAcknowledgement(receipt, out var sequence))
@@ -135,9 +136,7 @@ public sealed class IncomingReceiveWorker(
     private static bool NeedsAcknowledgement(InboundReceipt receipt, out long sequence)
     {
         sequence = receipt.Sequence ?? 0;
-        var acknowledgedType = PaymentMessageTypes.IsPacs002(receipt.MessageType)
-            || PaymentMessageTypes.IsIncomingTransfer(receipt.MessageType);
-        return acknowledgedType && sequence > 0;
+        return !PaymentMessageTypes.IsPacs008(receipt.MessageType) && sequence > 0;
     }
 
     // At most AcknowledgementCapacity acknowledgements run at once. The loop promises a beat within one IPS request timeout, the

@@ -268,6 +268,7 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 
 ## Business-flow audit corrections (012a)
 
+- **Every stored message is acknowledged.** Annex D 2.2 requires a MessageAck for every message type except pacs.008, whose pacs.002 reply confirms it. The gateway therefore also acknowledges types it does not process (camt.053, pcps.001 and any other), once they are stored and held; otherwise IPS would redeliver them forever.
 - **Acknowledgement never blocks receiving.** `IncomingReceiveWorker` commits a receipt, queues its MessageAck on a bounded in-memory queue (`AcknowledgementBacklog`) and polls again. An acknowledgement loop in the same worker sends at most `AcknowledgementCapacity` at once, beats its own "IPS acknowledgement" heartbeat and drains the queue after polling stops, within the shutdown budget. A full queue skips the acknowledgement; IPS redelivery acknowledges the duplicate. The acknowledgement connections are reserved: replies get `IncomingWorkerOptions.IpsSendCapacity` (IPS ConnectionLimit - 1 - AcknowledgementCapacity) through `IncomingReplyAdmission`, which `AddIncomingWorkers` registers before composition's default.
 - **Fair CBS follow-up.** `FollowUpAdmission` offers due pacs.008 reconciliation and transfer work alternately and starts each admission with the kind not admitted last, across sweeps.
 - **pacs.004 ceiling.** `Pacs004Validator` compares the amounts with the same normalized currencies (`ValidatedPacs004.CurrencyOf`/`OriginalCurrencyOf`) the message is built with.

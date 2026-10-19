@@ -43,7 +43,7 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
         var coreRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         await using var server = await HttpSimulator.StartAsync(async context =>
         {
-            paths.Enqueue(context.Request.Method + " " + context.Request.Path);
+            paths.Enqueue(context.Request.Method + " " + context.Request.Path + " " + context.Request.Headers["X-MONTRAN-IPS-MessageSeq"]);
             if (context.Request.Method == "GET" && context.Request.Path == "/Message")
             {
                 if (received.TryDequeue(out var message))
@@ -130,7 +130,8 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
             Assert.Equal(acceptReplies ? 2 : 4, await final.Database.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM InboundMessageJournal WHERE Status = 2").SingleAsync());
             Assert.Contains(replies, xml => xml.Contains("IN-GROUP-1", StringComparison.Ordinal));
             Assert.Contains(replies, xml => xml.Contains("IN-GROUP-2", StringComparison.Ordinal));
-            Assert.DoesNotContain(paths, path => path.Contains("Ack", StringComparison.OrdinalIgnoreCase));
+            // A pacs.008 is confirmed by its pacs.002 reply, never by MessageAck; the camt.053 (sequence 3) is acknowledged.
+            Assert.All(paths.Where(path => path.Contains("Ack", StringComparison.OrdinalIgnoreCase)), path => Assert.Equal("POST /MessageAck 3", path));
         }
         finally { coreRelease.TrySetResult(); await Task.WhenAll(one.StopAsync(), two.StopAsync()); }
     }
