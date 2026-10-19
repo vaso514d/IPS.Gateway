@@ -8,10 +8,16 @@ using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Transport;
 using IPS.MiidleWear.Contracts.Transactions;
+using Microsoft.Extensions.Logging;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Transport;
 
-public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransportSettings settings, BankIdentity bank)
+// Logs every CBS exchange with the configured address, so an operator can tell a CBS outage from an IPS one.
+public sealed class IncomingCbsClient(
+    IHttpClientFactory clients,
+    IncomingTransportSettings settings,
+    BankIdentity bank,
+    ILogger<IncomingCbsClient> logger)
     : IIncomingCoreClient, IIncomingReversalClient, IIncomingTransferCoreClient
 {
     public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request payment, CancellationToken cancellationToken)
@@ -81,7 +87,22 @@ public sealed class IncomingCbsClient(IHttpClientFactory clients, IncomingTransp
             request.Headers.Add(IpsHeaders.IdempotencyKey, idempotencyKey);
         }
 
-        var (status, body, headers) = await HttpEvidence.SendAsync(clients, IncomingHttpRegistration.Cbs, request, cancellationToken);
-        return new CoreResponse(status, body, headers.Select(header => new CoreHeader(header.Name, header.Value)).ToArray());
+        try
+        {
+            var (status, body, headers) = await HttpEvidence.SendAsync(clients, IncomingHttpRegistration.Cbs, request, cancellationToken);
+            var level = status is >= 200 and < 300 ? LogLevel.Information : LogLevel.Warning;
+            logger.Log(level, "CBS {BaseUrl} answered {Method} {Path} with HTTP {Status}", settings.Cbs.BaseUrl, method, path, status);
+            return new CoreResponse(status, body, headers.Select(header => new CoreHeader(header.Name, header.Value)).ToArray());
+        }
+        catch (Exception error)
+        {
+            // The caller records the failure as evidence and schedules any retry; this line only names the failing side.
+            logger.LogError("CBS {BaseUrl} did not answer {Method} {Path}: {Failure}", settings.Cbs.BaseUrl, method, path, Describe(error));
+            throw;
+        }
     }
+
+    private static string Describe(Exception error) => error.InnerException is { } inner
+        ? $"{error.GetType().Name}: {error.Message} ({inner.Message})"
+        : $"{error.GetType().Name}: {error.Message}";
 }
