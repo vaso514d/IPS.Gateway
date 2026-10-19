@@ -123,7 +123,7 @@ No document is committed. To write either one as a file (OpenAPI 3.0, into the g
 
 ```powershell
 dotnet build src/IPS.Middleware.Api -p:OpenApiGenerateDocumentsOnBuild=true
-dotnet build samples/IPS.MiidleWear.CoreReceiver.Sample -p:OpenApiGenerateDocumentsOnBuild=true
+dotnet build samples/IPS.MiidleWear.CoreAPI -p:OpenApiGenerateDocumentsOnBuild=true
 ```
 
 The gateway file describes every operation whatever the configuration: while the generator runs the host, it skips validation and migration and maps every controller.

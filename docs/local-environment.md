@@ -61,7 +61,7 @@ IPS authenticates the bank by its TLS client certificate and answers every reque
 - **IPS server certificate.** The UAT server certificate is issued by IPS's private CA, which the operating system does not trust, so `Ips:ServerTrust` names both CAs. The profile turns off the IPS revocation check, because the CRLs are published only in IPS's internal LDAP (`DC=ips,DC=local`). Hostname and chain validation stay on.
 - **Development.** The profile sets `ASPNETCORE_ENVIRONMENT=Development`. Use it on a test machine only: Development also serves `/openapi/v1.json`.
 - **No IPS signature checks.** `IpsSignatureTrust` stays empty until IPS provides its signing certificate, so IPS signatures are not checked.
-- **Core system.** The CBS base URL is `http://localhost:5280`, the sample receiver (`dotnet run --project samples/IPS.MiidleWear.CoreReceiver.Sample`), which stands in for the core system until a real one is connected.
+- **Core system.** The CBS base URL is `http://localhost:5280`, `IPS.MiidleWear.CoreAPI` (`dotnet run --project samples/IPS.MiidleWear.CoreAPI`, Swagger UI at `http://localhost:5280/swagger`), which stands in for the core system until a real one is connected.
 - **From appsettings.json.** The bank codes and the SQL connection string come from `appsettings.json`; put a different connection string or password in user secrets or the environment, not in the file.
 - **Database.** `Database:MigrateOnStartup` stays off, so apply the migrations to the UAT database with the EF CLI first.
 - **Proxy.** Proxy management stays disabled until NBG gives its address.

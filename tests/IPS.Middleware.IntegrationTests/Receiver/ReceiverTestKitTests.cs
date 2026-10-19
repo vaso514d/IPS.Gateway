@@ -5,7 +5,7 @@ using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.MiidleWear.Contracts.Http;
-using IPS.MiidleWear.CoreReceiver.Sample;
+using IPS.MiidleWear.CoreAPI;
 using IPS.MiidleWear.Testing;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

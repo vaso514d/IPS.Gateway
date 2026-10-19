@@ -11,7 +11,7 @@ using IPS.MiidleWear.Contracts.Pain001;
 using IPS.MiidleWear.Contracts.Transactions;
 using Microsoft.Extensions.Options;
 
-namespace IPS.MiidleWear.CoreReceiver.Sample;
+namespace IPS.MiidleWear.CoreAPI;
 
 // The bank's part: the nine operations. IPS.MiidleWear.AspNetCore maps them to the gateway's routes, JSON and status codes.
 public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context, IOptions<SampleOptions> options, TimeProvider timeProvider)

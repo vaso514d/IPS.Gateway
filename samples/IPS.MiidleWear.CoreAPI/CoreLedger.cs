@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Transactions;
 
-namespace IPS.MiidleWear.CoreReceiver.Sample;
+namespace IPS.MiidleWear.CoreAPI;
 
 // The identifiers an answer echoes back (see each receive operation's description).
 public sealed record Echo(string? Id, string? EndToEndId, string? TxId);

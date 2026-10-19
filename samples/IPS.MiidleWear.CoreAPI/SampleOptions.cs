@@ -1,4 +1,4 @@
-namespace IPS.MiidleWear.CoreReceiver.Sample;
+namespace IPS.MiidleWear.CoreAPI;
 
 // appsettings.json "Sample": how the sample core answers, so each path the gateway can see is easy to try.
 public sealed class SampleOptions

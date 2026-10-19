@@ -1,6 +1,6 @@
 using IPS.MiidleWear.AspNetCore;
 
-namespace IPS.MiidleWear.CoreReceiver.Sample;
+namespace IPS.MiidleWear.CoreAPI;
 
 // A named entry point instead of top-level statements, so tests can start the sample without a second global Program.
 public static class SampleApp
@@ -14,12 +14,17 @@ public static class SampleApp
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<CoreLedger>();
         builder.Services.AddIpsCoreReceiver<SampleReceiver>();
+        builder.Services.AddOpenApi();
         configure?.Invoke(builder);
 
         var app = builder.Build();
         app.MapIpsCoreReceiver();
         // For people trying the sample: what the gateway delivered and what the core answered.
         app.MapGet("/sample/ledger", (CoreLedger ledger) => ledger.Snapshot());
+        app.MapOpenApi();
+        app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "IPS Core API"));
+        app.MapGet("/", () => Results.Redirect("/swagger"))
+            .ExcludeFromDescription();
         return app;
     }
 }

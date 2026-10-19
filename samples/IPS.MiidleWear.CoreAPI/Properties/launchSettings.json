@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "IPS.MiidleWear.CoreReceiver.Sample": {
+    "IPS.MiidleWear.CoreAPI": {
       "commandName": "Project",
       "launchBrowser": false,
       "environmentVariables": {

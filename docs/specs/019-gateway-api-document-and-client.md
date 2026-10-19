@@ -88,7 +88,7 @@ Revised on 2026-10-17 (owner): the documents are generated from code, following 
 
 ```powershell
 dotnet build src/IPS.Middleware.Api -p:OpenApiGenerateDocumentsOnBuild=true
-dotnet build samples/IPS.MiidleWear.CoreReceiver.Sample -p:OpenApiGenerateDocumentsOnBuild=true
+dotnet build samples/IPS.MiidleWear.CoreAPI -p:OpenApiGenerateDocumentsOnBuild=true
 ```
 
 `dotnet-getdocument` runs the Api's `Program`. While it does (Microsoft's documented `GetDocument.Insider` entry-assembly check), the Api:
