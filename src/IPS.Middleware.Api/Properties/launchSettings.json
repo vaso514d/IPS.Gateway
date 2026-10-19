@@ -12,6 +12,8 @@
         "Payments__Outgoing__Transport__Ips__ServerTrust__0__Path": "Certificates/ips-uat-root.cer",
         "Payments__Outgoing__Transport__Ips__ServerTrust__1__Path": "Certificates/ips-uat-subca.cer",
         "Payments__Outgoing__Transport__Ips__CheckCertificateRevocation": "false",
+        "Payments__Outgoing__Transport__Ips__ClientCertificate__Thumbprint": "B264BEB0329F4CDB55CFC84E12558CE7A9075A72",
+        "Payments__Outgoing__Transport__SigningCertificate__Thumbprint": "D93CFF446F02C2B265DEB9FDF39D4E3F622F868F",
         "Payments__Outgoing__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Outgoing__Execution__Enabled": "true",
         "Payments__Incoming__Transport__Enabled": "true",
@@ -19,6 +21,8 @@
         "Payments__Incoming__Transport__Ips__ServerTrust__0__Path": "Certificates/ips-uat-root.cer",
         "Payments__Incoming__Transport__Ips__ServerTrust__1__Path": "Certificates/ips-uat-subca.cer",
         "Payments__Incoming__Transport__Ips__CheckCertificateRevocation": "false",
+        "Payments__Incoming__Transport__Ips__ClientCertificate__Thumbprint": "B264BEB0329F4CDB55CFC84E12558CE7A9075A72",
+        "Payments__Incoming__Transport__SigningCertificate__Thumbprint": "D93CFF446F02C2B265DEB9FDF39D4E3F622F868F",
         "Payments__Incoming__Transport__Cbs__BaseUrl": "http://localhost:5280",
         "Payments__Incoming__Workers__Enabled": "true"
       }

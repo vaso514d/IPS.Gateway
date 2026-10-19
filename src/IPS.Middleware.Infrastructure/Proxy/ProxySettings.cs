@@ -23,9 +23,6 @@ public sealed class ProxySettings
         }
 
         Endpoint.Validate(development);
-        if (!development && Endpoint.ClientCertificate is null)
-        {
-            throw new InvalidOperationException("Proxy mutual TLS requires a client certificate.");
-        }
+        Endpoint.RequireClientCertificate(development, "Proxy");
     }
 }

@@ -48,16 +48,16 @@ For a quick check that the harness works, run it for 20 seconds at 10 requests p
 
 ## Connect to the IPS UAT
 
-For the first UAT tests NBG accepts traffic without certificates. The `Uat` launch profile, the Api's only profile, points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
+IPS authenticates the bank by its TLS client certificate: without one every request is answered 401, so the gateway refuses to start without it. The `Uat` launch profile, the Api's only profile, points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
 
-- **Development only.** The gateway runs only in Development without an IPS client certificate, and sends XML unsigned only with `Payments:Signing:AllowUnsignedInDevelopment`. The profile therefore sets `ASPNETCORE_ENVIRONMENT=Development`. Use it on a test machine only: Development also serves `/openapi/v1.json`.
+- **Development.** The profile sets `ASPNETCORE_ENVIRONMENT=Development`; XML may be sent unsigned only there and only with `Payments:Signing:AllowUnsignedInDevelopment`. The client certificate is required in Development too. Use it on a test machine only: Development also serves `/openapi/v1.json`.
 - **IPS server certificate.** The UAT server certificate is issued by IPS's private CA (`IPS Class 1 Root CA` → `IPS-Class2-SubCA-Test`), which Windows does not trust. The profile trusts both CAs from `src/IPS.Middleware.Api/Certificates` through `Ips:ServerTrust` (the paths are relative to the working directory, the Api project directory). It also turns off the IPS revocation check, because the CRLs are published only in IPS's internal LDAP (`DC=ips,DC=local`). Hostname and chain validation stay on.
 - **No signature checks.** `IpsSignatureTrust` is empty, so IPS signatures are not checked.
 - **Core system.** The CBS base URL is `http://localhost:5280`, the sample receiver (`dotnet run --project samples/IPS.MiidleWear.CoreReceiver.Sample`), which stands in for the core system until a real one is connected.
 - **From appsettings.json.** The bank codes and the SQL connection string come from `appsettings.json`; put a different connection string or password in user secrets or the environment, not in the file.
 - **Database.** `Database:MigrateOnStartup` stays off, so apply the migrations to the UAT database with the EF CLI first.
 - **Proxy.** Proxy management stays disabled until NBG gives its address.
-- **With certificates.** Use another environment name and configure the certificates (see [configuration](configuration.md)). The startup checks then require the IPS client certificate and signing again.
+- **Bank certificates.** IPS issues the bank a TLS client certificate (`IT-IPSClientAuthTest`, thumbprint `B264BEB0…`) and an XML signing certificate (`IT-IPSSignAgentTest`, `D93CFF44…`), both ECC. They are imported with their private keys into `LocalMachine\My`, never into the repository. The profile selects them by `ClientCertificate:Thumbprint` and `SigningCertificate:Thumbprint` in both directions; `StoreLocation` and `StoreName` default to `LocalMachine` and `My`. The account that runs the gateway needs read access to both private keys (certlm.msc → the certificate → All Tasks → Manage Private Keys → Read); without it startup fails with `Keyset does not exist`. A configured signing certificate signs every message, so `AllowUnsignedInDevelopment` no longer applies. The startup summary reports `client certificate configured`.
 
 ## Notes
 

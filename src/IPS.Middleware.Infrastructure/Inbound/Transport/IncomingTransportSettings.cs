@@ -67,9 +67,6 @@ public sealed class IncomingTransportSettings
             throw new InvalidOperationException("IPS requires a receive reservation; CBS requires two follow-up reservations.");
         }
 
-        if (!development && Ips.ClientCertificate is null)
-        {
-            throw new InvalidOperationException("IPS mutual TLS requires a client certificate.");
-        }
+        Ips.RequireClientCertificate(development, "IPS");
     }
 }

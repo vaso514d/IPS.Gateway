@@ -30,4 +30,15 @@ public sealed class HttpEndpointSettings
 
         CircuitBreaker.Validate();
     }
+
+    // IPS authenticates the participant by its TLS client certificate and answers 401 without one (Annex D 6.2), so
+    // every real endpoint requires it in every environment. Only a loopback simulator in Development runs without one.
+    internal void RequireClientCertificate(bool development, string service)
+    {
+        var simulator = development && Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri) && uri.IsLoopback;
+        if (ClientCertificate is null && !simulator)
+        {
+            throw new InvalidOperationException($"{service} mutual TLS requires a client certificate (only a loopback simulator in Development runs without one).");
+        }
+    }
 }
