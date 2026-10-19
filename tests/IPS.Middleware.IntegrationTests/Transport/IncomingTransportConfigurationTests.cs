@@ -116,8 +116,26 @@ public sealed class IncomingTransportConfigurationTests
         if (OperatingSystem.IsWindows())
         {
             Assert.Throws<InvalidOperationException>(() => new CertificateSettings
-            { Thumbprint = new string('0', 40), StoreLocation = StoreLocation.CurrentUser }.Load(false, DateTimeOffset.UtcNow));
+            { Thumbprint = new string('0', 40) }.Load(false, DateTimeOffset.UtcNow));
         }
+    }
+
+    [Fact]
+    public void A_store_thumbprint_alone_finds_the_certificate_in_any_standard_store()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var roots = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
+        roots.Open(OpenFlags.ReadOnly);
+        var now = DateTimeOffset.UtcNow;
+        var root = roots.Certificates.First(certificate => certificate.NotBefore < now && certificate.NotAfter > now);
+
+        using var loaded = new CertificateSettings { Thumbprint = root.Thumbprint }.Load(false, now);
+
+        Assert.Equal(root.Thumbprint, loaded.Thumbprint);
     }
 
     [Theory]

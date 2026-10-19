@@ -48,16 +48,27 @@ For a quick check that the harness works, run it for 20 seconds at 10 requests p
 
 ## Connect to the IPS UAT
 
-IPS authenticates the bank by its TLS client certificate: without one every request is answered 401, so the gateway refuses to start without it. The `Uat` launch profile, the Api's only profile, points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`) and enables outgoing execution, incoming transport and the incoming workers.
+IPS authenticates the bank by its TLS client certificate and answers every request without one with 401, so the gateway refuses to start without it. The `Uat` launch profile, the Api's only profile, points both directions at `https://ips.uat.ipsgeorgia.ge:444/ips` (the gateway calls `.../ips/Message` and `.../ips/MessageAck`), enables outgoing execution, incoming transport and the incoming workers, and names every certificate by thumbprint alone.
 
-- **Development.** The profile sets `ASPNETCORE_ENVIRONMENT=Development`; XML may be sent unsigned only there and only with `Payments:Signing:AllowUnsignedInDevelopment`. The client certificate is required in Development too. Use it on a test machine only: Development also serves `/openapi/v1.json`.
-- **IPS server certificate.** The UAT server certificate is issued by IPS's private CA (`IPS Class 1 Root CA` → `IPS-Class2-SubCA-Test`), which Windows does not trust. The profile trusts both CAs from `src/IPS.Middleware.Api/Certificates` through `Ips:ServerTrust` (the paths are relative to the working directory, the Api project directory). It also turns off the IPS revocation check, because the CRLs are published only in IPS's internal LDAP (`DC=ips,DC=local`). Hostname and chain validation stay on.
-- **No signature checks.** `IpsSignatureTrust` is empty, so IPS signatures are not checked.
+| Certificate | Thumbprint | Setting (both directions) |
+|---|---|---|
+| `IT-IPSClientAuthTest` (TLS client, ECC, with private key) | `B264BEB0329F4CDB55CFC84E12558CE7A9075A72` | `Ips:ClientCertificate` |
+| `IT-IPSSignAgentTest` (XML signing, ECC, with private key) | `D93CFF446F02C2B265DEB9FDF39D4E3F622F868F` | `SigningCertificate` |
+| `IPS Class 1 Root CA` | `D7EBAB3464BF9F04FC84EBF37ED6E445CFCDD1BD` | `Ips:ServerTrust:0` |
+| `IPS-Class2-SubCA-Test` | `59A0E74A883DF309BEF5A27190788945BEFCB7C2` | `Ips:ServerTrust:1` |
+
+- **Certificate stores.** A thumbprint is looked up in the Personal, Root and Intermediate stores of the current user first, then of the local machine. A development machine therefore installs the certificates for its user, and a server installs them in `LocalMachine` with the same configuration. On a server the account that runs the gateway needs read access to the two private keys (certlm.msc → the certificate → All Tasks → Manage Private Keys → Read); without it startup fails with `Keyset does not exist`.
+- **IPS server certificate.** The UAT server certificate is issued by IPS's private CA, which the operating system does not trust, so `Ips:ServerTrust` names both CAs. The profile turns off the IPS revocation check, because the CRLs are published only in IPS's internal LDAP (`DC=ips,DC=local`). Hostname and chain validation stay on.
+- **Development.** The profile sets `ASPNETCORE_ENVIRONMENT=Development`. Use it on a test machine only: Development also serves `/openapi/v1.json`.
+- **No IPS signature checks.** `IpsSignatureTrust` stays empty until IPS provides its signing certificate, so IPS signatures are not checked.
 - **Core system.** The CBS base URL is `http://localhost:5280`, the sample receiver (`dotnet run --project samples/IPS.MiidleWear.CoreReceiver.Sample`), which stands in for the core system until a real one is connected.
 - **From appsettings.json.** The bank codes and the SQL connection string come from `appsettings.json`; put a different connection string or password in user secrets or the environment, not in the file.
 - **Database.** `Database:MigrateOnStartup` stays off, so apply the migrations to the UAT database with the EF CLI first.
 - **Proxy.** Proxy management stays disabled until NBG gives its address.
-- **Bank certificates.** IPS issues the bank a TLS client certificate (`IT-IPSClientAuthTest`, thumbprint `B264BEB0…`) and an XML signing certificate (`IT-IPSSignAgentTest`, `D93CFF44…`), both ECC. They are imported with their private keys into `LocalMachine\My`, never into the repository. The profile selects them by `ClientCertificate:Thumbprint` and `SigningCertificate:Thumbprint` in both directions; `StoreLocation` and `StoreName` default to `LocalMachine` and `My`. The account that runs the gateway needs read access to both private keys (certlm.msc → the certificate → All Tasks → Manage Private Keys → Read); without it startup fails with `Keyset does not exist`. A configured signing certificate signs every message, so `AllowUnsignedInDevelopment` no longer applies. The startup summary reports `client certificate configured`.
+
+### In a Linux container
+
+A container has no certificate store, so the same settings name files instead of thumbprints: a `.pfx` (certificate and private key) takes `Path` and `Password`, a `.cer` (public CA) takes `Path` only. [docker-compose.yml](../src/IPS.Middleware.Api/docker-compose.yml) runs the image against the UAT: it mounts `src/IPS.Middleware.Api/certs` (ignored by git) at `/certs` and reads the two PFX passwords, the connection string and the CBS URL from a `.env` file next to it. The key stays in memory; nothing is written to disk. The container runs as Production, so the CBS URL must be HTTPS and every message is signed.
 
 ## Notes
 

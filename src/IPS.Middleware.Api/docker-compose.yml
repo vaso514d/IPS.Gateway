@@ -1,0 +1,51 @@
+# Runs the gateway in a Linux container against the IPS UAT.
+#
+# Build the image first (see Dockerfile):
+#   dotnet publish src/IPS.Middleware.Api/IPS.Middleware.Api.csproj --configuration Release --output publish
+#   docker build -f src/IPS.Middleware.Api/Dockerfile -t ips-gateway publish
+#
+# Put the four certificate files in ./certs. A container has no certificate store, so the certificates are files:
+# a .pfx (certificate with its private key) takes Path and Password, a .cer (public CA) takes Path only.
+# The container runs as a non-root user, so the files must be readable by it (for example chmod 644).
+#
+# Give the secrets in a .env file next to this one, which must not be committed:
+#   IPS_CLIENT_PFX_PASSWORD=...
+#   IPS_SIGNING_PFX_PASSWORD=...
+#   MIDDLEWARE_CONNECTION_STRING=Server=...;Database=IpsGateway;User Id=...;Password=...;TrustServerCertificate=True;
+#   CBS_BASE_URL=https://cbs.example
+#
+# Then: docker compose -f src/IPS.Middleware.Api/docker-compose.yml up
+
+services:
+  ips-gateway:
+    image: ips-gateway
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./certs:/certs:ro
+    environment:
+      ConnectionStrings__Middleware: ${MIDDLEWARE_CONNECTION_STRING}
+
+      Payments__Outgoing__Transport__Enabled: "true"
+      Payments__Outgoing__Transport__Ips__BaseUrl: https://ips.uat.ipsgeorgia.ge:444/ips
+      Payments__Outgoing__Transport__Ips__ClientCertificate__Path: /certs/IT-IPSClientAuthTest.pfx
+      Payments__Outgoing__Transport__Ips__ClientCertificate__Password: ${IPS_CLIENT_PFX_PASSWORD}
+      Payments__Outgoing__Transport__Ips__ServerTrust__0__Path: /certs/IPS Class 1 Root CA.cer
+      Payments__Outgoing__Transport__Ips__ServerTrust__1__Path: /certs/IPS-Class2-SubCA-Test.cer
+      Payments__Outgoing__Transport__Ips__CheckCertificateRevocation: "false"
+      Payments__Outgoing__Transport__SigningCertificate__Path: /certs/IT-IPSSignAgentTest.pfx
+      Payments__Outgoing__Transport__SigningCertificate__Password: ${IPS_SIGNING_PFX_PASSWORD}
+      Payments__Outgoing__Transport__Cbs__BaseUrl: ${CBS_BASE_URL}
+      Payments__Outgoing__Execution__Enabled: "true"
+
+      Payments__Incoming__Transport__Enabled: "true"
+      Payments__Incoming__Transport__Ips__BaseUrl: https://ips.uat.ipsgeorgia.ge:444/ips
+      Payments__Incoming__Transport__Ips__ClientCertificate__Path: /certs/IT-IPSClientAuthTest.pfx
+      Payments__Incoming__Transport__Ips__ClientCertificate__Password: ${IPS_CLIENT_PFX_PASSWORD}
+      Payments__Incoming__Transport__Ips__ServerTrust__0__Path: /certs/IPS Class 1 Root CA.cer
+      Payments__Incoming__Transport__Ips__ServerTrust__1__Path: /certs/IPS-Class2-SubCA-Test.cer
+      Payments__Incoming__Transport__Ips__CheckCertificateRevocation: "false"
+      Payments__Incoming__Transport__SigningCertificate__Path: /certs/IT-IPSSignAgentTest.pfx
+      Payments__Incoming__Transport__SigningCertificate__Password: ${IPS_SIGNING_PFX_PASSWORD}
+      Payments__Incoming__Transport__Cbs__BaseUrl: ${CBS_BASE_URL}
+      Payments__Incoming__Workers__Enabled: "true"

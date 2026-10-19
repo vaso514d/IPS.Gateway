@@ -10,12 +10,22 @@ public sealed class CertificateSettings
     private const string ClientAuthenticationOid = "1.3.6.1.5.5.7.3.2";
     private const string AnyPurposeOid = "2.5.29.37.0";
 
+    // A thumbprint names one certificate, so it is looked up wherever it is installed. The current user comes first, so a
+    // development machine uses its own copy and a server the LocalMachine one.
+    private static readonly (StoreName Name, StoreLocation Location)[] Stores =
+    [
+        (StoreName.My, StoreLocation.CurrentUser),
+        (StoreName.My, StoreLocation.LocalMachine),
+        (StoreName.Root, StoreLocation.CurrentUser),
+        (StoreName.Root, StoreLocation.LocalMachine),
+        (StoreName.CertificateAuthority, StoreLocation.CurrentUser),
+        (StoreName.CertificateAuthority, StoreLocation.LocalMachine)
+    ];
+
     public string? Path { get; init; }
     public string? KeyPath { get; init; }
     public string? Password { get; init; }
     public string? Thumbprint { get; init; }
-    public StoreLocation StoreLocation { get; init; } = StoreLocation.LocalMachine;
-    public StoreName StoreName { get; init; } = StoreName.My;
 
     // PFX/P12 bytes in base64, with Password when the PKCS#12 is protected.
     public string? Pkcs12Base64 { get; init; }
@@ -142,25 +152,36 @@ public sealed class CertificateSettings
             throw new InvalidOperationException("Store certificates cannot specify file credentials.");
         }
 
-        using var store = new X509Store(StoreName, StoreLocation);
-        store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
-        var matches = store.Certificates.Find(X509FindType.FindByThumbprint, Thumbprint!, validOnly: false);
-        try
+        foreach (var (name, location) in Stores)
         {
-            if (matches.Count != 1)
+            using var store = new X509Store(name, location);
+            try
             {
-                throw new InvalidOperationException("Certificate thumbprint must identify exactly one certificate.");
+                store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+            }
+            catch (CryptographicException)
+            {
+                continue;
             }
 
-            return new X509Certificate2(matches[0]);
-        }
-        finally
-        {
-            foreach (var match in matches)
+            var matches = store.Certificates.Find(X509FindType.FindByThumbprint, Thumbprint!, validOnly: false);
+            try
             {
-                match.Dispose();
+                if (matches.Count > 0)
+                {
+                    return new X509Certificate2(matches[0]);
+                }
+            }
+            finally
+            {
+                foreach (var match in matches)
+                {
+                    match.Dispose();
+                }
             }
         }
+
+        throw new InvalidOperationException($"No certificate with thumbprint {Thumbprint} is installed in the CurrentUser or LocalMachine Personal, Root or Intermediate stores.");
     }
 
     private X509Certificate2 LoadPkcs12(bool forTls)
