@@ -2,6 +2,7 @@ using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence.Configurations;
 using IPS.Middleware.Infrastructure.Persistence.Events;
+using IPS.Middleware.Infrastructure.Persistence.History;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
     internal DbSet<InboundJournalEntry> InboundJournal => Set<InboundJournalEntry>();
     internal DbSet<AggregateIdentity> AggregateIdentities => Set<AggregateIdentity>();
     internal DbSet<TransactionEventRow> Events => Set<TransactionEventRow>();
+    internal DbSet<TransferStatusRow> TransferStatuses => Set<TransferStatusRow>();
 
     internal bool HasFailedSave { get; set; }
 
@@ -58,6 +60,7 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new IncomingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new IncomingTransferConfiguration());
         modelBuilder.ApplyConfiguration(new AggregateIdentityConfiguration());
+        modelBuilder.ApplyConfiguration(new TransferStatusConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());
     }

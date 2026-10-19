@@ -5,6 +5,7 @@ using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
+using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
@@ -31,6 +32,19 @@ public sealed class Pacs008ProcessingTests
         Assert.Null(stored.ClaimToken);
         Assert.Equal(["payment.received", "payment.sending-started", "payment.processing-observed", "payment.processing-observed",
             "payment.processing-observed", "payment.accepted"], stored.Events);
+        var history = await TransferHistory.ReadAsync(harness.Database, id);
+        Assert.All(history, row => Assert.Equal((TransactionDirection.Outgoing, "pacs.008"), (row.Direction, row.MessageType)));
+        Assert.Equal(
+            [
+                (TransactionStatus.Received, (ProcessingStep?)null),
+                (TransactionStatus.Sending, null),
+                (TransactionStatus.Sending, ProcessingStep.XmlGenerated),
+                (TransactionStatus.Sending, ProcessingStep.Signed),
+                (TransactionStatus.Sending, ProcessingStep.IpsResponded),
+                (TransactionStatus.Accepted, null)
+            ],
+            history.Select(row => (row.Status, row.Step)));
+        Assert.Equal(StatusSource.Ips, history[^1].Source);
         harness.Clock.Now = Start.AddMinutes(1);
         Assert.Equal(outcome, await harness.ProcessAsync(id));
         Assert.Single(harness.Ips.Received);
@@ -49,9 +63,13 @@ public sealed class Pacs008ProcessingTests
             ReasonCode = "AC01",
             AdditionalInformation = "The creditor IBAN code is invalid."
         }, "RJCT/1009");
-        var outcome = await harness.ProcessAsync(await harness.AcceptAsync());
+        var id = await harness.AcceptAsync();
+        var outcome = await harness.ProcessAsync(id);
         Assert.Equal(TransactionStatus.Rejected, outcome!.Status);
         Assert.Equal(new PaymentDetails("AC01", 1009, "The creditor IBAN code is invalid."), outcome.Details);
+        var rejected = (await TransferHistory.ReadAsync(harness.Database, id))[^1];
+        Assert.Equal((TransactionStatus.Rejected, StatusSource.Ips, "AC01", (int?)1009), (rejected.Status, rejected.Source, rejected.ReasonCode, rejected.IpsInternalCode));
+        Assert.Equal("AC01", IpsStatusCodes.Find(rejected.IpsInternalCode!.Value)!.IsoCode);
     }
 
     [Fact]

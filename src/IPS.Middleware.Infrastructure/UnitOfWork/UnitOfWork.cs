@@ -2,6 +2,7 @@ using IPS.Middleware.Application.Abstractions.Persistence;
 using IPS.Middleware.Domain;
 using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Persistence.Events;
+using IPS.Middleware.Infrastructure.Persistence.History;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.Data.SqlClient;
@@ -81,6 +82,7 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
         }
     }
 
+    // Events and the transfer status history they imply commit with the state that raised them.
     private void AddEventRows(IEnumerable<PendingEvents> pendingEvents)
     {
         foreach (var pending in pendingEvents)
@@ -89,6 +91,8 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
             {
                 db.Events.Add(TransactionEventRow.From(pending.Aggregate, occurrence));
             }
+
+            db.TransferStatuses.AddRange(TransferStatusHistory.Rows(pending.Aggregate, pending.Events));
         }
     }
 

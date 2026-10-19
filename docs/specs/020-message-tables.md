@@ -77,14 +77,25 @@ Index: `(PaymentTransactionId, Id)`. Rows are append-only and are never updated 
 
 Incoming aggregates record the core outcome and the IPS decision separately. Their table status and history use `TransactionStatus`:
 
-| Incoming state | `Status` | `Source` |
+The status is derived from the core outcome, the IPS decision and the follow-up; the event decides the source and step:
+
+| Event (incoming pacs.008) | `Source` | `Step` |
 |---|---|---|
-| Registered from IPS | `Received` | Ips |
-| Core submission started | `Sending` | Gateway |
-| Core accepted, and for pacs.008 IPS accepted | `Accepted` | Core |
-| Core rejected, or reply RJCT | `Rejected` | Core |
-| Core outcome unknown, reconciliation running | `CoreUnknown` | Core |
-| Manual review required | `ManualReview` | Gateway |
+| Registered from IPS | Ips | null |
+| Core submission started | Gateway | `SentToCore` |
+| Core outcome recorded, or a conflicting outcome observed | Core | `CoreResponded` |
+| IPS decision recorded (the pacs.002 reply) | Gateway | `RepliedToIps` |
+| Reconciliation or reversal recorded | Gateway | null |
+
+| Core outcome, IPS decision, follow-up | `Status` |
+|---|---|
+| Follow-up is a reversal or manual review | `ManualReview` |
+| IPS accepted | `Accepted` |
+| IPS rejected, reconciliation required | `CoreUnknown` |
+| IPS rejected, no follow-up | `Rejected` |
+| No decision yet: submission started / unknown / accepted / rejected | `Sending` / `CoreUnknown` / `Accepted` / `Rejected` |
+
+A final outcome observed again adds no row, as for outgoing payments. For outgoing payments, the received event, each status change (Step null) and each processing step (under the current status) add a row. A repeated or conflicting IPS report and a recall refusal add none.
 
 ### How rows are written
 

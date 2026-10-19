@@ -150,6 +150,8 @@ public sealed class AggregatePersistenceTests
         var persisted = Assert.IsType<OutgoingPayment>(await read.Payments.FindAsync(payment.Id, default));
         Assert.Equal(TransactionStatus.Received, persisted.CurrentStatus);
         Assert.Single(await read.Payments.ReadEventsAsync(payment.Id, default));
+        // The rolled-back status change leaves no history row; only the committed intake does.
+        Assert.Equal([TransactionStatus.Received], (await TransferHistory.ReadAsync(database, payment.Id)).Select(row => row.Status));
     }
 
     [Fact]

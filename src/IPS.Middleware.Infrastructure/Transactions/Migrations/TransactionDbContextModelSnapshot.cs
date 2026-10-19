@@ -355,6 +355,58 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         });
                 });
 
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.History.TransferStatusRow", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("AtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("IpsInternalCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(35)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(35)");
+
+                    b.Property<Guid>("PaymentTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Step")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Direction", "AtUtc");
+
+                    b.HasIndex("PaymentTransactionId", "Id");
+
+                    b.ToTable("PaymentTransactionStatuses", (string)null);
+                });
+
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Inbound.InboundJournalEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1050,6 +1102,15 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .WithMany()
                         .HasForeignKey("TransactionId", "AggregateKind")
                         .HasPrincipalKey("Id", "Kind")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.History.TransferStatusRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentTransactionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

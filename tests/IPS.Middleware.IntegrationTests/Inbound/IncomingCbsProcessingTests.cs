@@ -7,6 +7,7 @@ using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Registration;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
@@ -40,6 +41,16 @@ public sealed class IncomingCbsProcessingTests
         Assert.Empty(await new IncomingPaymentWorkRepository(db).FindDueAsync(Now.AddDays(1), 100, default));
         Assert.Equivalent(result, await test.ProcessAsync(id), strict: true);
         Assert.Equal(1, test.Cbs.Submissions);
+        var history = await TransferHistory.ReadAsync(test.Database, id);
+        Assert.All(history, row => Assert.Equal((TransactionDirection.Incoming, "pacs.008"), (row.Direction, row.MessageType)));
+        Assert.Equal(
+            [
+                (TransactionStatus.Received, StatusSource.Ips, (ProcessingStep?)null),
+                (TransactionStatus.Sending, StatusSource.Gateway, ProcessingStep.SentToCore),
+                (TransactionStatus.Accepted, StatusSource.Core, ProcessingStep.CoreResponded),
+                (TransactionStatus.Accepted, StatusSource.Gateway, ProcessingStep.RepliedToIps)
+            ],
+            history.Select(row => (row.Status, row.Source, row.Step)));
     }
 
     [Theory]
@@ -60,6 +71,10 @@ public sealed class IncomingCbsProcessingTests
         var stored = (await new IncomingProcessingRepository(db).ReadAsync(id, default))!;
         Assert.Equal(followUp == IncomingFollowUp.None ? null : Now.AddSeconds(10), stored.FollowUpAtUtc);
         Assert.All(stored.Calls, call => Assert.True(call.Consumed));
+        // A final rejection is final; an unresolved one is still being reconciled with the core system.
+        var replied = (await TransferHistory.ReadAsync(test.Database, id))[^1];
+        var expected = followUp == IncomingFollowUp.None ? TransactionStatus.Rejected : TransactionStatus.CoreUnknown;
+        Assert.Equal((expected, ProcessingStep.RepliedToIps, reason), (replied.Status, replied.Step, replied.ReasonCode));
     }
 
     [Fact]
