@@ -15,4 +15,11 @@ public sealed record IncomingReceiveResponse(
     string? RequestStatus,
     string? MessageType,
     long? Sequence,
-    bool PossibleDuplicate);
+    bool PossibleDuplicate)
+{
+    private const string EmptyQueue = "EMPTY";
+
+    // Annex D 6.4: IPS marks an empty queue with ReqSts EMPTY; the UAT also sends a placeholder body (<html/>) then.
+    public bool HasMessage =>
+        Transport.Body.Length > 0 && !string.Equals(RequestStatus?.Trim(), EmptyQueue, StringComparison.OrdinalIgnoreCase);
+}

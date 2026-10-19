@@ -734,7 +734,9 @@ public sealed class IncomingTransferTests
                 }
                 else
                 {
+                    // The IPS UAT marks an empty queue with ReqSts EMPTY and a placeholder body, which is not a message.
                     context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
+                    await context.Response.WriteAsync("<html/>");
                 }
             }
             else if (context.Request.Method == "POST" && context.Request.Path == "/MessageAck")

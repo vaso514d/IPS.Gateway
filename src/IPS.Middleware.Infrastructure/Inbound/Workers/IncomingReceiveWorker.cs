@@ -70,7 +70,7 @@ public sealed class IncomingReceiveWorker(
                     answering = true;
                 }
 
-                if (response.Transport.Body.Length == 0)
+                if (!response.HasMessage)
                 {
                     Logger.LogDebug("IPS has no message to deliver");
                     await Task.Delay(Options.EmptyDelay, Time, stop);
