@@ -1,4 +1,6 @@
 using IPS.MiidleWear.AspNetCore;
+using IPS.MiidleWear.CoreAPI.Sending;
+using Microsoft.Extensions.Options;
 
 namespace IPS.MiidleWear.CoreAPI;
 
@@ -14,20 +16,30 @@ public static class SampleApp
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<CoreLedger>();
         builder.Services.AddIpsCoreReceiver<SampleReceiver>();
-        // The receiver's own document, exactly as a bank's core system serves it, and the sample's extras in v1.
+        // Sending: CoreAPI also plays the core system that sends transfers to the gateway.
+        builder.Services.Configure<GatewayOptions>(builder.Configuration.GetSection(GatewayOptions.Section));
+        builder.Services.AddSingleton<PaymentGenerator>();
+        builder.Services.AddHttpClient<GatewaySender>((services, client) =>
+        {
+            var gateway = services.GetRequiredService<IOptions<GatewayOptions>>().Value;
+            client.BaseAddress = new Uri(gateway.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = gateway.Timeout;
+        });
+        // The receiver's own document, exactly as a bank's core system serves it; sending and the ledger are in v1.
         builder.Services.AddIpsCoreReceiverOpenApi();
         builder.Services.AddOpenApi();
         configure?.Invoke(builder);
 
         var app = builder.Build();
         app.MapIpsCoreReceiver();
+        SendEndpoints.Map(app);
         // For people trying the sample: what the gateway delivered and what the core answered.
         app.MapGet("/sample/ledger", (CoreLedger ledger) => ledger.Snapshot());
         app.MapOpenApi();
         app.UseSwaggerUI(options =>
         {
+            options.SwaggerEndpoint("/openapi/v1.json", "Send to the gateway, ledger");
             options.SwaggerEndpoint($"/openapi/{CoreReceiverOpenApi.DocumentName}.json", "IPS core receiver");
-            options.SwaggerEndpoint("/openapi/v1.json", "Sample extras");
         });
         app.MapGet("/", () => Results.Redirect("/swagger"))
             .ExcludeFromDescription();

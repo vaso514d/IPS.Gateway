@@ -386,7 +386,7 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 ## Receiver sample and test kit (018)
 
 - **`IPS.MiidleWear.Testing`** (`src/`, packable, Contracts and the base class library only, no test framework): `IpsReceiverConformance.RunAsync(HttpClient)` sends each of the seven receive kinds as the gateway does (its JSON with `null` members, the Idempotency-Key, ids unique to the run) and checks that the answer is final, that a redelivery gets the same answer and that the payment-status query returns it; then that an unknown reference answers 404 and that a status callback and a reversal are accepted twice. `AnswerReader` repeats the gateway's reading rules; `ReceiverTestKitTests` require it to agree with `IncomingCoreReplyInterpreter` on every crafted answer.
-- **`samples/IPS.MiidleWear.CoreAPI`** is a runnable receiver on the two packages over an in-memory ledger, with Swagger UI at `/swagger`: one posting per key (a redelivery joins it), PDNG while posting, 404 for an unknown reference, idempotent statuses and reversals; `Sample:Answers` and `Sample:PostingDelay` choose the answers. It passes every kit check.
+- **`samples/IPS.MiidleWear.CoreAPI`** is a runnable receiver on the two packages over an in-memory ledger, with Swagger UI at `/swagger` and `/core/send/pacs008|009|004`, which generate a transfer that passes the gateway validation and send it to `Gateway:BaseUrl`: one posting per key (a redelivery joins it), PDNG while posting, 404 for an unknown reference, idempotent statuses and reversals; `Sample:Answers` and `Sample:PostingDelay` choose the answers. It passes every kit check.
 - See [018](archive/specs/018-receiver-sample-and-test-kit.md).
 
 ## Transfer status history (020a)
