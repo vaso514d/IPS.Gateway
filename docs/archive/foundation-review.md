@@ -40,6 +40,6 @@ At the owner's request, Contracts compatibility tests use the existing project r
 
 ## Owner review
 
-The full review diff is `git diff main...codex/foundation`. The architecture rules are in [architecture.md](architecture.md), and later capabilities are in [migration-ledger.md](migration-ledger.md).
+The full review diff is `git diff main...codex/foundation`. The architecture rules are in [architecture.md](../architecture.md), and later capabilities are in [migration-ledger.md](../migration-ledger.md).
 
 Owner merge approval is pending. The next capability is transaction lifecycle and durable storage, after foundation approval.

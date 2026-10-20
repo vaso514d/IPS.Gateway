@@ -13,7 +13,7 @@ Every bank core system has to implement the endpoints the gateway calls (`IClien
 3. **New package name:** `IPS.MiidleWear.AspNetCore`.
 4. **OpenAPI 3.0.**
 5. **Branch:** codex/core-receiver-sdk on codex/proxy-completion (the integration branch codex/capability-rebuild named by the ledger does not exist in this repository; integration is main through pull requests).
-6. **Plan extension.** The [rebuild plan](../../rebuild-plan.md) excludes "standalone client/generator/mock hosts, or documentation tooling". The owner asked for the client package and the generated document, so this specification extends the plan for exactly these two deliverables. Request signing and certificates are a later specification; nothing here prepares for them beyond leaving room in the package.
+6. **Plan extension.** The [rebuild plan](../rebuild-plan.md) excludes "standalone client/generator/mock hosts, or documentation tooling". The owner asked for the client package and the generated document, so this specification extends the plan for exactly these two deliverables. Request signing and certificates are a later specification; nothing here prepares for them beyond leaving room in the package.
 
 ## Scope
 

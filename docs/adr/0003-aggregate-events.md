@@ -12,7 +12,7 @@ Repeated or conflicting final replies append observations retaining the original
 
 The generated schema replaces legacy TransactionHistory; the complete historical migration chain is for fresh databases only. Recreate disposable databases rather than converting history. No populated-database or production migration is supported.
 
-The next capability will process outbound attempts synchronously with durable checkpoints and service-owned scopes. The approved HTTP 200/504 exception is documented in rebuild-plan.md and implemented only in Stage 2c.
+The next capability will process outbound attempts synchronously with durable checkpoints and service-owned scopes. The approved HTTP 200/504 exception is recorded in [ADR 0002](0002-contract-compatibility.md) and was implemented in Stage 2c.
 
 ## Shared save revision
 

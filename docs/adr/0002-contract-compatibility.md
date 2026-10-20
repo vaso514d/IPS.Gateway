@@ -20,7 +20,7 @@ A deliberate external change requires an approved compatibility/versioning decis
 
 ## Approved synchronous outbound exception (2026-10-04)
 
-The owner approved replacing initial outgoing 202 with final 200 (including business rejection) or unresolved 504 with TransactionStatusDto after 30 seconds of durable intake. Duplicate submissions immediately return 200 current status, including Processing, and never start another attempt. Methods, routes, JSON shapes, reference semantics, callbacks and status-query acknowledgement remain preserved. Implement route metadata and independent baseline changes explicitly in Stage 2c; the aggregate refactor changes no Contracts source or baseline. See [the approved plan](../rebuild-plan.md).
+The owner approved replacing initial outgoing 202 with final 200 (including business rejection) or unresolved 504 with TransactionStatusDto after 30 seconds of durable intake. Duplicate submissions immediately return 200 current status, including Processing, and never start another attempt. Methods, routes, JSON shapes, reference semantics, callbacks and status-query acknowledgement remain preserved. Implement route metadata and independent baseline changes explicitly in Stage 2c; the aggregate refactor changes no Contracts source or baseline.
 
 ## Approved incoming reconciliation behavior (2026-10-05)
 
