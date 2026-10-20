@@ -57,6 +57,7 @@ public sealed class UnitOfWork(TransactionDbContext db, ILoggerFactory? loggerFa
             .Select(entry => new PendingEvents(entry.Entity, entry.Entity.PendingEvents.ToArray()))
             .ToArray();
         var statusDeliveries = OutgoingStatusOutbox.Create(db);
+        var statusReports = StatusReportTable.Capture(db);
         var evidence = DetachEvidence();
         AddAggregateIdentities(aggregates);
 
@@ -67,6 +68,7 @@ public sealed class UnitOfWork(TransactionDbContext db, ILoggerFactory? loggerFa
         RestoreEvidence(evidence);
         AddEventRows(pendingEvents);
         await MessageTables.ApplyAsync(db, pendingEvents.Select(pending => (pending.Aggregate, (IReadOnlyList<DomainEvent>)pending.Events)), cancellationToken);
+        await StatusReportTable.ApplyAsync(db, statusReports, cancellationToken);
         db.OutgoingStatusDeliveries.AddRange(statusDeliveries);
         written += await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

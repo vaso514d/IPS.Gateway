@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
+using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
@@ -9,6 +11,7 @@ using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
@@ -584,6 +587,13 @@ public sealed class IncomingTransferTests
 
         await using var session = core.Database.Session();
         Assert.Equal(["pacs.004", "pacs.009"], await session.Context.Set<IncomingTransfer>().Select(transfer => transfer.Kind).OrderBy(kind => kind).ToListAsync());
+
+        // Each lands in its own message table, received from IPS, and starts its status history.
+        var transfer = await session.Context.Set<Pacs009PaymentRow>().SingleAsync();
+        var payback = await session.Context.Set<Pacs004PaymentRow>().SingleAsync();
+        Assert.Equal((TransactionDirection.Incoming, TransactionStatus.Received), (transfer.Direction, transfer.Status));
+        Assert.Equal((TransactionDirection.Incoming, "E2E-IN-1"), (payback.Direction, payback.ReturnId));
+        Assert.Equal([TransactionStatus.Received], (await TransferHistory.ReadAsync(core.Database, payback.Id)).Select(step => step.Status));
     }
 
     [Fact]
@@ -807,6 +817,11 @@ public sealed class IncomingTransferTests
         Assert.Equal(("SCOR", "ORDER-77"), (structured.ReferenceType, structured.Reference));
         Assert.Equal("Ultimate Payer", initiation.UltimateDebtor!.Name);
         Assert.Equal(core.Clock.Now + new IncomingReconciliationOptions().Window, stored.DeadlineUtc);
+
+        await using var session = core.Database.Session();
+        var row = await session.Context.Set<Pain001InitiationRow>().SingleAsync();
+        Assert.Equal((TransactionDirection.Incoming, TransactionStatus.Received, "PMTINF-1", "PAIN001-MSG-1", "PISPGE22", 25.50m),
+            (row.Direction, row.Status, row.PaymentInformationId, row.MessageId, row.InitiatingPartyBic, row.Amount));
     }
 
     [Fact]

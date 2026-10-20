@@ -7,9 +7,11 @@ using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using IPS.Middleware.Infrastructure.UnitOfWork;
@@ -36,6 +38,9 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         Assert.Equal(InboundProcessingStatus.Processed, (await h.ReceiptAsync(id)).Status);
         Assert.True(Assert.Single(saved.Attempts).Consumed);
         Assert.True(SignatureVerifier.Verifies(saved.MessageXml!, fixture.Input.Certificate));
+        var reply = (await MessageTableRows.ReadAsync<Pacs002StatusReportRow>(h.Database, id))!;
+        Assert.Equal((TransactionDirection.Outgoing, TransactionStatus.Accepted, accepted ? "ACCP" : "RJCT"),
+            (reply.Direction, reply.Status, reply.TransactionStatusCode));
         await h.SeedAsync(accepted: accepted);
         await h.RunAsync(id);
         Assert.Single(h.Client.Messages);

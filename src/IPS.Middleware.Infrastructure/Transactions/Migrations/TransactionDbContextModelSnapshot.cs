@@ -712,6 +712,560 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.ToTable("IncomingTransfers", (string)null);
                 });
 
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt029ResolutionRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("AdditionalInformation")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("CancellationStatusId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("OriginalEndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalTransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("ResolutionReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<DateOnly?>("SettlementDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalEndToEndId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Camt029Resolutions", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt055CancellationRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("AssigneeBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("AssignerBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("CancellationId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("CancellationReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("CreditorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("CreditorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("OriginalEndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalInstructionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalPaymentInformationId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginatorBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("PaymentCancellationId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<DateOnly?>("RequestedExecutionDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalPaymentInformationId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Camt055Cancellations", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt056RecallRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("CreditorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("CreditorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("CreditorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("DebtorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("DebtorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("DebtorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<decimal?>("OriginalAmount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("OriginalCurrency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("OriginalEndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<DateOnly?>("OriginalSettlementDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("OriginalTransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("RecallId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("RecallReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalEndToEndId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Camt056Recalls", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs002StatusReportRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("AdditionalInformation")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("OriginalEndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalTransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("ReportReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.Property<string>("TransactionStatusCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalEndToEndId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Pacs002StatusReports", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs004PaymentRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("AdditionalInformation")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("CreditorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("CreditorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("DebtorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("DebtorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("InstructedAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("OriginalEndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalInstructionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalMessageNameId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalTransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<Guid?>("OriginalUetr")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("ReturnId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReturnReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.Property<DateOnly?>("ValueDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalEndToEndId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Pacs004Payments", (string)null);
+                });
+
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs008PaymentRow", b =>
                 {
                     b.Property<Guid>("Id")
@@ -843,6 +1397,329 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasIndex("Status", "StatusAtUtc");
 
                     b.ToTable("Pacs008Payments", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs009PaymentRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("CategoryPurpose")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("CreditorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("CreditorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("DebtorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("DebtorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("EndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("InstructionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.Property<string>("TransactionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<Guid?>("Uetr")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("ValueDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("EndToEndId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Pacs009Payments", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pain001InitiationRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(18, 5)
+                        .HasColumnType("decimal(18,5)");
+
+                    b.Property<string>("CategoryPurpose")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("CreditorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("CreditorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("CreditorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(3)");
+
+                    b.Property<string>("DebtorAccount")
+                        .HasMaxLength(34)
+                        .HasColumnType("nvarchar(34)");
+
+                    b.Property<string>("DebtorAgentBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("DebtorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("EndToEndId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("InitiatingPartyBic")
+                        .HasMaxLength(11)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(11)");
+
+                    b.Property<string>("InstructionId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("PaymentInformationId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("Purpose")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("RemittanceInformation")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateOnly?>("RequestedExecutionDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("PaymentInformationId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Pain001Initiations", (string)null);
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pain002StatusReportRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("AdditionalInformation")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("ClientReference")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(6);
+
+                    b.Property<string>("CoreReference")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)")
+                        .HasColumnOrder(7);
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(9);
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)")
+                        .HasColumnOrder(5);
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("MessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(8);
+
+                    b.Property<string>("OriginalMessageId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginalPaymentInformationId")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<string>("OriginatorName")
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)")
+                        .HasColumnOrder(4);
+
+                    b.Property<string>("ReportReasonCode")
+                        .HasMaxLength(35)
+                        .HasColumnType("nvarchar(35)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int")
+                        .HasColumnOrder(2);
+
+                    b.Property<DateTimeOffset>("StatusAtUtc")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnOrder(3);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientReference")
+                        .HasFilter("[ClientReference] IS NOT NULL");
+
+                    b.HasIndex("OriginalPaymentInformationId");
+
+                    b.HasIndex("Direction", "CreatedAtUtc");
+
+                    b.HasIndex("Status", "StatusAtUtc");
+
+                    b.ToTable("Pain002StatusReports", (string)null);
                 });
 
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Outgoing.InvestigationRow", b =>
@@ -1283,11 +2160,74 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt029ResolutionRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Camt029ResolutionRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt055CancellationRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Camt055CancellationRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Camt056RecallRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Camt056RecallRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs004PaymentRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs004PaymentRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs008PaymentRow", b =>
                 {
                     b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
                         .WithOne()
                         .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs008PaymentRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs009PaymentRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Pacs009PaymentRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pain001InitiationRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Pain001InitiationRow", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("IPS.Middleware.Infrastructure.Persistence.Messages.Pain002StatusReportRow", b =>
+                {
+                    b.HasOne("IPS.Middleware.Infrastructure.Persistence.Events.AggregateIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("IPS.Middleware.Infrastructure.Persistence.Messages.Pain002StatusReportRow", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

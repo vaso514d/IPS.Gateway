@@ -1,6 +1,12 @@
 using IPS.Middleware.Application.Inbound.Processing;
+using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Application.Payments.Camt029;
+using IPS.Middleware.Application.Payments.Camt056;
+using IPS.Middleware.Application.Payments.Pacs004;
+using IPS.Middleware.Application.Payments.Pacs009;
+using IPS.Middleware.Application.Payments.Pain002;
 using IPS.Middleware.Domain;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
@@ -46,6 +52,9 @@ internal static class MessageTables
             PaymentMessageTypes.Pacs008 => typeof(Pacs008PaymentRow),
             PaymentMessageTypes.Pacs009 => typeof(Pacs009PaymentRow),
             PaymentMessageTypes.Pacs004 => typeof(Pacs004PaymentRow),
+            PaymentMessageTypes.Camt056 => typeof(Camt056RecallRow),
+            PaymentMessageTypes.Camt029 => typeof(Camt029ResolutionRow),
+            PaymentMessageTypes.Pain002 => typeof(Pain002StatusReportRow),
             _ => null
         },
         IncomingPayment => typeof(Pacs008PaymentRow),
@@ -53,6 +62,10 @@ internal static class MessageTables
         {
             PaymentMessageTypes.Pacs009 => typeof(Pacs009PaymentRow),
             PaymentMessageTypes.Pacs004 => typeof(Pacs004PaymentRow),
+            PaymentMessageTypes.Pain001 => typeof(Pain001InitiationRow),
+            PaymentMessageTypes.Camt056 => typeof(Camt056RecallRow),
+            PaymentMessageTypes.Camt055 => typeof(Camt055CancellationRow),
+            PaymentMessageTypes.Camt029 => typeof(Camt029ResolutionRow),
             _ => null
         },
         _ => null
@@ -110,6 +123,9 @@ internal static class MessageTables
                 PaymentMessageTypes.Pacs008 => Pacs008Rows.Outgoing((accepted as AcceptedPacs008)?.Payment),
                 PaymentMessageTypes.Pacs009 => Pacs009Rows.Outgoing((accepted as AcceptedPacs009)?.Payment),
                 PaymentMessageTypes.Pacs004 => Pacs004Rows.Outgoing((accepted as AcceptedPacs004)?.Payment),
+                PaymentMessageTypes.Camt056 => RecallRows.Outgoing((accepted as AcceptedCamt056)?.Payment),
+                PaymentMessageTypes.Camt029 => RecallRows.Outgoing((accepted as AcceptedCamt029)?.Payment),
+                PaymentMessageTypes.Pain002 => RecallRows.Outgoing((accepted as AcceptedPain002)?.Payment),
                 _ => null
             };
             if (row is null)
@@ -145,6 +161,10 @@ internal static class MessageTables
             {
                 IncomingPacs009 pacs009 => Pacs009Rows.Incoming(pacs009),
                 IncomingPacs004 pacs004 => Pacs004Rows.Incoming(pacs004),
+                IncomingPain001 pain001 => RecallRows.Incoming(pain001),
+                IncomingCamt056 camt056 => RecallRows.Incoming(camt056),
+                IncomingCamt055 camt055 => RecallRows.Incoming(camt055),
+                IncomingCamt029 camt029 => RecallRows.Incoming(camt029),
                 _ => null
             };
             if (row is null)
@@ -166,17 +186,9 @@ internal static class MessageTables
     {
         private static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
 
-        internal static Pacs008PaymentRow Outgoing(OutgoingPayment payment, OutgoingPaymentMetadata metadata)
-        {
-            var sent = (PaymentJson.ReadAccepted(payment.MessageType, metadata.AcceptedJson) as AcceptedPacs008)?.Payment;
-            return new Pacs008PaymentRow
+        internal static Pacs008PaymentRow Outgoing(ValidatedPacs008? sent) =>
+            new()
             {
-                Id = payment.Id,
-                Direction = TransactionDirection.Outgoing,
-                ClientReference = payment.ClientReference,
-                MessageId = metadata.MessageId,
-                CreatedAtUtc = payment.CreatedAtUtc,
-                TransactionId = metadata.ProtocolTransactionId,
                 InstructionId = sent?.InstructionId,
                 EndToEndId = sent?.EndToEndId,
                 Amount = sent?.Amount,
@@ -194,7 +206,6 @@ internal static class MessageTables
                 CategoryPurpose = sent?.CategoryPurposeCode,
                 RemittanceInformation = Fit(sent?.Remittance?.Unstructured, MessageRow.DescriptionLength)
             };
-        }
 
         internal static Pacs008PaymentRow Incoming(IncomingPayment payment, IncomingPaymentMetadata metadata)
         {
@@ -226,5 +237,213 @@ internal static class MessageTables
                 RemittanceInformation = Fit(received.Remittance?.Unstructured, MessageRow.DescriptionLength)
             };
         }
+    }
+
+    private static class Pacs009Rows
+    {
+        internal static Pacs009PaymentRow Outgoing(ValidatedPacs009? sent) =>
+            new()
+            {
+                InstructionId = sent?.InstructionId,
+                EndToEndId = sent?.EndToEndId,
+                TransactionId = sent?.TransactionId,
+                Amount = sent?.Amount,
+                Currency = sent?.Currency,
+                ValueDate = sent?.ValueDate,
+                DebtorAgentBic = sent?.DebtorAgentBic,
+                DebtorAccount = sent?.DebtorAccount,
+                CreditorAgentBic = sent?.CreditorAgentBic,
+                CreditorAccount = sent?.CreditorAccount,
+                CategoryPurpose = Fit(sent?.CategoryPurpose, MessageRow.ReferenceLength),
+                Purpose = Fit(sent?.Purpose, MessageRow.ReferenceLength)
+            };
+
+        internal static Pacs009PaymentRow Incoming(IncomingPacs009 received) =>
+            new()
+            {
+                MessageId = received.MessageId,
+                InstructionId = received.InstructionId,
+                EndToEndId = received.EndToEndId,
+                TransactionId = received.TransactionId,
+                Uetr = received.Uetr,
+                Amount = received.Amount,
+                Currency = received.Currency,
+                ValueDate = received.ValueDate,
+                DebtorAgentBic = Fit(received.DebtorAgent.Bic, 11),
+                DebtorAccount = Fit(received.DebtorAccount, 34),
+                CreditorAgentBic = Fit(received.CreditorAgent.Bic, 11),
+                CreditorAccount = Fit(received.CreditorAccount, 34),
+                CategoryPurpose = Fit(received.CategoryPurpose?.Value, MessageRow.ReferenceLength),
+                Purpose = Fit(received.Purpose, MessageRow.ReferenceLength)
+            };
+    }
+
+    private static class Pacs004Rows
+    {
+        internal static Pacs004PaymentRow Outgoing(ValidatedPacs004? sent) =>
+            new()
+            {
+                ReturnId = sent?.ReturnId,
+                ReturnReasonCode = sent?.ReturnReasonCode,
+                Amount = sent?.Amount,
+                Currency = sent?.Currency,
+                ValueDate = sent?.ValueDate,
+                InstructedAgentBic = sent?.InstructedAgentBic,
+                DebtorName = Fit(sent?.Debtor.Name, 140),
+                DebtorAccount = sent?.Debtor.Account,
+                CreditorName = Fit(sent?.Creditor.Name, 140),
+                CreditorAccount = sent?.Creditor.Account,
+                OriginalMessageId = sent?.Original.MessageId,
+                OriginalMessageNameId = sent?.Original.MessageNameId,
+                OriginalEndToEndId = sent?.Original.EndToEndId,
+                OriginalTransactionId = sent?.Original.TransactionId
+            };
+
+        internal static Pacs004PaymentRow Incoming(IncomingPacs004 received) =>
+            new()
+            {
+                ReturnId = received.ReturnId,
+                ReturnReasonCode = Fit(received.ReturnReasonCode, MessageRow.ReferenceLength),
+                Amount = received.Amount,
+                Currency = received.Currency,
+                ValueDate = received.ValueDate,
+                InstructedAgentBic = Fit(received.InstructedAgent, 11),
+                DebtorName = Fit(received.Debtor?.Name, 140),
+                DebtorAccount = Fit(received.Debtor?.Account, 34),
+                CreditorName = Fit(received.Creditor?.Name, 140),
+                CreditorAccount = Fit(received.Creditor?.Account, 34),
+                OriginalMessageId = Fit(received.Original.MessageId, MessageRow.ReferenceLength),
+                OriginalMessageNameId = Fit(received.Original.MessageNameId, MessageRow.ReferenceLength),
+                OriginalInstructionId = Fit(received.Original.InstructionId, MessageRow.ReferenceLength),
+                OriginalEndToEndId = Fit(received.Original.EndToEndId, MessageRow.ReferenceLength),
+                OriginalTransactionId = Fit(received.Original.TransactionId, MessageRow.ReferenceLength),
+                OriginalUetr = received.Original.Uetr,
+                AdditionalInformation = Fit(received.AdditionalInformation, 256)
+            };
+    }
+
+    // Initiations, recalls, cancellations, resolutions and pain.002 status reports.
+    private static class RecallRows
+    {
+        internal static Camt056RecallRow Outgoing(ValidatedCamt056? sent) =>
+            new()
+            {
+                RecallId = sent?.RecallId,
+                OriginalMessageId = sent?.OriginalMessageId,
+                OriginalEndToEndId = sent?.OriginalEndToEndId,
+                OriginalTransactionId = sent?.OriginalTransactionId,
+                OriginalAmount = sent?.OriginalAmount,
+                OriginalCurrency = sent?.OriginalCurrency,
+                OriginalSettlementDate = sent?.OriginalSettlementDate,
+                RecallReasonCode = sent?.ReasonCode,
+                DebtorName = Fit(sent?.Original.Debtor.Name, 140),
+                DebtorAccount = Fit(sent?.Original.Debtor.Account, 34),
+                DebtorAgentBic = sent?.Original.DebtorAgent.Bic,
+                CreditorName = Fit(sent?.Original.Creditor.Name, 140),
+                CreditorAccount = Fit(sent?.Original.Creditor.Account, 34),
+                CreditorAgentBic = sent?.Original.CreditorAgent.Bic
+            };
+
+        internal static Camt029ResolutionRow Outgoing(ValidatedCamt029? sent) =>
+            new()
+            {
+                CancellationStatusId = sent?.CancellationStatusId,
+                OriginalMessageId = sent?.OriginalMessageId,
+                OriginalEndToEndId = sent?.OriginalEndToEndId,
+                OriginalTransactionId = sent?.OriginalTransactionId,
+                ResolutionReasonCode = sent?.ReasonCode,
+                AdditionalInformation = Fit(sent?.AdditionalInformation, 256),
+                Amount = sent?.OriginalAmount,
+                Currency = sent?.OriginalCurrency,
+                SettlementDate = sent?.Original.SettlementDate
+            };
+
+        internal static Pain002StatusReportRow Outgoing(ValidatedPain002? sent) =>
+            new()
+            {
+                OriginalMessageId = sent?.OriginalMessageId,
+                OriginalPaymentInformationId = sent?.OriginalPaymentInformationId,
+                ReportReasonCode = sent?.ReasonCode,
+                AdditionalInformation = Fit(sent?.AdditionalInformation, 256),
+                OriginatorName = Fit(sent?.OriginatorName, 140)
+            };
+
+        internal static Pain001InitiationRow Incoming(IncomingPain001 received) =>
+            new()
+            {
+                MessageId = Fit(received.MessageId, MessageRow.ReferenceLength),
+                PaymentInformationId = Fit(received.PaymentInformationId, MessageRow.ReferenceLength),
+                InstructionId = Fit(received.InstructionId, MessageRow.ReferenceLength),
+                EndToEndId = Fit(received.EndToEndId, MessageRow.ReferenceLength),
+                Amount = received.Amount,
+                Currency = received.Currency,
+                RequestedExecutionDate = received.RequestedExecutionDate,
+                InitiatingPartyBic = Fit(received.InitiatingParty?.Bic, 11),
+                DebtorName = Fit(received.Debtor.Name, 140),
+                DebtorAccount = Fit(received.Debtor.Account, 34),
+                DebtorAgentBic = Fit(received.Debtor.ParticipantBic, 11),
+                CreditorName = Fit(received.Creditor?.Name, 140),
+                CreditorAccount = Fit(received.Creditor?.Account, 34),
+                CreditorAgentBic = Fit(received.Creditor?.ParticipantBic, 11),
+                CategoryPurpose = Fit(received.CategoryPurposeCode, MessageRow.ReferenceLength),
+                Purpose = Fit(received.PurposeCode, MessageRow.ReferenceLength),
+                RemittanceInformation = Fit(received.Remittance?.Unstructured, MessageRow.DescriptionLength)
+            };
+
+        internal static Camt056RecallRow Incoming(IncomingCamt056 received) =>
+            new()
+            {
+                MessageId = Fit(received.MessageId, MessageRow.ReferenceLength),
+                RecallId = Fit(received.RecallId, MessageRow.ReferenceLength),
+                OriginalMessageId = Fit(received.OriginalMessageId, MessageRow.ReferenceLength),
+                OriginalEndToEndId = Fit(received.OriginalEndToEndId, MessageRow.ReferenceLength),
+                OriginalTransactionId = Fit(received.OriginalTransactionId, MessageRow.ReferenceLength),
+                OriginalAmount = received.OriginalAmount,
+                OriginalCurrency = received.OriginalCurrency,
+                OriginalSettlementDate = received.OriginalSettlementDate,
+                RecallReasonCode = Fit(received.ReasonCode, MessageRow.ReferenceLength),
+                DebtorName = Fit(received.Original.Debtor?.Name, 140),
+                DebtorAccount = Fit(received.Original.Debtor?.Account, 34),
+                DebtorAgentBic = Fit(received.Original.DebtorAgent?.Bic, 11),
+                CreditorName = Fit(received.Original.Creditor?.Name, 140),
+                CreditorAccount = Fit(received.Original.Creditor?.Account, 34),
+                CreditorAgentBic = Fit(received.Original.CreditorAgent?.Bic, 11)
+            };
+
+        internal static Camt055CancellationRow Incoming(IncomingCamt055 received) =>
+            new()
+            {
+                MessageId = Fit(received.MessageId, MessageRow.ReferenceLength),
+                CancellationId = Fit(received.CancellationId, MessageRow.ReferenceLength),
+                PaymentCancellationId = Fit(received.PaymentCancellationId, MessageRow.ReferenceLength),
+                AssignerBic = Fit(received.AssignerBic, 11),
+                AssigneeBic = Fit(received.AssigneeBic, 11),
+                OriginalMessageId = Fit(received.OriginalGroup?.MessageId, MessageRow.ReferenceLength),
+                OriginalPaymentInformationId = Fit(received.OriginalPaymentInformationId, MessageRow.ReferenceLength),
+                OriginalInstructionId = Fit(received.OriginalInstructionId, MessageRow.ReferenceLength),
+                OriginalEndToEndId = Fit(received.OriginalEndToEndId, MessageRow.ReferenceLength),
+                Amount = received.Original.Amount,
+                Currency = received.Original.Currency,
+                RequestedExecutionDate = received.Original.RequestedExecutionDate,
+                CancellationReasonCode = Fit(received.Reason?.ReasonCode, MessageRow.ReferenceLength),
+                OriginatorBic = Fit(received.Reason?.OriginatorBic, 11),
+                CreditorName = Fit(received.Original.Creditor?.Name, 140),
+                CreditorAccount = Fit(received.Original.CreditorAccount, 34)
+            };
+
+        internal static Camt029ResolutionRow Incoming(IncomingCamt029 received) =>
+            new()
+            {
+                MessageId = Fit(received.MessageId, MessageRow.ReferenceLength),
+                CancellationStatusId = Fit(received.CancellationStatusId, MessageRow.ReferenceLength),
+                OriginalMessageId = Fit(received.OriginalMessageId, MessageRow.ReferenceLength),
+                OriginalEndToEndId = Fit(received.OriginalEndToEndId, MessageRow.ReferenceLength),
+                OriginalTransactionId = Fit(received.OriginalTransactionId, MessageRow.ReferenceLength),
+                ResolutionReasonCode = Fit(received.ReasonCode, MessageRow.ReferenceLength),
+                AdditionalInformation = Fit(received.AdditionalInformation, 256),
+                Amount = received.Original.Amount,
+                Currency = received.Original.Currency,
+                SettlementDate = received.Original.SettlementDate
+            };
     }
 }

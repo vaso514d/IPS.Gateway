@@ -7,6 +7,12 @@ Status: proposed on codex/uat-certificates (base main 22a17ef) on 2026-10-19. Th
 - **History.** Only transfers keep a status history (outgoing payments and incoming credits).
 - **Direction.** Incoming and outgoing share one table per message type, told apart by an enum column.
 
+Implementation: 020a merged into main. On 2026-10-20, 020b, 020c and 020d were implemented on main and await owner review (uncommitted). Departures from the tables below:
+
+- `Pacs008Payments` has no `Purpose`, `ChargeBearer` or `FailureStage` columns, because the rebuilt pacs.008 request does not carry them.
+- `Pacs004Payments` also has `DebtorName`, `DebtorAccount`, `CreditorName` and `CreditorAccount`.
+- `Pacs002StatusReports.Id` is the inbound journal id, not an aggregate id, so it has no foreign key to `AggregateIdentities`.
+
 On 2026-10-19 the owner confirmed D1 to D5 as listed under [Decisions](#decisions). For D5 the owner added that the gateway needs a code model matching the IPS status codes.
 
 ## Why

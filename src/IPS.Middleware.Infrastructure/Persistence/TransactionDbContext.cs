@@ -64,6 +64,12 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new Pacs008PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new Pacs009PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new Pacs004PaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new Pain001InitiationConfiguration());
+        modelBuilder.ApplyConfiguration(new Camt056RecallConfiguration());
+        modelBuilder.ApplyConfiguration(new Camt055CancellationConfiguration());
+        modelBuilder.ApplyConfiguration(new Camt029ResolutionConfiguration());
+        modelBuilder.ApplyConfiguration(new Pain002StatusReportConfiguration());
+        modelBuilder.ApplyConfiguration(new Pacs002StatusReportConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());
     }

@@ -1,7 +1,9 @@
 using System.Xml.Linq;
+using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +55,14 @@ public sealed class Pacs009ProcessingTests
         Assert.Equal("P9-processing", stored.Message.MessageId);
         Assert.Equal("pacs.009.001.11", (await Journal(core, id)).MessageDefinition);
         Assert.Equal(1, await Callbacks(core, id));
+
+        var row = (await MessageTableRows.ReadAsync<Pacs009PaymentRow>(core.Database, id))!;
+        Assert.Equal((TransactionDirection.Outgoing, TransactionStatus.Accepted, "E2E-009", "P9-processing"),
+            (row.Direction, row.Status, row.EndToEndId, row.MessageId));
+        Assert.Equal("GE29NB0000000101904917", row.DebtorAccount);
+        var history = await TransferHistory.ReadAsync(core.Database, id);
+        Assert.Equal((TransactionStatus.Received, TransactionStatus.Accepted), (history[0].Status, history[^1].Status));
+        Assert.All(history, step => Assert.Equal("pacs.009", step.MessageType));
     }
 
     [Fact]

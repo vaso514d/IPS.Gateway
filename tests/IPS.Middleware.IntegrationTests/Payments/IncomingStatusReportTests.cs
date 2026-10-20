@@ -14,6 +14,7 @@ using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Inbound.Workers;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Persistence;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Repositories.Payments;
@@ -57,6 +58,11 @@ public sealed class IncomingStatusReportTests
         Assert.Contains(expected == TransactionStatus.Accepted ? "payment.accepted" : "payment.rejected", stored.Events);
         Assert.Equal(1, await CallbacksAsync(core, id));
         Assert.Equal(InboundProcessingStatus.Processed, (await ReadReceiptAsync(core, journalId)).Status);
+
+        // The report is kept in its own table, received from IPS, with the status code it carried.
+        var report = (await MessageTableRows.ReadAsync<Pacs002StatusReportRow>(core.Database, journalId))!;
+        Assert.Equal((TransactionDirection.Incoming, TransactionStatus.Received, status), (report.Direction, report.Status, report.TransactionStatusCode));
+        Assert.Equal((stored.Message.MessageId, stored.Message.Accepted!.EndToEndId), (report.OriginalMessageId, report.OriginalEndToEndId));
     }
 
     [Theory]

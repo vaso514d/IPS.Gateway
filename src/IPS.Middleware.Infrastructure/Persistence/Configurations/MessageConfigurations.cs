@@ -14,7 +14,8 @@ internal static class MessageTableMapping
     internal const int TextLength = 256;
     internal const int CurrencyLength = 3;
 
-    internal static void MapMessage<T>(this EntityTypeBuilder<T> builder, string table) where T : MessageRow
+    // A row is linked to its payment aggregate; pacs.002 rows are keyed by their inbound journal entry instead.
+    internal static void MapMessage<T>(this EntityTypeBuilder<T> builder, string table, bool linkedToPayment = true) where T : MessageRow
     {
         // The shared columns come first in every table; the message's own columns follow.
         builder.ToTable(table);
@@ -32,6 +33,10 @@ internal static class MessageTableMapping
         builder.HasIndex(x => new { x.Direction, x.CreatedAtUtc });
         builder.HasIndex(x => new { x.Status, x.StatusAtUtc });
         builder.HasIndex(x => x.ClientReference).HasFilter("[ClientReference] IS NOT NULL");
+        if (!linkedToPayment)
+        {
+            return;
+        }
 
         builder.HasOne<AggregateIdentity>()
             .WithOne()
@@ -124,6 +129,121 @@ internal sealed class Pacs004PaymentConfiguration : IEntityTypeConfiguration<Pac
         builder.Reference(x => x.OriginalInstructionId);
         builder.Reference(x => x.OriginalEndToEndId);
         builder.Reference(x => x.OriginalTransactionId);
+        builder.Text(x => x.AdditionalInformation);
+        builder.HasIndex(x => x.OriginalEndToEndId);
+    }
+}
+
+internal sealed class Pain001InitiationConfiguration : IEntityTypeConfiguration<Pain001InitiationRow>
+{
+    public void Configure(EntityTypeBuilder<Pain001InitiationRow> builder)
+    {
+        builder.MapMessage("Pain001Initiations");
+        builder.Reference(x => x.PaymentInformationId);
+        builder.Reference(x => x.InstructionId);
+        builder.Reference(x => x.EndToEndId);
+        builder.Amount(x => x.Amount);
+        builder.Currency(x => x.Currency);
+        builder.Bic(x => x.InitiatingPartyBic);
+        builder.Name(x => x.DebtorName);
+        builder.Account(x => x.DebtorAccount);
+        builder.Bic(x => x.DebtorAgentBic);
+        builder.Name(x => x.CreditorName);
+        builder.Account(x => x.CreditorAccount);
+        builder.Bic(x => x.CreditorAgentBic);
+        builder.Reference(x => x.CategoryPurpose);
+        builder.Reference(x => x.Purpose);
+        builder.Property(x => x.RemittanceInformation).HasMaxLength(MessageRow.DescriptionLength);
+        builder.HasIndex(x => x.PaymentInformationId);
+    }
+}
+
+internal sealed class Camt056RecallConfiguration : IEntityTypeConfiguration<Camt056RecallRow>
+{
+    public void Configure(EntityTypeBuilder<Camt056RecallRow> builder)
+    {
+        builder.MapMessage("Camt056Recalls");
+        builder.Reference(x => x.RecallId);
+        builder.Reference(x => x.OriginalMessageId);
+        builder.Reference(x => x.OriginalEndToEndId);
+        builder.Reference(x => x.OriginalTransactionId);
+        builder.Amount(x => x.OriginalAmount);
+        builder.Currency(x => x.OriginalCurrency);
+        builder.Reference(x => x.RecallReasonCode);
+        builder.Name(x => x.DebtorName);
+        builder.Account(x => x.DebtorAccount);
+        builder.Bic(x => x.DebtorAgentBic);
+        builder.Name(x => x.CreditorName);
+        builder.Account(x => x.CreditorAccount);
+        builder.Bic(x => x.CreditorAgentBic);
+        builder.HasIndex(x => x.OriginalEndToEndId);
+    }
+}
+
+internal sealed class Camt055CancellationConfiguration : IEntityTypeConfiguration<Camt055CancellationRow>
+{
+    public void Configure(EntityTypeBuilder<Camt055CancellationRow> builder)
+    {
+        builder.MapMessage("Camt055Cancellations");
+        builder.Reference(x => x.CancellationId);
+        builder.Reference(x => x.PaymentCancellationId);
+        builder.Bic(x => x.AssignerBic);
+        builder.Bic(x => x.AssigneeBic);
+        builder.Reference(x => x.OriginalMessageId);
+        builder.Reference(x => x.OriginalPaymentInformationId);
+        builder.Reference(x => x.OriginalInstructionId);
+        builder.Reference(x => x.OriginalEndToEndId);
+        builder.Amount(x => x.Amount);
+        builder.Currency(x => x.Currency);
+        builder.Reference(x => x.CancellationReasonCode);
+        builder.Bic(x => x.OriginatorBic);
+        builder.Name(x => x.CreditorName);
+        builder.Account(x => x.CreditorAccount);
+        builder.HasIndex(x => x.OriginalPaymentInformationId);
+    }
+}
+
+internal sealed class Camt029ResolutionConfiguration : IEntityTypeConfiguration<Camt029ResolutionRow>
+{
+    public void Configure(EntityTypeBuilder<Camt029ResolutionRow> builder)
+    {
+        builder.MapMessage("Camt029Resolutions");
+        builder.Reference(x => x.CancellationStatusId);
+        builder.Reference(x => x.OriginalMessageId);
+        builder.Reference(x => x.OriginalEndToEndId);
+        builder.Reference(x => x.OriginalTransactionId);
+        builder.Reference(x => x.ResolutionReasonCode);
+        builder.Text(x => x.AdditionalInformation);
+        builder.Amount(x => x.Amount);
+        builder.Currency(x => x.Currency);
+        builder.HasIndex(x => x.OriginalEndToEndId);
+    }
+}
+
+internal sealed class Pain002StatusReportConfiguration : IEntityTypeConfiguration<Pain002StatusReportRow>
+{
+    public void Configure(EntityTypeBuilder<Pain002StatusReportRow> builder)
+    {
+        builder.MapMessage("Pain002StatusReports");
+        builder.Reference(x => x.OriginalMessageId);
+        builder.Reference(x => x.OriginalPaymentInformationId);
+        builder.Reference(x => x.ReportReasonCode);
+        builder.Text(x => x.AdditionalInformation);
+        builder.Name(x => x.OriginatorName);
+        builder.HasIndex(x => x.OriginalPaymentInformationId);
+    }
+}
+
+internal sealed class Pacs002StatusReportConfiguration : IEntityTypeConfiguration<Pacs002StatusReportRow>
+{
+    public void Configure(EntityTypeBuilder<Pacs002StatusReportRow> builder)
+    {
+        builder.MapMessage("Pacs002StatusReports", linkedToPayment: false);
+        builder.Reference(x => x.OriginalMessageId);
+        builder.Reference(x => x.OriginalEndToEndId);
+        builder.Reference(x => x.OriginalTransactionId);
+        builder.Reference(x => x.TransactionStatusCode);
+        builder.Reference(x => x.ReportReasonCode);
         builder.Text(x => x.AdditionalInformation);
         builder.HasIndex(x => x.OriginalEndToEndId);
     }
