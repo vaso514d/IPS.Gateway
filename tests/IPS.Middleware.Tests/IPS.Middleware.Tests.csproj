@@ -16,6 +16,7 @@
     <ProjectReference Include="../../src/IPS.Middleware.Api/IPS.Middleware.Api.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Testing/IPS.MiidleWear.Testing.csproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="../../src/IPS.MiidleWear.Contracts/bin/$(Configuration)/net8.0/IPS.MiidleWear.Contracts.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.MiidleWear.Contracts.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
@@ -25,6 +26,7 @@
     <None Include="../../src/IPS.Middleware.Api/bin/$(Configuration)/net10.0/IPS.Middleware.Api.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.Middleware.Api.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/IPS.MiidleWear.AspNetCore/bin/$(Configuration)/net10.0/IPS.MiidleWear.AspNetCore.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.MiidleWear.AspNetCore.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/IPS.MiidleWear.Testing/bin/$(Configuration)/net10.0/IPS.MiidleWear.Testing.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.MiidleWear.Testing.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/IPS.MiidleWear.Security/bin/$(Configuration)/net8.0/IPS.MiidleWear.Security.dependencies.txt" Visible="false" TargetPath="Architecture/IPS.MiidleWear.Security.dependencies.txt" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Baselines/public-api.json;Baselines/wire-cases.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

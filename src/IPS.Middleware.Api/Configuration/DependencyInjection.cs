@@ -16,6 +16,7 @@ internal static class DependencyInjection
             .AddOutgoingApi()
             .AddProxyConfiguration()
             .AddDiagnosticsConfiguration()
+            .AddCoreAuthentication()
             .AddSigning();
     }
 
@@ -31,6 +32,7 @@ internal static class DependencyInjection
         services.ValidateOutgoingExecution();
         services.ValidateProxy();
         services.ValidateDiagnostics();
+        services.ValidateCoreAuthentication();
     }
 
     private static IServiceCollection AddSigning(this IServiceCollection services)

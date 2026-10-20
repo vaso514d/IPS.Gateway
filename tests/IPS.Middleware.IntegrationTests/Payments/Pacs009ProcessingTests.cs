@@ -1,11 +1,11 @@
 using System.Xml.Linq;
-using IPS.Middleware.IntegrationTests.Transactions;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
 using IPS.Middleware.Domain.Transactions;
-using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
+using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 

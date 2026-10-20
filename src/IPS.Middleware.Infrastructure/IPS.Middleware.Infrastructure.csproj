@@ -10,6 +10,7 @@
     <ProjectReference Include="../IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
     <ProjectReference Include="../IPS.Middleware.Domain/IPS.Middleware.Domain.csproj" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Payments/Pacs008/Schemas/*.xsd" />

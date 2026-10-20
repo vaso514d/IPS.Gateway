@@ -7,14 +7,15 @@ public sealed class DependencyTests
     private static readonly Dictionary<string, string[]> AllowedReferences = new(StringComparer.Ordinal)
     {
         ["IPS.MiidleWear.Contracts"] = [],
-        ["IPS.MiidleWear.AspNetCore"] = ["IPS.MiidleWear.Contracts"],
+        ["IPS.MiidleWear.AspNetCore"] = ["IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"],
+        ["IPS.MiidleWear.Security"] = [],
         ["IPS.MiidleWear.Testing"] = ["IPS.MiidleWear.Contracts"],
         ["IPS.Middleware.Domain"] = [],
         ["IPS.Middleware.Application"] = ["IPS.Middleware.Domain"],
         ["IPS.Middleware.Infrastructure"] =
-            ["IPS.Middleware.Application", "IPS.Middleware.Domain", "IPS.MiidleWear.Contracts"],
+            ["IPS.Middleware.Application", "IPS.Middleware.Domain", "IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"],
         ["IPS.Middleware.Api"] =
-            ["IPS.Middleware.Application", "IPS.Middleware.Infrastructure", "IPS.MiidleWear.Contracts"]
+            ["IPS.Middleware.Application", "IPS.Middleware.Infrastructure", "IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"]
     };
 
     [Fact]
@@ -34,8 +35,9 @@ public sealed class DependencyTests
 
     [Theory]
     [InlineData("IPS.MiidleWear.Contracts")]
+    [InlineData("IPS.MiidleWear.Security")]
     [InlineData("IPS.Middleware.Application")]
-    public void Contracts_remains_isolated_and_Application_allows_only_FluentValidation(string project)
+    public void Contracts_and_Security_remain_isolated_and_Application_allows_only_FluentValidation(string project)
     {
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", project + ".dependencies.txt"));
         Assert.Equal(project == "IPS.Middleware.Application" ? new[] { "FluentValidation" } : [], Values(lines, "packageReference"));

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Authentication between a core banking system and the IPS middleware (021): the core system signs the SHA-256 of
+    each request body with its certificate, and the gateway calls the core system with a static API token. Base class
+    library only, so the gateway, the receiver package and any core system can reference it.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+    <PackageId>IPS.MiidleWear.Security</PackageId>
+    <Version>2.0.0-preview.1</Version>
+    <Description>Request signing (SHA-256 of the JSON body, RSA or ECDSA) and static API tokens between a core banking system and the IPS middleware.</Description>
+    <PackageTags>IPS;ISO20022;core banking;signature;authentication</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

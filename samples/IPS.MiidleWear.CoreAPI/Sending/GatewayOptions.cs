@@ -11,9 +11,12 @@ public sealed class GatewayOptions
     // The bank's own BIC: the debtor agent, and the gateway's Bank:BicCode.
     public string ParticipantBic { get; set; } = "ITSBGE22";
 
-    // Other participants, picked at random as the creditor bank and offered in Swagger UI. Configuration binding appends
-    // to an array's initial items, so the lists come from appsettings.json only.
-    public string[] CreditorBics { get; set; } = [];
+    // The two letters after the check digits in this bank's IBANs (GEkk BB ...).
+    public string ParticipantIbanCode { get; set; } = "";
+
+    // Other participants by BIC, with their two-letter IBAN bank code: picked at random as the creditor bank and offered in
+    // Swagger UI. Configuration binding appends to a collection's initial items, so the lists come from appsettings.json only.
+    public Dictionary<string, string> CreditorBanks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public string[] Currencies { get; set; } = [];
 
@@ -25,4 +28,27 @@ public sealed class GatewayOptions
 
     // A send answers 200 when final or 504 after the gateway's wait; this must exceed that wait.
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    // The certificate this core signs its requests to the gateway with (specification 021). None: requests are unsigned.
+    public GatewaySigningOptions Signing { get; set; } = new();
+
+    // A bank not configured with a code falls back to the first two letters of its BIC.
+    public string IbanCode(string bic)
+    {
+        var configured = string.Equals(bic, ParticipantBic, StringComparison.OrdinalIgnoreCase)
+            ? ParticipantIbanCode
+            : CreditorBanks.GetValueOrDefault(bic);
+        return string.IsNullOrWhiteSpace(configured) ? bic[..2] : configured.Trim().ToUpperInvariant();
+    }
+}
+
+// A thumbprint (Windows stores) or a PFX file and its password (a container); Algorithm RS256, PS256 or ES256.
+public sealed class GatewaySigningOptions
+{
+    public string? Thumbprint { get; set; }
+    public string? Path { get; set; }
+    public string? Password { get; set; }
+    public string Algorithm { get; set; } = "RS256";
+
+    public bool IsConfigured => !string.IsNullOrWhiteSpace(Thumbprint) || !string.IsNullOrWhiteSpace(Path);
 }

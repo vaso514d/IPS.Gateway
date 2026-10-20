@@ -16,7 +16,7 @@ internal static class GatewayChoices
         {
             var choices = parameter.Name switch
             {
-                "creditorBic" => gateway.CreditorBics,
+                "creditorBic" => gateway.CreditorBanks.Keys.ToArray(),
                 "currency" => gateway.Currencies,
                 "reasonCode" => gateway.RecallReasons,
                 _ => null

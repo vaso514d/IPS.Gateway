@@ -157,6 +157,7 @@
     <Project Path="src/IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
     <Project Path="src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" />
     <Project Path="src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <Project Path="src/IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
     <Project Path="src/IPS.MiidleWear.Testing/IPS.MiidleWear.Testing.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -37,12 +37,32 @@ internal static class StartupSummary
             OnOff(outgoing.Enabled), OnOff(execution.Enabled), Url(outgoing.Ips), Configured(outgoing.Ips.ClientCertificate),
             outgoing.IpsSignatureTrust.Length, Url(outgoing.Cbs));
         logger.LogInformation("Proxy: {Proxy}; {ProxyUrl}", OnOff(proxy.Enabled), Url(proxy.Endpoint));
+        LogCoreAuthentication(services, logger, incoming, outgoing);
         logger.LogInformation("Signing: unsigned messages without a certificate {Unsigned}", signing.AllowUnsignedWithoutCertificate ? "allowed (Development)" : "refused");
         if (incoming.Enabled && !workers.Enabled)
         {
             logger.LogWarning("Incoming transport is on but the workers are off: nothing polls IPS. Set Payments:Incoming:Workers:Enabled=true to receive.");
         }
     }
+
+    // Specification 021: open is allowed, so it is reported as a warning rather than refused.
+    private static void LogCoreAuthentication(IServiceProvider services, ILogger logger, IncomingTransportSettings incoming, OutgoingTransportSettings outgoing)
+    {
+        var signing = services.GetRequiredService<CoreRequestSigning>();
+        if (signing.Verifier is null)
+        {
+            logger.LogWarning("Core authentication: [RequireCoreSignature] endpoints are not checked (no CoreAuthentication:TrustedCertificates)");
+        }
+        else
+        {
+            logger.LogInformation("Core authentication: [RequireCoreSignature] endpoints must be signed by one of {Count} trusted certificate(s)", signing.TrustedCertificates);
+        }
+
+        logger.LogInformation("Core authentication: API token to the CBS incoming {Incoming}, outgoing {Outgoing}",
+            Configured(incoming.Cbs.ApiToken), Configured(outgoing.Cbs.ApiToken));
+    }
+
+    private static string Configured(string? secret) => string.IsNullOrWhiteSpace(secret) ? "none" : "configured";
 
     private static string OnOff(bool enabled) => enabled ? "on" : "off";
 

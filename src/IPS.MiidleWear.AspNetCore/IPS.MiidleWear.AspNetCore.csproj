@@ -3,7 +3,8 @@
   <!--
     The core-system side of the IPS middleware contract: maps an IClientPaymentReceiver implementation to the endpoints
     the gateway calls, with the gateway's JSON, status codes and Idempotency-Key, and their OpenAPI 3.0 document. References
-    Contracts, the ASP.NET Core shared framework and Microsoft.AspNetCore.OpenApi. The gateway does not reference it.
+    Contracts, Security (the gateway's API token, 021), the ASP.NET Core shared framework and Microsoft.AspNetCore.OpenApi.
+    The gateway does not reference it.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -19,6 +20,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>

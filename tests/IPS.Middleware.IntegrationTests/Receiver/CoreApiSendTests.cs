@@ -29,9 +29,23 @@ public sealed class CoreApiSendTests
 
     private static readonly PaymentGenerator Generator = new(Options.Create(new GatewayOptions
     {
-        CreditorBics = ["HABGGE22", "TBCBGE22", "BAGAGE22", "PAVEGE22", "LBRTGE22", "JSCRGE22"],
+        ParticipantIbanCode = "IT",
+        CreditorBanks = new(StringComparer.OrdinalIgnoreCase) { ["HABGGE22"] = "HB", ["TBCBGE22"] = "TB", ["BAGAGE22"] = "BG", ["LBRTGE22"] = "LB" },
         Currencies = ["GEL"]
     }));
+
+    [Fact]
+    public void Generated_accounts_use_each_bank_s_iban_code_and_given_accounts_are_kept()
+    {
+        var generated = Generator.Pacs008(null, "BAGAGE22", 10m);
+        var given = Generator.Pacs008(null, "TBCBGE22", 10m, "ge29 nb00 0000 0101 9049 17", "GE95TB0000000123456789");
+
+        Assert.Equal(("IT", "BG"), (generated.Debtor!.Account![4..6], generated.Creditor!.Account![4..6]));
+        Assert.Equal(("GE29NB0000000101904917", "GE95TB0000000123456789"), (given.Debtor!.Account, given.Creditor!.Account));
+        Assert.Empty(ValidatedPacs008.Validate(Pacs008RequestMapping.Map(given), Policy).Errors);
+        // A bank without a configured code keeps the first two letters of its BIC.
+        Assert.Equal("PA", Generator.Pacs009(null, null, "PAVEGE22", null).Creditor!.Account![4..6]);
+    }
 
     [Fact]
     public void Every_generated_transfer_passes_the_gateway_validation()

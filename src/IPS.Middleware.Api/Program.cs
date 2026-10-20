@@ -23,6 +23,8 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health/live", () => TypedResults.Text("Healthy")).WithName("Liveness");
 app.MapHealthChecks(DiagnosticsConfiguration.ReadyPath, new HealthCheckOptions { Predicate = check => check.Tags.Contains(DiagnosticsConfiguration.ReadyTag) });
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.Run();
 

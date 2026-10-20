@@ -6,6 +6,7 @@
     <ProjectReference Include="../IPS.Middleware.Application/IPS.Middleware.Application.csproj" />
     <ProjectReference Include="../IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
+    <ProjectReference Include="../IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
   </ItemGroup>

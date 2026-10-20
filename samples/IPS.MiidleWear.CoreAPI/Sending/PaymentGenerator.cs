@@ -32,7 +32,13 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
 
     private GatewayOptions Settings => options.Value;
 
-    public Pacs008InstantPaymentRequestDto Pacs008(string? currency, string? creditorBic, decimal? amount)
+    // The accounts are random IBANs at the debtor's and creditor's banks unless given.
+    public Pacs008InstantPaymentRequestDto Pacs008(
+        string? currency,
+        string? creditorBic,
+        decimal? amount,
+        string? debtorAccount = null,
+        string? creditorAccount = null)
     {
         var creditorBank = CreditorBank(creditorBic);
         var createdAt = DateTimeOffset.Now;
@@ -48,8 +54,8 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
             Currency = Currency(currency),
             InstructionPriority = Pick(["NORM", "HIGH"]),
             CategoryPurposeCode = Pick(CategoryPurposes),
-            Debtor = Debtor(),
-            Creditor = Creditor(creditorBank),
+            Debtor = Debtor(debtorAccount),
+            Creditor = Creditor(creditorBank, creditorAccount),
             PaymentInitiation = new Pacs008PaymentInitiationDto { ChannelCode = Pick(Channels) },
             Remittance = new Pacs008RemittanceDto { Unstructured = Pick(Purposes) }
         };
@@ -75,8 +81,8 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
             Currency = Currency(currency),
             Amount = Amount(amount),
             Purpose = Pick(Purposes),
-            Debtor = new Pacs009AccountDto { Account = TestIdentifiers.Iban(Settings.ParticipantBic[..2]) },
-            Creditor = new Pacs009AccountDto { Account = TestIdentifiers.Iban(creditorBank[..2]) }
+            Debtor = new Pacs009AccountDto { Account = Iban(Settings.ParticipantBic) },
+            Creditor = new Pacs009AccountDto { Account = Iban(creditorBank) }
         };
     }
 
@@ -98,9 +104,9 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
             InstructedAgent = returnedToBank,
             ReturnReasonCode = FullReturnReason,
             DebtorSwift = returnedToBank,
-            Debtor = Party(returnedToBank[..2]),
+            Debtor = Party(returnedToBank),
             CreditorSwift = Settings.ParticipantBic,
-            Creditor = Party(Settings.ParticipantBic[..2]),
+            Creditor = Party(Settings.ParticipantBic),
             OriginatorName = Pick(Names),
             AdditionalInfo = Pick(Purposes),
             Original = new Pacs004OriginalPaymentReferenceDto
@@ -158,7 +164,7 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
     private static Camt056PartyDto Party(string? name, int? type, string? identifier, string? account) =>
         new() { Name = name, Type = type, Id = identifier, Account = account };
 
-    private Pacs008DebtorRequestDto Debtor()
+    private Pacs008DebtorRequestDto Debtor(string? account)
     {
         var type = Random.Shared.Next(0, 2);
         return new Pacs008DebtorRequestDto
@@ -166,11 +172,11 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
             Type = type,
             Name = Pick(Names),
             Identifier = Identifier(type),
-            Account = TestIdentifiers.Iban(Settings.ParticipantBic[..2])
+            Account = Account(account, Settings.ParticipantBic)
         };
     }
 
-    private static Pacs008CreditorRequestDto Creditor(string bank)
+    private Pacs008CreditorRequestDto Creditor(string bank, string? account)
     {
         var type = Random.Shared.Next(0, 2);
         return new Pacs008CreditorRequestDto
@@ -179,27 +185,34 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
             Name = Pick(Names),
             Identifier = Identifier(type),
             ParticipantBic = bank,
-            Account = TestIdentifiers.Iban(bank[..2])
+            Account = Account(account, bank)
         };
     }
 
-    private static Pacs008PartyDto Party(string bankCode)
+    private Pacs008PartyDto Party(string bank)
     {
         var type = Random.Shared.Next(0, 2);
         return new Pacs008PartyDto
         {
             Name = Pick(Names),
-            Account = TestIdentifiers.Iban(bankCode),
+            Account = Iban(bank),
             Type = type,
             Id = Identifier(type)
         };
     }
 
+    // A random IBAN of the bank, with its configured IBAN bank code.
+    private string Iban(string bic) => TestIdentifiers.Iban(Settings.IbanCode(bic));
+
+    // The account given in the query, without spaces, or a random one at the bank.
+    private string Account(string? account, string bic) =>
+        string.IsNullOrWhiteSpace(account) ? Iban(bic) : string.Concat(account.Where(character => !char.IsWhiteSpace(character))).ToUpperInvariant();
+
     // 0 is an organisation (a tax code with a valid check digit), 1 an individual (an eleven-digit personal number).
     private static string Identifier(int type) => type == 0 ? TestIdentifiers.OrganisationTaxCode() : TestIdentifiers.PersonalNumber();
 
     private string CreditorBank(string? bic) =>
-        string.IsNullOrWhiteSpace(bic) ? Pick(Settings.CreditorBics) : bic.Trim().ToUpperInvariant();
+        string.IsNullOrWhiteSpace(bic) ? Pick(Settings.CreditorBanks.Keys.ToArray()) : bic.Trim().ToUpperInvariant();
 
     private string Currency(string? currency) =>
         string.IsNullOrWhiteSpace(currency) ? Pick(Settings.Currencies) : currency.Trim().ToUpperInvariant();

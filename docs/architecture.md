@@ -18,12 +18,13 @@ flowchart TD
 | Project | Direct project references | Owns |
 |---|---|---|
 | IPS.MiidleWear.Contracts | None | Existing public models, interfaces, route constants, metadata |
-| IPS.MiidleWear.AspNetCore | Contracts (and the ASP.NET Core framework, Microsoft.AspNetCore.OpenApi) | Client package: hosts a core system's IClientPaymentReceiver and generates its OpenAPI document; not referenced by the gateway (017b, 019a) |
+| IPS.MiidleWear.AspNetCore | Contracts, Security (and the ASP.NET Core framework, Microsoft.AspNetCore.OpenApi) | Client package: hosts a core system's IClientPaymentReceiver, requires the gateway's API token and generates its OpenAPI document; not referenced by the gateway (017b, 019a, 021) |
+| IPS.MiidleWear.Security | None | Client package shared with the gateway: request signing over the body's SHA-256, its verification, the static API token (021) |
 | IPS.MiidleWear.Testing | Contracts | Client package: receiver conformance checks a core system runs from its tests; not referenced by the gateway (018) |
 | IPS.Middleware.Domain | None | Payment concepts, invariants, transaction state transitions |
 | IPS.Middleware.Application | Domain | Internal commands/results, feature workflows, external dependency interfaces |
-| IPS.Middleware.Infrastructure | Application, Domain, Contracts | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
-| IPS.Middleware.Api | Application, Infrastructure, Contracts | HTTP mapping, configuration, dependency registration |
+| IPS.Middleware.Infrastructure | Application, Domain, Contracts, Security | EF/SQL, XML, signing/TLS, HTTP adapters, telemetry, hosted scheduling |
+| IPS.Middleware.Api | Application, Infrastructure, Contracts, Security | HTTP mapping, configuration, dependency registration |
 | IPS.Middleware.Tests | Application, Domain, Contracts; Api as a build dependency only | Domain/application behavior, compatibility, and evaluated dependency tests |
 | IPS.Middleware.IntegrationTests | Api, Infrastructure, Application, Domain, Contracts | Host and SQL persistence tests; later independent protocol simulators |
 
@@ -425,3 +426,12 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 - **One conversion.** `IpsEnvelope` (Infrastructure, `Payments/Pacs008`) is the only place that knows the envelope. Builders still assemble the ISO `AppHdr` and `Document` and hand them to `IpsEnvelope.Wrap`; `Pacs008Schema`, `IncomingPacs008Reader` and `SignedEnvelope` open a wire message with `IpsEnvelope.Open` into the ISO parts that the XSDs and readers use. The signer and the verifier find `Sgntr` (head.001) inside the montran `AppHdr`.
 - **Parse errors settle the send.** When IPS cannot parse a send it answers on the same HTTP exchange with `OrgnlMsgId` `PARSEERROR` and no transaction. `IpsReplyInterpreter` accepts that answer as the final rejection of the send it came with, never as an unsolicited report. `IpsUatWireTests` holds the UAT's actual reply.
 - The proxy's acmt.022 (`ProxyXml`) already used the montran wrapper and is unchanged.
+
+## Core system authentication (021)
+
+- **`IPS.MiidleWear.Security`** (`net8.0`, base class library only, packable) is shared by the gateway, the receiver package and any core system. It holds the content signature (`Base64(SHA-256(body))`, signed with RS256, PS256 or ES256), `IpsSignatureVerifier`, the `HttpClient` handlers `IpsSigningHandler` and `IpsApiTokenHandler`, the constant-time `IpsApiToken` and `IpsCertificates`.
+- **Declared per endpoint.** Protection is an ASP.NET Core authentication scheme selected by an `AuthorizeAttribute`. Unmarked endpoints, such as health checks, are open.
+- **Core system → gateway.** `[RequireCoreSignature]` (Api) selects the `IpsSignature` scheme, `CoreSignatureAuthentication`. It checks the request against `CoreAuthentication:TrustedCertificates` over the buffered body that model binding then reads. `OutgoingPaymentsController` and `ProxyController` are marked. Without trusted certificates the scheme accepts every request.
+- **Gateway → core system.** `SingleAttemptHttp` adds `IpsApiTokenHandler` with `HttpEndpointSettings.ApiToken` to every named client, so both CBS clients send `Authorization: Bearer` when a token is configured. The receiver package checks it with its `IpsApiToken` scheme: `AddIpsApiTokenAuthentication`, then `.RequireIpsApiToken()` on endpoints or `[RequireIpsApiToken]` on controllers.
+- Responses are not signed. Only the body is covered, so a captured request can be repeated; for sends, the `clientReference` idempotency makes a repeat return the existing transaction.
+- See [021](specs/021-core-authentication.md).

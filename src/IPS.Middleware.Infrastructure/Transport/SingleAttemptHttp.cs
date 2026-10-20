@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Security;
+using IPS.MiidleWear.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
@@ -32,6 +33,7 @@ internal static class SingleAttemptHttp
                 SslOptions = settings.Tls
             };
         }).SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+        client.AddHttpMessageHandler(sp => new IpsApiTokenHandler(profile(sp).Endpoint.ApiToken));
         client.AddResilienceHandler("single-attempt", (pipeline, context) =>
         {
             var settings = profile(context.ServiceProvider);

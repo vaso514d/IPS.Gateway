@@ -106,7 +106,9 @@ public sealed class CoreReceiverDocumentTests
 
         var paths = document.RootElement.GetProperty("paths").EnumerateObject().Select(path => path.Name).ToArray();
 
-        Assert.Equal(new[] { "/core/send/pacs004", "/core/send/pacs008", "/core/send/pacs009", "/sample/ledger" }, paths.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            new[] { "/core/send/camt056", "/core/send/pacs004", "/core/send/pacs008", "/core/send/pacs009", "/core/sent/pacs008", "/sample/ledger" },
+            paths.Order(StringComparer.Ordinal));
     }
 
     private static async Task<string> ReadAsync(string documentName)

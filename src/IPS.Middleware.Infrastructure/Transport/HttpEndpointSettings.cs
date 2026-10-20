@@ -13,6 +13,9 @@ public sealed class HttpEndpointSettings
     public CertificateSettings[] ServerTrust { get; init; } = [];
     public bool CheckCertificateRevocation { get; init; } = true;
 
+    // Sent as Authorization: Bearer on every call to this endpoint (the core system, specification 021); none when empty.
+    public string? ApiToken { get; init; }
+
     public void Validate(bool development)
     {
         if (!Uri.TryCreate(BaseUrl, UriKind.Absolute, out var uri) ||

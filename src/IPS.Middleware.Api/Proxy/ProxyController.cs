@@ -1,3 +1,4 @@
+using IPS.Middleware.Api.Authentication;
 using IPS.Middleware.Application.Proxy;
 using IPS.Middleware.Application.Transactions;
 using IPS.MiidleWear.Contracts.Proxy;
@@ -8,6 +9,7 @@ namespace IPS.Middleware.Api.Proxy;
 // The three Proxy Solution management operations. An accept and a reject are both 200; no answer from the Proxy Solution is 504
 // (timed out) or 502 (not reachable or an error status), and the outcome of the operation is then unknown.
 [ApiController]
+[RequireCoreSignature]
 public sealed class ProxyController(ProxyManagement management) : ControllerBase
 {
     [HttpPost(ProxyRestApiRoutes.Register, Name = "RegisterProxy")]

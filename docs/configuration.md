@@ -115,7 +115,7 @@ The first investigation identity freezes its absolute deadline from the accepted
 - `/openapi/v1.json` is the gateway's own OpenAPI 3.0 document, generated from the controllers and the `IGatewayApi` attributes. It lists only the operations the enabled features map, so the outgoing sends need `Payments:Outgoing:Execution:Enabled` and the proxy routes need `Proxy:Enabled`.
 - `/swagger` is Swagger UI over that document. Requests can be sent from the page in Development only; elsewhere the page is read-only.
 
-With the setting off, outside Development, both answer 404. Enable it in a bank's test environment rather than in production: nothing in the documentation is secret, but the gateway has no authentication of its own yet.
+With the setting off, outside Development, both answer 404. Enable it in a bank's test environment rather than in production: nothing in the documentation is secret. Requests to `/api/v1` are checked only when `CoreAuthentication:TrustedCertificates` is set (021).
 
 The endpoints a core system implements are described by the core system's own application: `AddIpsCoreReceiverOpenApi()` and `MapOpenApi()` from `IPS.MiidleWear.AspNetCore` serve `/openapi/ips-core-receiver.json`.
 
@@ -127,6 +127,15 @@ dotnet build samples/IPS.MiidleWear.CoreAPI -p:OpenApiGenerateDocumentsOnBuild=t
 ```
 
 The gateway file describes every operation whatever the configuration: while the generator runs the host, it skips validation and migration and maps every controller.
+
+## Core system authentication (021)
+
+- **Core system → gateway.** `CoreAuthentication:TrustedCertificates` is an array of certificate sources (`Thumbprint`, `Path`, `Pem` or `Pkcs12Base64`, as for the other certificates; the public certificate is enough). When it is set, every request to an endpoint marked `[RequireCoreSignature]` (the payment and proxy controllers; the health endpoints stay open) must carry the core system's signature. The signature covers `Base64(SHA-256(body))`, in the headers `X-Ips-Content-SHA256`, `X-Ips-Signature`, `X-Ips-Signature-Algorithm` and `X-Ips-Certificate` (the thumbprint). A request that fails answers 401, and the log says why.
+  - `CoreAuthentication:Algorithms` limits the accepted algorithms (`RS256`, `PS256`, `ES256`); it is empty by default, which accepts all three.
+  - Without trusted certificates the API is open, and startup logs a warning.
+  - List two certificates while one is replaced. An expired certificate fails startup.
+- **Gateway → core system.** `Payments:Incoming:Transport:Cbs:ApiToken` and `Payments:Outgoing:Transport:Cbs:ApiToken` are sent as `Authorization: Bearer <token>` on every call to the core system. Without them no header is sent. The startup log says only whether a token is configured.
+- The core system uses the `IPS.MiidleWear.Security` package: `IpsSigningHandler` to sign, and `AddIpsApiTokenAuthentication` with `.RequireIpsApiToken()` or `[RequireIpsApiToken]` from `IPS.MiidleWear.AspNetCore` to check the token. `samples/IPS.MiidleWear.CoreAPI` configures both, with `Gateway:Signing` (`Thumbprint`, or `Path` and `Password`, and `Algorithm`) and `Sample:ApiTokens`.
 
 ## Database migration
 

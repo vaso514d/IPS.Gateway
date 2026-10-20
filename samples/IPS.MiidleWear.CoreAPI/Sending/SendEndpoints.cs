@@ -15,17 +15,20 @@ internal static class SendEndpoints
     {
         var group = endpoints.MapGroup("/core/send").WithTags(Tag);
 
-        group.MapPost("/pacs008", async (string? currency, string? creditorBic, decimal? amount, PaymentGenerator generator,
-                GatewaySender sender, SentPayments sent, CancellationToken cancellationToken) =>
+        group.MapPost("/pacs008", async (string? currency, string? creditorBic, decimal? amount, string? debtorAccount,
+                string? creditorAccount, PaymentGenerator generator, GatewaySender sender, SentPayments sent, CancellationToken cancellationToken) =>
             {
-                var payment = generator.Pacs008(currency, creditorBic, amount);
+                var payment = generator.Pacs008(currency, creditorBic, amount, debtorAccount, creditorAccount);
                 var result = await sender.SendAsync(Pacs008RestApiRoutes.Send, payment, cancellationToken);
                 sent.Remember(payment, result);
                 return result;
             })
             .WithName("SendPacs008")
             .WithSummary("Generate a customer credit transfer (pacs.008) and send it to the gateway.")
-            .WithDescription("The transfer is remembered by its clientReference, so /core/send/camt056 can recall it.");
+            .WithDescription(
+                "debtorAccount and creditorAccount are IBANs; each one left empty is generated at its bank, with the bank's IBAN code " +
+                "from Gateway:CreditorBanks (Gateway:ParticipantIbanCode for this bank). The transfer is remembered by its " +
+                "clientReference, so /core/send/camt056 can recall it.");
 
         group.MapPost("/pacs009", (DateOnly? valueDate, string? currency, string? creditorBic, decimal? amount,
                 PaymentGenerator generator, GatewaySender sender, CancellationToken cancellationToken) =>

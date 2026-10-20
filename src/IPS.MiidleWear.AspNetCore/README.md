@@ -10,6 +10,22 @@ app.MapIpsCoreReceiver();                                 // returns the endpoin
 
 The package reads every request and writes every answer with `IpsJson.SerializerOptions`, whatever JSON settings the application uses, and maps the routes from the contract.
 
+## The gateway's API token
+
+The gateway can send a static API token, `Authorization: Bearer <token>`, with every call (`Payments:*:Transport:Cbs:ApiToken`). To require it:
+
+```csharp
+builder.Services.AddIpsApiTokenAuthentication(options =>
+{
+    options.Tokens.Add("token-1");                        // any listed token; two while one is replaced
+    options.Tokens.Add("token-2");
+});
+var app = builder.Build();
+app.MapIpsCoreReceiver().RequireIpsApiToken();           // or [RequireIpsApiToken] on a controller or action
+```
+
+A call without a listed token answers 401, which the gateway treats as no answer and asks again. Only the marked endpoints are checked, so health checks and the application's own endpoints stay open. Given no tokens, the marked ones are open too. To sign the requests your system sends to the gateway, see `IPS.MiidleWear.Security`.
+
 ## OpenAPI document
 
 ```csharp

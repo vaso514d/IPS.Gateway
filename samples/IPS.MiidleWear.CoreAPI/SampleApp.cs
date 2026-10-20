@@ -16,23 +16,33 @@ public static class SampleApp
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<CoreLedger>();
         builder.Services.AddIpsCoreReceiver<SampleReceiver>();
+        // Read when first used, so it sees the final configuration.
+        builder.Services.AddIpsApiTokenAuthentication(options =>
+        {
+            foreach (var token in builder.Configuration.GetSection(SampleOptions.Section).Get<SampleOptions>()?.ApiTokens ?? [])
+            {
+                options.Tokens.Add(token);
+            }
+        });
         // Sending: CoreAPI also plays the core system that sends transfers to the gateway.
         builder.Services.Configure<GatewayOptions>(builder.Configuration.GetSection(GatewayOptions.Section));
         builder.Services.AddSingleton<PaymentGenerator>();
         builder.Services.AddSingleton<SentPayments>();
+        builder.Services.AddSingleton<GatewaySigning>();
         builder.Services.AddHttpClient<GatewaySender>((services, client) =>
         {
             var gateway = services.GetRequiredService<IOptions<GatewayOptions>>().Value;
             client.BaseAddress = new Uri(gateway.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = gateway.Timeout;
-        });
+        }).AddHttpMessageHandler(services => services.GetRequiredService<GatewaySigning>().CreateHandler());
         // The receiver's own document, exactly as a bank's core system serves it; sending and the ledger are in v1.
         builder.Services.AddIpsCoreReceiverOpenApi();
         builder.Services.AddOpenApi(options => options.AddOperationTransformer(GatewayChoices.Apply));
         configure?.Invoke(builder);
 
         var app = builder.Build();
-        app.MapIpsCoreReceiver();
+        // The gateway calls with its static API token (specification 021); without configured tokens the receiver is open.
+        app.MapIpsCoreReceiver().RequireIpsApiToken();
         SendEndpoints.Map(app);
         // For people trying the sample: what the gateway delivered and what the core answered.
         app.MapGet("/sample/ledger", (CoreLedger ledger) => ledger.Snapshot());
