@@ -3,6 +3,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs008.Validation;
 using IPS.Middleware.Application.Payments.Recalls;
 using IPS.Middleware.Application.Payments.Recalls.Validation;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Camt056.Validation;
 
@@ -12,7 +13,7 @@ internal sealed class Camt056Validator : AbstractValidator<Camt056Request>
 {
     public Camt056Validator(Pacs008Policy policy, DateOnly today)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(OutgoingPayment.ClientReferenceMaxLength), required: true);
         RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.RecallId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35), required: true);

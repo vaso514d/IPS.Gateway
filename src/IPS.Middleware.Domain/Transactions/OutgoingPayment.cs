@@ -7,6 +7,9 @@ public sealed class OutgoingPayment : AggregateRoot
     // The message type of a recall request (camt.056), the only payment a creditor bank can refuse.
     private const string RecallMessageType = "camt.056";
 
+    // The core system's unique id for the transaction it initiated (CorID; ForeignID in the RTGS gateway).
+    public const int ClientReferenceMaxLength = 64;
+
     private StateMachine<TransactionStatus, PaymentOperation>? _machine;
 
     private OutgoingPayment()

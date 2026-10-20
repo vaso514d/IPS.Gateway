@@ -1,6 +1,7 @@
 using FluentValidation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs008.Validation;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Pain002.Validation;
 
@@ -10,7 +11,7 @@ internal sealed class Pain002Validator : AbstractValidator<Pain002Request>
 {
     public Pain002Validator()
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(OutgoingPayment.ClientReferenceMaxLength), required: true);
         RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.OriginalMessageId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.OriginalPaymentInformationId).ProtocolText(Pacs008Text.Text(35), required: true);

@@ -40,7 +40,7 @@ Each table holds both directions and has these common columns:
 | `Status` | `int` (`TransactionStatus`) | Current status, mapped for incoming messages as described [below](#incoming-status-mapping) |
 | `StatusAtUtc` | `datetimeoffset` | Time of the current status |
 | `ReasonCode`, `Description` | `nvarchar` | Current reason, from IPS or the core system |
-| `ClientReference` | `nvarchar(35)` | Outgoing: the bank's reference. Incoming: null |
+| `ClientReference` | `nvarchar(64)` | Outgoing: the core system's unique id for the transaction (CorID; ForeignID in the RTGS gateway). Incoming: null |
 | `CoreReference` | `nvarchar` | The core system's reference, when known |
 | `MessageId` | `nvarchar(35)` | Group header message id |
 | `CreatedAtUtc` | `datetimeoffset` | Received from the bank, or received from IPS |
@@ -59,7 +59,7 @@ Columns per message type: the original project's columns where a table existed, 
 | `Pain002StatusReports` | pain.002 | outgoing | `OriginalMessageId`, `OriginalPaymentInformationId`, `ReportReasonCode`, `AdditionalInformation`, `OriginatorName` |
 | `Pacs002StatusReports` | pacs.002 | both | `OriginalMessageId`, `OriginalEndToEndId`, `OriginalTransactionId`, `TransactionStatusCode` (ACCP/RJCT…), `ReportReasonCode`, `AdditionalInformation`. Incoming: IPS's unsolicited status reports. Outgoing: our replies to incoming pacs.008 |
 
-Indexes on every table: `(Direction, CreatedAtUtc)`, `(Status, StatusAtUtc)`, the message's end-to-end or original end-to-end id, and `ClientReference` (filtered, non-null).
+Indexes on every table: `(Direction, CreatedAtUtc)`, `(Status, StatusAtUtc)`, the message's end-to-end or original end-to-end id, and `ClientReference` (unique, filtered, non-null).
 
 ### Transfer status history
 

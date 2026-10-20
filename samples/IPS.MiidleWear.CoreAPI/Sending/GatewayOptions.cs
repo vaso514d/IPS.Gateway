@@ -17,6 +17,9 @@ public sealed class GatewayOptions
 
     public string[] Currencies { get; set; } = [];
 
+    // Recall reasons (camt.056), offered in Swagger UI and picked at random when none is given.
+    public string[] RecallReasons { get; set; } = [];
+
     // Picked at random when no amount is given; within the gateway's GEL limit.
     public decimal[] Amounts { get; set; } = [10m, 25m, 50m, 100m, 250m, 500m];
 

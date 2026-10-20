@@ -1,6 +1,7 @@
 using FluentValidation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs008.Validation;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Pacs004.Validation;
 
@@ -11,7 +12,7 @@ internal sealed class Pacs004Validator : AbstractValidator<Pacs004Request>
 {
     public Pacs004Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(OutgoingPayment.ClientReferenceMaxLength), required: true);
         RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.Amount).Must(amount => amount is > 0).WithMessage("Amount must be greater than zero.");
         RuleFor(x => x.Amount).Must(amount => amount is null || PaymentChecksums.HasAllowedPrecision(amount.Value))

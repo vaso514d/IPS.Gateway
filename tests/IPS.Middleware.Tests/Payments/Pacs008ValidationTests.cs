@@ -31,7 +31,7 @@ public sealed class Pacs008ValidationTests
         }, "clientReference"];
         yield return [r with
         {
-            ClientReference = new string ('x', 36)
+            ClientReference = new string('x', 65)
         }, "clientReference"];
         yield return [r with
         {
@@ -251,6 +251,8 @@ public sealed class Pacs008ValidationTests
             Debtor = Minimal().Debtor! with { Name = georgian + "\t\n" }
         });
         AssertValid(Minimal() with { InstructionId = new string('ქ', 35) });
+        // The client reference is the core system's own id (CorID), up to 64 characters.
+        AssertValid(Minimal() with { ClientReference = new string('x', 64) });
 
         Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = new string('ქ', 36) }, Policy).Errors, e => e.Field == "instructionId");
         Assert.Contains(ValidatedPacs008.Validate(Minimal() with { InstructionId = "a\u0001b" }, Policy).Errors, e => e.Field == "instructionId");

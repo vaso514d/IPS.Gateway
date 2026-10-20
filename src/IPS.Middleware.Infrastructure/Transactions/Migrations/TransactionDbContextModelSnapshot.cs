@@ -229,8 +229,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
 
                     b.Property<string>("ClientReference")
                         .IsRequired()
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
@@ -731,8 +731,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -798,6 +798,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalEndToEndId");
@@ -838,8 +839,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -922,6 +923,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalPaymentInformationId");
@@ -940,8 +942,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnOrder(0);
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1041,6 +1043,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalEndToEndId");
@@ -1063,8 +1066,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1126,6 +1129,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalEndToEndId");
@@ -1152,8 +1156,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("decimal(18,5)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1255,6 +1259,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalEndToEndId");
@@ -1284,8 +1289,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1388,6 +1393,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("EndToEndId");
@@ -1414,8 +1420,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1502,6 +1508,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("EndToEndId");
@@ -1528,8 +1535,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(35)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1630,6 +1637,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("PaymentInformationId");
@@ -1652,8 +1660,8 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("ClientReference")
-                        .HasMaxLength(35)
-                        .HasColumnType("nvarchar(35)")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnOrder(6);
 
                     b.Property<string>("CoreReference")
@@ -1711,6 +1719,7 @@ namespace IPS.Middleware.Infrastructure.Transactions.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClientReference")
+                        .IsUnique()
                         .HasFilter("[ClientReference] IS NOT NULL");
 
                     b.HasIndex("OriginalPaymentInformationId");

@@ -1,3 +1,4 @@
+using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Persistence.Events;
 using IPS.Middleware.Infrastructure.Persistence.Messages;
 using Microsoft.EntityFrameworkCore;
@@ -26,13 +27,13 @@ internal static class MessageTableMapping
         builder.Property(x => x.StatusAtUtc).HasColumnOrder(3);
         builder.Property(x => x.ReasonCode).HasMaxLength(MessageRow.ReferenceLength).HasColumnOrder(4);
         builder.Property(x => x.Description).HasMaxLength(MessageRow.DescriptionLength).HasColumnOrder(5);
-        builder.Property(x => x.ClientReference).HasMaxLength(MessageRow.ReferenceLength).HasColumnOrder(6);
+        builder.Property(x => x.ClientReference).HasMaxLength(OutgoingPayment.ClientReferenceMaxLength).HasColumnOrder(6);
         builder.Property(x => x.CoreReference).HasMaxLength(TextLength).HasColumnOrder(7);
         builder.Property(x => x.MessageId).HasMaxLength(MessageRow.ReferenceLength).HasColumnOrder(8);
         builder.Property(x => x.CreatedAtUtc).HasColumnOrder(9);
         builder.HasIndex(x => new { x.Direction, x.CreatedAtUtc });
         builder.HasIndex(x => new { x.Status, x.StatusAtUtc });
-        builder.HasIndex(x => x.ClientReference).HasFilter("[ClientReference] IS NOT NULL");
+        builder.HasIndex(x => x.ClientReference).IsUnique().HasFilter("[ClientReference] IS NOT NULL");
         if (!linkedToPayment)
         {
             return;

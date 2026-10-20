@@ -18,6 +18,7 @@ internal static class GatewayChoices
             {
                 "creditorBic" => gateway.CreditorBics,
                 "currency" => gateway.Currencies,
+                "reasonCode" => gateway.RecallReasons,
                 _ => null
             };
             if (choices is not null && parameter is OpenApiParameter { Schema: OpenApiSchema schema })

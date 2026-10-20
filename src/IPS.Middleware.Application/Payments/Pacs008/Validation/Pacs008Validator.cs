@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentValidation;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Pacs008.Validation;
 
@@ -7,7 +8,7 @@ internal sealed class Pacs008Validator : AbstractValidator<Pacs008Request>
 {
     public Pacs008Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(OutgoingPayment.ClientReferenceMaxLength), required: true);
         RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.EndToEndId).Must(value => !IsInitiated(value) || value!.Trim().Length > 4)

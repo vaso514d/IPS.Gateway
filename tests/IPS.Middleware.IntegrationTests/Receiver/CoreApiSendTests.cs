@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using IPS.Middleware.Api.Payments;
 using IPS.Middleware.Application.Payments;
+using IPS.Middleware.Application.Payments.Camt056;
 using IPS.Middleware.Application.Payments.Pacs004;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs009;
@@ -41,6 +42,38 @@ public sealed class CoreApiSendTests
             Assert.Empty(ValidatedPacs009.Validate(Pacs009RequestMapping.Map(Generator.Pacs009(null, null, null, null)), Policy).Errors);
             Assert.Empty(ValidatedPacs004.Validate(Pacs004RequestMapping.Map(Generator.Pacs004(null, null, null, null)), Policy).Errors);
         }
+    }
+
+    [Fact]
+    public void A_recall_quotes_the_sent_pacs008_and_passes_the_gateway_validation()
+    {
+        var payment = Generator.Pacs008(null, "TBCBGE22", 25m);
+        var sent = new SentPacs008(payment, "MSG-FROM-GATEWAY", "Accepted");
+
+        var recall = Generator.Camt056(sent, " TX-FROM-GATEWAY ", "frad");
+
+        var today = DateOnly.FromDateTime(DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(4)).DateTime);
+        Assert.Empty(ValidatedCamt056.Validate(RecallRequestMapping.Map(recall), Policy, today).Errors);
+        Assert.Equal(("MSG-FROM-GATEWAY", payment.EndToEndId, "TX-FROM-GATEWAY", "FRAD"),
+            (recall.OriginalMessageId, recall.OriginalEndToEndId, recall.OriginalTransactionId, recall.ReasonCode));
+        Assert.Equal((25m, "GEL", today), (recall.OriginalAmount, recall.OriginalCurrency, recall.OriginalSettlementDate));
+        Assert.Equal(("ITSBGE22", "TBCBGE22"), (recall.OriginalTransaction!.DebtorAgent!.Bicfi, recall.OriginalTransaction.CreditorAgent!.Bicfi));
+    }
+
+    [Fact]
+    public async Task A_recall_of_a_payment_not_sent_from_CoreAPI_is_not_found()
+    {
+        await using var app = SampleApp.Create([], builder =>
+        {
+            builder.Logging.ClearProviders();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+        });
+        await app.StartAsync();
+        using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + "/") };
+
+        using var response = await client.PostAsync("core/send/camt056?originalClientReference=UNKNOWN&originalTransactionId=TX-1", null);
+
+        Assert.Equal(404, (int)response.StatusCode);
     }
 
     [Fact]

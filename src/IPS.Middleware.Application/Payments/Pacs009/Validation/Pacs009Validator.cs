@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Payments.Pacs008.Validation;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.Pacs009.Validation;
 
@@ -11,7 +12,7 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
 {
     public Pacs009Validator(Pacs008Policy policy)
     {
-        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(35), required: true);
+        RuleFor(x => x.ClientReference).ProtocolText(Pacs008Text.HeaderText(OutgoingPayment.ClientReferenceMaxLength), required: true);
         RuleFor(x => x.Id).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.InstructionId).ProtocolText(Pacs008Text.Text(35));
         RuleFor(x => x.EndToEndId).ProtocolText(Pacs008Text.Text(35), required: true);

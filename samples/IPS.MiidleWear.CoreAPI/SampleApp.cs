@@ -19,6 +19,7 @@ public static class SampleApp
         // Sending: CoreAPI also plays the core system that sends transfers to the gateway.
         builder.Services.Configure<GatewayOptions>(builder.Configuration.GetSection(GatewayOptions.Section));
         builder.Services.AddSingleton<PaymentGenerator>();
+        builder.Services.AddSingleton<SentPayments>();
         builder.Services.AddHttpClient<GatewaySender>((services, client) =>
         {
             var gateway = services.GetRequiredService<IOptions<GatewayOptions>>().Value;

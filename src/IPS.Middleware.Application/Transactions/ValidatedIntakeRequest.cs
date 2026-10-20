@@ -1,3 +1,5 @@
+using IPS.Middleware.Domain.Transactions;
+
 namespace IPS.Middleware.Application.Transactions;
 
 // Validated storage input. Message-specific business validation precedes this foundation-level envelope.
@@ -32,9 +34,9 @@ public sealed class ValidatedIntakeRequest
         {
             errors.Add(new("clientReference", "Client reference is required."));
         }
-        else if (reference.Length > 35)
+        else if (reference.Length > OutgoingPayment.ClientReferenceMaxLength)
         {
-            errors.Add(new("clientReference", "Client reference must not exceed 35 characters."));
+            errors.Add(new("clientReference", $"Client reference must not exceed {OutgoingPayment.ClientReferenceMaxLength} characters."));
         }
 
         if (string.IsNullOrWhiteSpace(requestJson))

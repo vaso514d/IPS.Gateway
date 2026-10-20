@@ -17,7 +17,7 @@ internal sealed class OutgoingPaymentConfiguration : IEntityTypeConfiguration<Ou
         builder.Property(x => x.Id).ValueGeneratedNever();
         builder.HasAggregateIdentity(OutgoingPaymentKind);
         builder.Property(x => x.MessageType).HasMaxLength(16);
-        builder.Property(x => x.ClientReference).HasMaxLength(35);
+        builder.Property(x => x.ClientReference).HasMaxLength(OutgoingPayment.ClientReferenceMaxLength);
         builder.HasIndex(x => x.ClientReference).IsUnique();
         builder.Property(x => x.EventSequence).HasColumnName("LastSequence");
         builder.Property(x => x.CurrentReasonCode).HasMaxLength(35);

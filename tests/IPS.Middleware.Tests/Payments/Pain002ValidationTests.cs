@@ -41,7 +41,7 @@ public sealed class Pain002ValidationTests
     public static TheoryData<string, Func<Pain002Request, Pain002Request>> Invalid() => new()
     {
         { "clientReference", r => r with { ClientReference = null } },
-        { "clientReference", r => r with { ClientReference = new string('x', 36) } },
+        { "clientReference", r => r with { ClientReference = new string('x', 65) } },
         { "id", r => r with { Id = null } },
         { "id", r => r with { Id = new string('x', 36) } },
         { "originalMessageId", r => r with { OriginalMessageId = " " } },

@@ -1,4 +1,5 @@
 using IPS.Middleware.Application.Transactions;
+using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Application.Payments.StatusDelivery;
 
@@ -16,9 +17,9 @@ public static class OutgoingStatusQuery
         {
             errors.Add(new("clientReference", "clientReference is required."));
         }
-        else if (reference.Trim().Length > 35)
+        else if (reference.Trim().Length > OutgoingPayment.ClientReferenceMaxLength)
         {
-            errors.Add(new("clientReference", "clientReference must be at most 35 characters."));
+            errors.Add(new("clientReference", $"clientReference must be at most {OutgoingPayment.ClientReferenceMaxLength} characters."));
         }
 
         return errors;

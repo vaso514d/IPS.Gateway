@@ -21,7 +21,7 @@ public sealed class IntakeValidationTests
 
     [Theory]
     [InlineData(17, 1, "messageType")]
-    [InlineData(1, 36, "clientReference")]
+    [InlineData(1, 65, "clientReference")]
     public void Storage_identifier_limits_are_checked_before_intake(int typeLength, int referenceLength, string field)
     {
         var result = ValidatedIntakeRequest.Validate(new string('a', typeLength), new string('b', referenceLength), "{}");
@@ -47,6 +47,6 @@ public sealed class IntakeValidationTests
         Assert.Equal("pacs.008", result.Request.MessageType);
         Assert.Equal("reference", result.Request.ClientReference);
         Assert.Equal(json, result.Request.RequestJson);
-        Assert.NotNull(ValidatedIntakeRequest.Validate(new string('a', 16), new string('b', 35), "{}").Request);
+        Assert.NotNull(ValidatedIntakeRequest.Validate(new string('a', 16), new string('b', 64), "{}").Request);
     }
 }
