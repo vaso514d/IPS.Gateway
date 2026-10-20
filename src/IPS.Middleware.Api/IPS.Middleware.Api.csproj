@@ -7,5 +7,6 @@
     <ProjectReference Include="../IPS.Middleware.Infrastructure/IPS.Middleware.Infrastructure.csproj" />
     <ProjectReference Include="../IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" />
   </ItemGroup>
 </Project>

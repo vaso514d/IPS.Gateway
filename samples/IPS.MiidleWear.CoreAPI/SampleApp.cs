@@ -27,7 +27,7 @@ public static class SampleApp
         });
         // The receiver's own document, exactly as a bank's core system serves it; sending and the ledger are in v1.
         builder.Services.AddIpsCoreReceiverOpenApi();
-        builder.Services.AddOpenApi();
+        builder.Services.AddOpenApi(options => options.AddOperationTransformer(GatewayChoices.Apply));
         configure?.Invoke(builder);
 
         var app = builder.Build();

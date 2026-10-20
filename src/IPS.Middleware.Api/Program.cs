@@ -16,6 +16,9 @@ await app.Services.MigrateDatabaseAsync(app.Lifetime.ApplicationStopping);
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "IPS gateway"));
+    app.MapGet("/", () => Results.Redirect("/swagger"))
+        .ExcludeFromDescription();
 }
 
 app.MapGet("/health/live", () => TypedResults.Text("Healthy")).WithName("Liveness");

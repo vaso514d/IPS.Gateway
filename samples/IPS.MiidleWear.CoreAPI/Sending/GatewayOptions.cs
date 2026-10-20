@@ -11,10 +11,11 @@ public sealed class GatewayOptions
     // The bank's own BIC: the debtor agent, and the gateway's Bank:BicCode.
     public string ParticipantBic { get; set; } = "ITSBGE22";
 
-    // Other participants, picked at random as the creditor bank.
-    public string[] CreditorBics { get; set; } = ["HABGGE22", "TBCBGE22", "BAGAGE22", "PAVEGE22", "LBRTGE22", "JSCRGE22"];
+    // Other participants, picked at random as the creditor bank and offered in Swagger UI. Configuration binding appends
+    // to an array's initial items, so the lists come from appsettings.json only.
+    public string[] CreditorBics { get; set; } = [];
 
-    public string[] Currencies { get; set; } = ["GEL"];
+    public string[] Currencies { get; set; } = [];
 
     // Picked at random when no amount is given; within the gateway's GEL limit.
     public decimal[] Amounts { get; set; } = [10m, 25m, 50m, 100m, 250m, 500m];

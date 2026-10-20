@@ -26,7 +26,11 @@ public sealed class CoreApiSendTests
     // The Uat gateway: Bank:BicCode ITSBGE22 and GEL up to 1000.
     private static readonly Pacs008Policy Policy = new(new BankIdentity("ITSBGE22", "GEATSAAA", "TRESGE22"), [new PaymentCurrency("GEL", true, 0.01m, 1000m)]);
 
-    private static readonly PaymentGenerator Generator = new(Options.Create(new GatewayOptions()));
+    private static readonly PaymentGenerator Generator = new(Options.Create(new GatewayOptions
+    {
+        CreditorBics = ["HABGGE22", "TBCBGE22", "BAGAGE22", "PAVEGE22", "LBRTGE22", "JSCRGE22"],
+        Currencies = ["GEL"]
+    }));
 
     [Fact]
     public void Every_generated_transfer_passes_the_gateway_validation()
