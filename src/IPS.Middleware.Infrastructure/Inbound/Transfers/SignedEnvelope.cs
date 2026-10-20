@@ -17,8 +17,7 @@ internal static class SignedEnvelope
     {
         using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
         var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-        if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-            header.Name != Head + "AppHdr" || body.Name != document + "Document")
+        if (IpsEnvelope.Open(root, document) is not { Header: var header, Document: var body })
         {
             return Held("Unexpected message envelope or version.");
         }

@@ -73,7 +73,7 @@ public sealed class IncomingReplyProtocol(
     // The reply comes from IPS to the frozen participant and is the pacs.002 version this service sends.
     private static bool MatchesEnvelope(string body, IncomingReplyEnvelope envelope)
     {
-        var header = XDocument.Parse(body).Root!.Element(Head + "AppHdr")!;
+        var header = IpsEnvelope.Open(XDocument.Parse(body).Root, Pacs008Schema.ReplyNamespace)!.Header;
         return PartyBic(header, "Fr") == envelope.Profile.IpsBic
             && PartyBic(header, "To") == envelope.ParticipantBic
             && header.Element(Head + "MsgDefIdr")?.Value == IncomingPacs002Reply.MessageDefinition;

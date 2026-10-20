@@ -20,9 +20,7 @@ internal static class Pacs004Message
     private const string ChargeBearer = "SLEV";
 
     internal static XElement Build(ValidatedPacs004 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
-        new("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "pacs", P.NamespaceName),
+        IpsEnvelope.Wrap(
             Header(payment, context, profile),
             new XElement(P + "Document",
                 new XElement(P + "PmtRtr",

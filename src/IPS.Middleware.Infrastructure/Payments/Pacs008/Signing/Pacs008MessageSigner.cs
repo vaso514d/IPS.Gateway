@@ -51,9 +51,12 @@ public sealed class Pacs008MessageSigner(Pacs008SigningPolicy policy, TimeProvid
         using var key = certificate.GetECDsaPrivateKey()
             ?? throw new SigningCertificateException("Signing requires a certificate with an ECDSA private key.");
         var header = document.DocumentElement!.ChildNodes.OfType<XmlElement>()
-            .Single(element => element.LocalName == "AppHdr" && element.NamespaceURI == Pacs008Xml.HeaderNamespace);
+            .Single(element => element.LocalName == "AppHdr" && element.NamespaceURI is IpsEnvelope.Namespace or Pacs008Xml.HeaderNamespace);
         SignedInfoCanonicalization.CheckAncestorAttributes(header);
-        var envelope = document.CreateElement(header.Prefix, "Sgntr", Pacs008Xml.HeaderNamespace);
+        // The IPS envelope AppHdr declares head.001 as its default namespace, so Sgntr needs no prefix there; a head.001
+        // AppHdr (the proxy's acmt.022) keeps its own prefix.
+        var prefix = header.NamespaceURI == Pacs008Xml.HeaderNamespace ? header.Prefix : string.Empty;
+        var envelope = document.CreateElement(prefix, "Sgntr", Pacs008Xml.HeaderNamespace);
         header.AppendChild(envelope);
         // The new Sgntr is empty here: enveloped-signature removal leaves this exact document.
         var digest = SHA256.HashData(SignedInfoCanonicalization.CanonicalizeInclusive10WithoutComments(document));

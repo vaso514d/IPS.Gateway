@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using IPS.Middleware.Application.Inbound.Composition;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
@@ -655,12 +656,13 @@ public sealed class IncomingRecallTests
         $"<camt:Assgnmt><camt:Id>{id}</camt:Id><camt:Assgnr><camt:Agt>{Agent(assigner)}</camt:Agt></camt:Assgnr>" +
         $"<camt:Assgne><camt:Agt>{Agent("NBGEGE22")}</camt:Agt></camt:Assgne><camt:CreDtTm>{created}</camt:CreDtTm></camt:Assgnmt>";
 
+    // The IPS envelope: the business element (camt:X in the fixtures) becomes env:X, its content stays in the camt namespace.
     private static string Envelope(string definition, string id, string documentNamespace, string document) =>
-        $"<Message xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:camt=\"{documentNamespace}\"><head:AppHdr>" +
+        $"<env:Message xmlns:env=\"urn:montran:message.01\" xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:camt=\"{documentNamespace}\"><env:AppHdr>" +
         "<head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
         $"<head:To><head:FIId><head:FinInstnId><head:BICFI>{Participant}</head:BICFI></head:FinInstnId></head:FIId></head:To>" +
-        $"<head:BizMsgIdr>{id}</head:BizMsgIdr><head:MsgDefIdr>{definition}</head:MsgDefIdr><head:CreDt>2026-10-04T10:00:00.0000000Z</head:CreDt><head:Sgntr/></head:AppHdr>" +
-        $"<camt:Document>{document}</camt:Document></Message>";
+        $"<head:BizMsgIdr>{id}</head:BizMsgIdr><head:MsgDefIdr>{definition}</head:MsgDefIdr><head:CreDt>2026-10-04T10:00:00.0000000Z</head:CreDt><head:Sgntr/></env:AppHdr>" +
+        Regex.Replace(Regex.Replace(document, @"^<camt:(\w+)>", "<env:$1>"), @"</camt:(\w+)>$", "</env:$1>") + "</env:Message>";
 
     private static async Task<string> SignedAsync(ProcessingHarness core, string unsigned, X509Certificate2? signer = null) =>
         (await IpsReplies.SignAsync(signer ?? core.IpsCertificate, unsigned))[0];

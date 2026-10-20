@@ -18,9 +18,7 @@ internal static class Pain002Message
     private const string Rejected = "RJCT";
 
     internal static XElement Build(ValidatedPain002 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
-        new("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "pain", P.NamespaceName),
+        IpsEnvelope.Wrap(
             Header(payment, context, profile),
             new XElement(P + "Document",
                 new XElement(P + "CstmrPmtStsRpt",

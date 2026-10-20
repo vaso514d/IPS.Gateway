@@ -20,8 +20,7 @@ public sealed class IncomingPacs008Reader
         {
             using var reader = XmlReader.Create(new StringReader(xml), Pacs008Schema.SafeReader);
             var root = XDocument.Load(reader, LoadOptions.PreserveWhitespace).Root;
-            if (root is null || root.Name != "Message" || root.Elements().ToArray() is not [var header, var body] ||
-                header.Name != Head + "AppHdr" || body.Name != Pacs + "Document")
+            if (IpsEnvelope.Open(root, Pacs) is not { Header: var header, Document: var body })
             {
                 return Hold("Unexpected message envelope or version.");
             }
@@ -58,7 +57,7 @@ public sealed class IncomingPacs008Reader
             }
             else
             {
-                ValidateEachTransferAlone(root.Document!);
+                ValidateEachTransferAlone(root!.Document!);
             }
 
             var original = IncomingPacs008Mapping.Original(header, group, transactions[0]);
@@ -101,7 +100,8 @@ public sealed class IncomingPacs008Reader
         && int.TryParse(group.Element(Pacs + "NbOfTxs")?.Value, CultureInfo.InvariantCulture, out var count)
         && count == 1;
 
-    private static XElement Transfer(XDocument document) => document.Root!.Element(Pacs + "Document")!.Element(Pacs + "FIToFICstmrCdtTrf")!;
+    // The wire business element (env:FIToFICstmrCdtTrf), which follows the envelope AppHdr.
+    private static XElement Transfer(XDocument document) => document.Root!.Elements().Last();
 
     private static IncomingPacs008ReadResult Hold(string reason) => new IncomingPacs008ReadResult.Hold(reason);
 }

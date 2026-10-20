@@ -17,9 +17,7 @@ internal static class Camt029Message
     private const string Rejected = "RJCR";
 
     internal static XElement Build(ValidatedCamt029 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
-        new("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "camt", P.NamespaceName),
+        IpsEnvelope.Wrap(
             Header(payment, context, profile),
             new XElement(P + "Document",
                 new XElement(P + "RsltnOfInvstgtn",

@@ -15,7 +15,7 @@ public static class Pacs008Schema
 
     public static void Validate(string xml) => ValidateMessage(xml, Pacs008Xml.DocumentNamespace);
 
-    internal static XDocument ValidateReply(string xml) => ValidateMessage(xml, ReplyNamespace);
+    internal static IsoMessage ValidateReply(string xml) => ValidateMessage(xml, ReplyNamespace);
 
     internal static void ValidatePacs009(string xml) => ValidateMessage(xml, Pacs009.Pacs009Xml.DocumentNamespace);
 
@@ -33,24 +33,19 @@ public static class Pacs008Schema
 
     internal static void ValidateInvestigation(string xml) => ValidateMessage(xml, Investigation.Pacs028Xml.DocumentNamespace);
 
-    private static XDocument ValidateMessage(string xml, string documentNamespace)
+    private static IsoMessage ValidateMessage(string xml, string documentNamespace)
     {
         using var reader = XmlReader.Create(new StringReader(xml), SafeReader);
         var document = XDocument.Load(reader, LoadOptions.PreserveWhitespace);
-        var root = document.Root;
-        if (root?.Name != "Message" || root.Elements().Count() != 2 ||
-            root.Elements().First().Name != XName.Get("AppHdr", Pacs008Xml.HeaderNamespace) ||
-            root.Elements().Last().Name != XName.Get("Document", documentNamespace))
+        var message = IpsEnvelope.Open(document.Root, documentNamespace)
+            ?? throw new XmlSchemaValidationException($"Expected one IPS Message ({IpsEnvelope.Namespace}) with AppHdr followed by the {documentNamespace} business element.");
+
+        foreach (var part in new[] { message.Header, message.Document })
         {
-            throw new XmlSchemaValidationException("Expected one Message with AppHdr followed by Document.");
+            new XDocument(new XElement(part)).Validate(Schemas.Value, (_, error) => throw error.Exception);
         }
 
-        foreach (var child in root.Elements())
-        {
-            new XDocument(new XElement(child)).Validate(Schemas.Value, (_, error) => throw error.Exception);
-        }
-
-        return document;
+        return message;
     }
 
     private static XmlSchemaSet Load()

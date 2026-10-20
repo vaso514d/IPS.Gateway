@@ -137,7 +137,7 @@ internal static class IpsSignatureVerifier
     private static XmlElement? SingleSignature(XmlDocument document) =>
         document.GetElementsByTagName("Signature", Ds) is { Count: 1 } signatures &&
         signatures[0] is XmlElement { ParentNode: XmlElement { LocalName: "Sgntr", NamespaceURI: Pacs008Xml.HeaderNamespace } envelope } signature &&
-        envelope.ParentNode is XmlElement { LocalName: "AppHdr", NamespaceURI: Pacs008Xml.HeaderNamespace }
+        envelope.ParentNode is XmlElement { LocalName: "AppHdr", NamespaceURI: IpsEnvelope.Namespace or Pacs008Xml.HeaderNamespace }
             ? signature : null;
 
     private static string? Algorithm(XmlElement parent, string path, XmlNamespaceManager names) =>

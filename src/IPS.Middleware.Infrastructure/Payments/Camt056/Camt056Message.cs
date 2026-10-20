@@ -17,9 +17,7 @@ internal static class Camt056Message
     private const string RecalledMessageName = PaymentMessageTypes.Pacs008Definition;
 
     internal static XElement Build(ValidatedCamt056 payment, PaymentMessageContext context, IpsMessageProfile profile) =>
-        new("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "camt", P.NamespaceName),
+        IpsEnvelope.Wrap(
             Header(payment, context, profile),
             new XElement(P + "Document",
                 new XElement(P + "FIToFIPmtCxlReq",

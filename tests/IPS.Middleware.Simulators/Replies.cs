@@ -28,18 +28,18 @@ internal static class Replies
     {
         var status = accepted ? "ACCP" : "RJCT";
         var reason = accepted ? "" : "<pacs:StsRsnInf><pacs:Rsn><pacs:Cd>AC01</pacs:Cd></pacs:Rsn></pacs:StsRsnInf>";
-        return "<Message xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:pacs=\"" + Pacs002Namespace + "\">" +
-            "<head:AppHdr><head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
+        return "<env:Message xmlns:env=\"urn:montran:message.01\" xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:pacs=\"" + Pacs002Namespace + "\">" +
+            "<env:AppHdr><head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
             "<head:To><head:FIId><head:FinInstnId><head:BICFI>BAGAGE22</head:BICFI></head:FinInstnId></head:FIId></head:To>" +
             "<head:BizMsgIdr>IPS-REPLY-1</head:BizMsgIdr><head:MsgDefIdr>pacs.002.001.14</head:MsgDefIdr>" +
-            "<head:CreDt>2026-10-04T14:00:01.000Z</head:CreDt></head:AppHdr>" +
-            "<pacs:Document><pacs:FIToFIPmtStsRpt><pacs:GrpHdr><pacs:MsgId>IPS-REPLY-1</pacs:MsgId><pacs:CreDtTm>2026-10-04T14:00:01.000Z</pacs:CreDtTm></pacs:GrpHdr>" +
+            "<head:CreDt>2026-10-04T14:00:01.000Z</head:CreDt></env:AppHdr>" +
+            "<env:FIToFIPmtStsRpt><pacs:GrpHdr><pacs:MsgId>IPS-REPLY-1</pacs:MsgId><pacs:CreDtTm>2026-10-04T14:00:01.000Z</pacs:CreDtTm></pacs:GrpHdr>" +
             $"<pacs:OrgnlGrpInfAndSts><pacs:OrgnlMsgId>{Escape(original.MessageId)}</pacs:OrgnlMsgId><pacs:OrgnlMsgNmId>{Escape(original.MessageName)}</pacs:OrgnlMsgNmId>" +
             $"<pacs:GrpSts>{status}</pacs:GrpSts></pacs:OrgnlGrpInfAndSts>" +
             "<pacs:TxInfAndSts><pacs:StsId>IPS-STS-1</pacs:StsId>" +
             $"<pacs:OrgnlEndToEndId>{Escape(original.EndToEndId)}</pacs:OrgnlEndToEndId><pacs:OrgnlTxId>{Escape(original.TransactionId)}</pacs:OrgnlTxId>" +
             $"<pacs:TxSts>{status}</pacs:TxSts>{reason}<pacs:AccptncDtTm>2026-10-04T14:00:01.000Z</pacs:AccptncDtTm></pacs:TxInfAndSts>" +
-            "</pacs:FIToFIPmtStsRpt></pacs:Document></Message>";
+            "</env:FIToFIPmtStsRpt></env:Message>";
     }
 
     // The Proxy Solution answers each operation with a pacs.002.001.13 naming the operation id it was sent.

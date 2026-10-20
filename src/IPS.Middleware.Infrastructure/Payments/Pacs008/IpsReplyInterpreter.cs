@@ -20,6 +20,7 @@ public sealed class IpsReplyInterpreter(IpsSignatureTrust trust) : IIpsReplyInte
     private static readonly XNamespace P = Pacs008Schema.ReplyNamespace;
     private static readonly string[] AcceptedStatuses = ["ACCP", "ACTC", "ACSC"];
     private const string Rejected = "RJCT";
+    private const string ParseErrorReference = "PARSEERROR";
 
     // A pain.002 is answered by a header, every other message by a signed pacs.002.
     // A reply to our own send is judged when it is interpreted.
@@ -67,7 +68,7 @@ public sealed class IpsReplyInterpreter(IpsSignatureTrust trust) : IIpsReplyInte
         XElement report;
         try
         {
-            report = Pacs008Schema.ValidateReply(response.Body).Root!.Element(P + "Document")!.Element(P + "FIToFIPmtStsRpt")!;
+            report = Pacs008Schema.ValidateReply(response.Body).Document.Element(P + "FIToFIPmtStsRpt")!;
         }
         catch (Exception exception) when (exception is XmlException or XmlSchemaException)
         {
@@ -104,7 +105,8 @@ public sealed class IpsReplyInterpreter(IpsSignatureTrust trust) : IIpsReplyInte
 
         var group = groups[0];
         var transaction = transactions.SingleOrDefault();
-        if (!ReferencesSentMessage(group, transaction, sent, messageDefinition))
+        var answersThisSend = !strictEvidence && IsParseErrorAnswer(group, transaction, messageDefinition);
+        if (!answersThisSend && !ReferencesSentMessage(group, transaction, sent, messageDefinition))
         {
             return Unresolved("The IPS reply does not reference this payment.");
         }
@@ -165,6 +167,13 @@ public sealed class IpsReplyInterpreter(IpsSignatureTrust trust) : IIpsReplyInte
             || (Value(transaction, "OrgnlTxId") == sent.TransactionId && Value(transaction, "OrgnlEndToEndId") == sent.EndToEndId);
         return groupMatches && transactionMatches;
     }
+
+    // IPS answers a send it cannot parse with OrgnlMsgId PARSEERROR and no transaction (IPS UAT: RJCT/1013, FF01). That answer
+    // came on the HTTP exchange of this send, so it settles it; outside that exchange it identifies no payment.
+    private static bool IsParseErrorAnswer(XElement group, XElement? transaction, string messageDefinition) =>
+        transaction is null
+        && Value(group, "OrgnlMsgId") == ParseErrorReference
+        && string.Equals(Value(group, "OrgnlMsgNmId"), messageDefinition, StringComparison.Ordinal);
 
     private static bool HasConflictingNestedReference(XElement? transaction, IpsReplyCorrelation sent, string messageDefinition) =>
         transaction?.Element(P + "OrgnlGrpInf") is { } nested

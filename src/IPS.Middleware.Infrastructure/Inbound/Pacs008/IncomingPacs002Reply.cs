@@ -41,9 +41,7 @@ public sealed class IncomingPacs002Reply(Pacs008ProtocolProfile profile, Pacs008
                 Agent("InstgAgt", participantBic)),
             OriginalGroup(original, decision, status),
             Transaction(original, decision, context, participantBic, status));
-        var message = new XElement("Message",
-            new XAttribute(XNamespace.Xmlns + "head", Head), new XAttribute(XNamespace.Xmlns + "pacs", Pacs),
-            header, new XElement(Pacs + "Document", report));
+        var message = IpsEnvelope.Wrap(header, new XElement(Pacs + "Document", report));
         var xml = new XDocument(message).ToString(SaveOptions.DisableFormatting);
         Pacs008Schema.ValidateReply(xml);
         return xml;

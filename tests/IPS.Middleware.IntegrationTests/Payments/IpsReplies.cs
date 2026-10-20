@@ -41,15 +41,15 @@ internal static class IpsReplies
             "<pacs:TxInfAndSts><pacs:StsId>IPS-STS-1</pacs:StsId>" +
             $"<pacs:OrgnlEndToEndId>{reply.EndToEndId}</pacs:OrgnlEndToEndId><pacs:OrgnlTxId>{reply.TransactionId}</pacs:OrgnlTxId>" +
             Status("TxSts", reply.TransactionStatus) + reason + "<pacs:AccptncDtTm>2026-10-04T14:00:01.000Z</pacs:AccptncDtTm></pacs:TxInfAndSts>";
-        return "<Message xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:pacs=\"urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14\">" +
-            "<head:AppHdr><head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
+        return "<env:Message xmlns:env=\"urn:montran:message.01\" xmlns:head=\"urn:iso:std:iso:20022:tech:xsd:head.001.001.03\" xmlns:pacs=\"urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14\">" +
+            "<env:AppHdr><head:Fr><head:FIId><head:FinInstnId><head:BICFI>NBGEGE22</head:BICFI></head:FinInstnId></head:FIId></head:Fr>" +
             "<head:To><head:FIId><head:FinInstnId><head:BICFI>BAGAGE22</head:BICFI></head:FinInstnId></head:FIId></head:To>" +
             "<head:BizMsgIdr>IPS-REPLY-1</head:BizMsgIdr><head:MsgDefIdr>pacs.002.001.14</head:MsgDefIdr>" +
-            "<head:CreDt>2026-10-04T14:00:01.000Z</head:CreDt><head:Sgntr/></head:AppHdr>" +
-            "<pacs:Document><pacs:FIToFIPmtStsRpt><pacs:GrpHdr><pacs:MsgId>IPS-REPLY-1</pacs:MsgId><pacs:CreDtTm>2026-10-04T14:00:01.000Z</pacs:CreDtTm></pacs:GrpHdr>" +
+            "<head:CreDt>2026-10-04T14:00:01.000Z</head:CreDt><head:Sgntr/></env:AppHdr>" +
+            "<env:FIToFIPmtStsRpt><pacs:GrpHdr><pacs:MsgId>IPS-REPLY-1</pacs:MsgId><pacs:CreDtTm>2026-10-04T14:00:01.000Z</pacs:CreDtTm></pacs:GrpHdr>" +
             $"<pacs:OrgnlGrpInfAndSts><pacs:OrgnlMsgId>{reply.MessageId}</pacs:OrgnlMsgId><pacs:OrgnlMsgNmId>{reply.OriginalMessageName}</pacs:OrgnlMsgNmId>" +
             Status("GrpSts", reply.GroupStatus) + (reply.IncludeTransaction ? "" : reason) + "</pacs:OrgnlGrpInfAndSts>" +
-            transaction + "</pacs:FIToFIPmtStsRpt></pacs:Document></Message>";
+            transaction + "</env:FIToFIPmtStsRpt></env:Message>";
     }
 
     // ACCP/RJCT report the original payment; 1016/1017 reject the inquiry itself (not found / still processing).

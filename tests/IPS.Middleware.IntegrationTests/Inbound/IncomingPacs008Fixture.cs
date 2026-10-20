@@ -32,7 +32,7 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
         Add("count-supplement", d =>
         {
             d.Descendants(Pacs + "NbOfTxs").Single().Value = "2";
-            d.Descendants(Pacs + "FIToFICstmrCdtTrf").Single().Add(new XElement(Pacs + "SplmtryData",
+            d.Root!.Elements().Last().Add(new XElement(Pacs + "SplmtryData",
                 new XElement(Pacs + "Envlp", new XElement(XName.Get("Evidence", "urn:fixture"), "unchanged"))));
         });
         Add("count-wrong-order", d =>
@@ -44,7 +44,7 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
         });
         Add("batch-wrong-second-order", d =>
         {
-            var group = d.Descendants(Pacs + "FIToFICstmrCdtTrf").Single();
+            var group = d.Root!.Elements().Last();
             group.Add(new XElement(Pacs + "SplmtryData", new XElement(Pacs + "Envlp", new XElement(XName.Get("Evidence", "urn:fixture"), "data"))));
             group.Add(new XElement(d.Descendants(Pacs + "CdtTrfTxInf").Single()));
         });
@@ -74,13 +74,13 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
 
     // Hand-authored protocol fixture, independent of the production outgoing XML builder.
     internal const string Xml = """
-        <Message>
-          <AppHdr xmlns="urn:iso:std:iso:20022:tech:xsd:head.001.001.03">
+        <env:Message xmlns:env="urn:montran:message.01">
+          <env:AppHdr xmlns="urn:iso:std:iso:20022:tech:xsd:head.001.001.03">
             <Fr><FIId><FinInstnId><BICFI>NBGEGE22</BICFI></FinInstnId></FIId></Fr>
             <To><FIId><FinInstnId><BICFI>BAGAGE22</BICFI></FinInstnId></FIId></To>
             <BizMsgIdr>IN-HEADER-1</BizMsgIdr><MsgDefIdr>pacs.008.001.12</MsgDefIdr><CreDt>2026-10-04T12:00:00Z</CreDt><Sgntr/>
-          </AppHdr>
-          <Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.12"><FIToFICstmrCdtTrf>
+          </env:AppHdr>
+          <env:FIToFICstmrCdtTrf xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.12">
             <GrpHdr><MsgId>IN-GROUP-1</MsgId><CreDtTm>2026-10-04T12:00:00Z</CreDtTm><NbOfTxs>1</NbOfTxs>
               <IntrBkSttlmDt>2026-10-04</IntrBkSttlmDt><SttlmInf><SttlmMtd>CLRG</SttlmMtd></SttlmInf>
             </GrpHdr>
@@ -106,7 +106,7 @@ public sealed class IncomingPacs008Fixture : IAsyncLifetime
                 <Strd><CdtrRefInf><Tp><CdOrPrtry><Prtry>SERV</Prtry></CdOrPrtry></Tp><Ref>ORDER-1</Ref></CdtrRefInf></Strd>
               </RmtInf>
             </CdtTrfTxInf>
-          </FIToFICstmrCdtTrf></Document>
-        </Message>
+          </env:FIToFICstmrCdtTrf>
+        </env:Message>
         """;
 }

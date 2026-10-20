@@ -36,7 +36,7 @@ public sealed class Pacs008SigningTests
             }
             else
             {
-                document.Descendants(Head + "AppHdr").Single().SetAttributeValue("xmlns", Head.NamespaceName);
+                document.Root!.Elements().First().SetAttributeValue("xmlns", Head.NamespaceName);
             }
 
             unsigned = document.ToString(SaveOptions.DisableFormatting);

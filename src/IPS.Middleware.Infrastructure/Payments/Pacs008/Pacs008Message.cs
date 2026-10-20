@@ -20,9 +20,7 @@ internal static class Pacs008Message
     private static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
 
     internal static XElement Build(ValidatedPacs008 payment, PaymentMessageContext context, Pacs008ProtocolProfile profile) =>
-        new("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "pacs", P.NamespaceName),
+        IpsEnvelope.Wrap(
             Header(payment, context, profile),
             new XElement(P + "Document",
                 new XElement(P + "FIToFICstmrCdtTrf",

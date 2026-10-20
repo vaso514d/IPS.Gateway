@@ -346,8 +346,8 @@ public sealed class IncomingReplyTests(IncomingReplyFixture fixture) : IClassFix
         var two = await h.ReadAsync(second);
         Assert.NotEqual(one.Envelope.Context.MessageId, two.Envelope.Context.MessageId);
         Assert.NotEqual(one.MessageXml, two.MessageXml);
-        Assert.Contains("<pacs:OrgnlMsgId>IN-GROUP-1</pacs:OrgnlMsgId>", one.MessageXml);
-        Assert.Contains("<pacs:OrgnlMsgId>IN-GROUP-2</pacs:OrgnlMsgId>", two.MessageXml);
+        Assert.Contains("<OrgnlMsgId>IN-GROUP-1</OrgnlMsgId>", one.MessageXml);
+        Assert.Contains("<OrgnlMsgId>IN-GROUP-2</OrgnlMsgId>", two.MessageXml);
         Assert.Equal(IncomingReplyStatus.Delivered, two.Status);
         Assert.Equal(ReplyDeliveryOutcome.Unresolved, h.Protocol.Interpret(new(fixture.Response("accepted"), null, h.Time.Now), two.Envelope).Outcome);
         Assert.Equal(ReplyDeliveryOutcome.Unresolved, h.Protocol.Interpret(new(fixture.Response("alternative"), null, h.Time.Now), one.Envelope).Outcome);

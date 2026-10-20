@@ -14,9 +14,7 @@ public sealed class Pacs028Xml(Pacs008ProtocolProfile profile)
     private const string LocalInstrument = "INST";
     public string Build(ValidatedPacs008 payment, IpsReplyCorrelation original, InvestigationMessageContext request)
     {
-        var message = new XElement("Message",
-            new XAttribute(XNamespace.Xmlns + "head", H.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "pacs", P.NamespaceName),
+        var message = IpsEnvelope.Wrap(
             Header(payment, request),
             new XElement(P + "Document",
                 new XElement(P + "FIToFIPmtStsReq",
