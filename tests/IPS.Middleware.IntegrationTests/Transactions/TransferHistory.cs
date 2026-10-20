@@ -25,3 +25,12 @@ internal static class TransferHistory
             .ToListAsync();
     }
 }
+
+internal static class MessageTableRows
+{
+    internal static async Task<T?> ReadAsync<T>(SqlTestDatabase database, Guid paymentId) where T : IPS.Middleware.Infrastructure.Persistence.Messages.MessageRow
+    {
+        await using var db = database.Context();
+        return await db.Set<T>().AsNoTracking().SingleOrDefaultAsync(row => row.Id == paymentId);
+    }
+}

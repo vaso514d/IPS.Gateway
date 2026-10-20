@@ -61,6 +61,9 @@ public class TransactionDbContext(DbContextOptions<TransactionDbContext> options
         modelBuilder.ApplyConfiguration(new IncomingTransferConfiguration());
         modelBuilder.ApplyConfiguration(new AggregateIdentityConfiguration());
         modelBuilder.ApplyConfiguration(new TransferStatusConfiguration());
+        modelBuilder.ApplyConfiguration(new Pacs008PaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new Pacs009PaymentConfiguration());
+        modelBuilder.ApplyConfiguration(new Pacs004PaymentConfiguration());
         modelBuilder.ApplyConfiguration(new OutgoingPaymentConfiguration());
         modelBuilder.ApplyConfiguration(new TransactionEventConfiguration());
     }

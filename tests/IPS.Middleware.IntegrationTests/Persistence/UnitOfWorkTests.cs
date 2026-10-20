@@ -9,6 +9,7 @@ using IPS.Middleware.Infrastructure.UnitOfWork;
 using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace IPS.Middleware.IntegrationTests.Persistence;
@@ -54,7 +55,8 @@ public sealed class UnitOfWorkTests
             await context.Database.ExecuteSqlRawAsync("ALTER TABLE TransactionEvents ADD CONSTRAINT CK_Test_NoIntake CHECK (Sequence > 1)");
         }
 
-        var unit = new UnitOfWork(context);
+        var log = new LogLines();
+        var unit = new UnitOfWork(context, log);
         var repository = new OutgoingPaymentRepository(context);
         var payment = OutgoingPayment.Receive(Guid.NewGuid(), "pacs.008", "shared-save", Now);
         repository.Add(payment, "{}", accepted: null);
@@ -67,14 +69,17 @@ public sealed class UnitOfWorkTests
         }
         else
         {
-            // Payment, its shared aggregate identity, the note, the intake event and its transfer history row.
-            Assert.Equal(5, await unit.SaveAsync());
+            // Payment, its shared aggregate identity, the note, the intake event, its transfer history row and its
+            // Pacs008Payments row.
+            Assert.Equal(6, await unit.SaveAsync());
             Assert.Empty(payment.PendingEvents);
         }
         await using var read = Context(database);
         Assert.Equal(failEvents ? 0 : 1, await read.Set<Note>().CountAsync());
         Assert.Equal(failEvents ? 0 : 1, await read.Set<OutgoingPayment>().CountAsync());
         Assert.Equal(failEvents ? 0 : 1, (await new OutgoingPaymentRepository(read).ReadEventsAsync(payment.Id, default)).Count);
+        // Only a committed step is logged.
+        Assert.Equal(failEvents ? 0 : 1, log.Lines.Count(line => line.Contains("Outgoing pacs.008 shared-save received", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -170,5 +175,28 @@ public sealed class UnitOfWorkTests
     {
         public Guid Id { get; set; }
         public string Text { get; set; } = "";
+    }
+
+    // Collects formatted log lines.
+    private sealed class LogLines : ILoggerFactory, ILogger
+    {
+        public List<string> Lines { get; } = [];
+
+        public ILogger CreateLogger(string categoryName) => this;
+
+        public void AddProvider(ILoggerProvider provider)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Lines.Add(formatter(state, exception));
     }
 }

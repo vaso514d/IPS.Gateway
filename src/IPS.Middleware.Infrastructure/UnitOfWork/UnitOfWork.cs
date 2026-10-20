@@ -3,16 +3,22 @@ using IPS.Middleware.Domain;
 using IPS.Middleware.Infrastructure.Diagnostics;
 using IPS.Middleware.Infrastructure.Persistence.Events;
 using IPS.Middleware.Infrastructure.Persistence.History;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.Infrastructure.Transactions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace IPS.Middleware.Infrastructure.UnitOfWork;
 
-public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
+// The logger factory is optional so direct construction (tests, tools) needs none; the host passes it through DI.
+public sealed class UnitOfWork(TransactionDbContext db, ILoggerFactory? loggerFactory = null) : IUnitOfWork
 {
+    private readonly ILogger _payments = loggerFactory?.CreateLogger("IPS.Middleware.Payments") ?? NullLogger.Instance;
+
     public async Task<int> SaveAsync(CancellationToken cancellationToken = default)
     {
         // A failed save may leave tracked state partially accepted, so the whole scope must be discarded.
@@ -60,6 +66,7 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
         // The parent row's version check must win before dependent evidence can meet a uniqueness constraint.
         RestoreEvidence(evidence);
         AddEventRows(pendingEvents);
+        await MessageTables.ApplyAsync(db, pendingEvents.Select(pending => (pending.Aggregate, (IReadOnlyList<DomainEvent>)pending.Events)), cancellationToken);
         db.OutgoingStatusDeliveries.AddRange(statusDeliveries);
         written += await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -67,6 +74,7 @@ public sealed class UnitOfWork(TransactionDbContext db) : IUnitOfWork
         foreach (var pending in pendingEvents)
         {
             CommittedEventMetrics.Record(pending.Aggregate, pending.Events);
+            CommittedEventLog.Write(_payments, pending.Aggregate, pending.Events);
             pending.Aggregate.AcknowledgeCommittedEvents(pending.Events.Select(occurrence => occurrence.EventId).ToArray());
         }
 

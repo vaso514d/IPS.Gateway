@@ -9,6 +9,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Repositories.Inbound;
 using IPS.Middleware.Infrastructure.Transactions;
 using IPS.Middleware.Infrastructure.UnitOfWork;
@@ -51,6 +52,10 @@ public sealed class IncomingCbsProcessingTests
                 (TransactionStatus.Accepted, StatusSource.Gateway, ProcessingStep.RepliedToIps)
             ],
             history.Select(row => (row.Status, row.Source, row.Step)));
+        var row = (await MessageTableRows.ReadAsync<Pacs008PaymentRow>(test.Database, id))!;
+        Assert.Equal((TransactionDirection.Incoming, TransactionStatus.Accepted, "credit-1"), (row.Direction, row.Status, row.CoreReference));
+        Assert.Equal(("E2E", 12m, "GEL", "GROUP", "TX"), (row.EndToEndId, row.Amount, row.Currency, row.MessageId, row.TransactionId));
+        Assert.Null(row.ClientReference);
     }
 
     [Theory]

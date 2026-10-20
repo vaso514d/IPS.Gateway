@@ -4,6 +4,7 @@ using IPS.Middleware.Application.Payments.Pacs008;
 using IPS.Middleware.Application.Transactions;
 using IPS.Middleware.Domain.Transactions;
 using IPS.Middleware.Infrastructure.Payments.Pacs008;
+using IPS.Middleware.Infrastructure.Persistence.Messages;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
 using IPS.Middleware.IntegrationTests.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +46,12 @@ public sealed class Pacs008ProcessingTests
             ],
             history.Select(row => (row.Status, row.Step)));
         Assert.Equal(StatusSource.Ips, history[^1].Source);
+        var row = (await MessageTableRows.ReadAsync<Pacs008PaymentRow>(harness.Database, id))!;
+        Assert.Equal((TransactionDirection.Outgoing, TransactionStatus.Accepted), (row.Direction, row.Status));
+        Assert.Equal(("E2E-1", "BANK-1", 12.34567m, "GEL"), (row.EndToEndId, row.InstructionId, row.Amount, row.Currency));
+        Assert.Equal(("ქართული & Debtor", "GE95TB0000000123456789", "Creditor", "TBCBGE22"),
+            (row.DebtorName, row.DebtorAccount, row.CreditorName, row.CreditorAgentBic));
+        Assert.Equal(stored.Message.MessageId, row.MessageId);
         harness.Clock.Now = Start.AddMinutes(1);
         Assert.Equal(outcome, await harness.ProcessAsync(id));
         Assert.Single(harness.Ips.Received);

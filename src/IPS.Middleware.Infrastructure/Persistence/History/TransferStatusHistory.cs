@@ -5,21 +5,53 @@ using IPS.Middleware.Domain.Transactions;
 
 namespace IPS.Middleware.Infrastructure.Persistence.History;
 
-// Builds the status history rows of a transfer from the events its save commits. Outgoing events carry their status;
-// an incoming payment's status is derived from its core outcome, IPS decision and follow-up (specification 020).
+// Builds the status history rows of a transfer (pacs.008, pacs.009 and pacs.004, the messages that move money) from the
+// events its save commits. Outgoing events carry their status; an incoming payment's status is derived from its core
+// outcome, IPS decision and follow-up, and an incoming transfer's from its core outcome alone (specification 020).
 internal static class TransferStatusHistory
 {
+    private static readonly HashSet<string> Transfers = [PaymentMessageTypes.Pacs008, PaymentMessageTypes.Pacs009, PaymentMessageTypes.Pacs004];
+
     internal static IEnumerable<TransferStatusRow> Rows(AggregateRoot aggregate, IEnumerable<DomainEvent> events) => aggregate switch
     {
-        OutgoingPayment payment when PaymentMessageTypes.IsPacs008(payment.MessageType) => events
+        OutgoingPayment payment when Transfers.Contains(payment.MessageType) => events
             .Select(Outgoing)
             .OfType<Entry>()
-            .Select(entry => Row(payment.Id, TransactionDirection.Outgoing, entry)),
+            .Select(entry => Row(payment.Id, TransactionDirection.Outgoing, payment.MessageType, entry)),
         IncomingPayment payment => events
             .Select(Incoming)
             .OfType<Entry>()
-            .Select(entry => Row(payment.Id, TransactionDirection.Incoming, entry)),
+            .Select(entry => Row(payment.Id, TransactionDirection.Incoming, PaymentMessageTypes.Pacs008, entry)),
+        IncomingTransfer transfer when Transfers.Contains(transfer.Kind) => events
+            .Select(IncomingTransferEntry)
+            .OfType<Entry>()
+            .Select(entry => Row(transfer.Id, TransactionDirection.Incoming, transfer.Kind, entry)),
         _ => []
+    };
+
+    // IPS is told only that a pacs.009 or pacs.004 arrived, so the core system's outcome is its status.
+    private static Entry? IncomingTransferEntry(DomainEvent occurrence) => occurrence switch
+    {
+        IncomingTransferRegistered registered => new(TransactionStatus.Received, StatusSource.Ips, null, registered.OccurredAtUtc),
+        IncomingTransferRecorded { Operation: IncomingTransferOperation.SubmissionStarted } recorded =>
+            new(TransactionStatus.Sending, StatusSource.Gateway, ProcessingStep.SentToCore, recorded.OccurredAtUtc),
+        IncomingTransferRecorded { Operation: IncomingTransferOperation.CoreOutcomeRecorded } recorded =>
+            new(TransferStatus(recorded.CoreStatus), StatusSource.Core, ProcessingStep.CoreResponded, recorded.OccurredAtUtc,
+                recorded.ReasonCode, null, recorded.Description),
+        IncomingTransferRecorded { Operation: IncomingTransferOperation.ResubmissionRequired } recorded =>
+            new(TransactionStatus.CoreUnknown, StatusSource.Gateway, null, recorded.OccurredAtUtc, recorded.ReasonCode, null, recorded.Description),
+        IncomingTransferRecorded { Operation: IncomingTransferOperation.ManualReviewRequired } recorded =>
+            new(TransactionStatus.ManualReview, StatusSource.Gateway, null, recorded.OccurredAtUtc, recorded.ReasonCode, null, recorded.Description),
+        _ => null
+    };
+
+    internal static TransactionStatus TransferStatus(CoreOutcome core) => core switch
+    {
+        CoreOutcome.Accepted => TransactionStatus.Accepted,
+        CoreOutcome.Rejected => TransactionStatus.Rejected,
+        CoreOutcome.SubmissionStarted => TransactionStatus.Sending,
+        CoreOutcome.Unknown => TransactionStatus.CoreUnknown,
+        _ => TransactionStatus.Received
     };
 
     // A repeated or conflicting IPS report and a recall refusal change no status, so they are not history rows.
@@ -62,7 +94,7 @@ internal static class TransferStatusHistory
     // Before the IPS decision the core outcome decides; after it, an accepted reply is final and a rejected one is final
     // unless a follow-up remains: an unknown credit is still being reconciled, and a credit to reverse or any other
     // unresolved case needs an operator.
-    private static TransactionStatus IncomingStatus(CoreOutcome core, IncomingIpsDecision? decision, IncomingFollowUp followUp) =>
+    internal static TransactionStatus IncomingStatus(CoreOutcome core, IncomingIpsDecision? decision, IncomingFollowUp followUp) =>
         (decision, followUp) switch
         {
             (_, IncomingFollowUp.ManualReviewRequired or IncomingFollowUp.ReversalRequired) => TransactionStatus.ManualReview,
@@ -85,11 +117,11 @@ internal static class TransferStatusHistory
         _ => null
     };
 
-    private static TransferStatusRow Row(Guid paymentId, TransactionDirection direction, Entry entry) => new()
+    private static TransferStatusRow Row(Guid paymentId, TransactionDirection direction, string messageType, Entry entry) => new()
     {
         PaymentTransactionId = paymentId,
         Direction = direction,
-        MessageType = PaymentMessageTypes.Pacs008,
+        MessageType = messageType,
         Status = entry.Status,
         Source = entry.Source,
         Step = entry.Step,
