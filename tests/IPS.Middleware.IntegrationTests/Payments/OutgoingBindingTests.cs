@@ -11,7 +11,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 
 public sealed class OutgoingBindingTests
 {
-    private const string Send = "/api/v1/ips/pacs008/send";
+    private const string Send = "/api/ips/pacs008/send";
 
     [Theory]
     [InlineData("{", "application/json", 400)]
@@ -73,7 +73,7 @@ public sealed class OutgoingBindingTests
         await using var fixture = await CreateAsync();
         using var host = fixture.Host();
         using var client = host.CreateClient();
-        using var response = await client.GetAsync($"/api/v1/ips/transactions/status?messageKind={kind}&clientReference=missing");
+        using var response = await client.GetAsync($"/api/ips/transactions/status?messageKind={kind}&clientReference=missing");
         Assert.Equal(expected, (int)response.StatusCode);
         if (expected == 404)
         {
@@ -119,18 +119,18 @@ public sealed class OutgoingBindingTests
             Assert.Equal("application/json", Assert.Single(content.EnumerateObject()).Name);
         }
         Assert.True(responses.GetProperty("400").GetProperty("content").TryGetProperty("application/problem+json", out _));
-        Assert.Equal("GetTransactionStatus", paths.GetProperty("/api/v1/ips/transactions/status").GetProperty("get").GetProperty("operationId").GetString());
-        var pacs009 = paths.GetProperty("/api/v1/ips/pacs009/send").GetProperty("post");
+        Assert.Equal("GetTransactionStatus", paths.GetProperty("/api/ips/transactions/status").GetProperty("get").GetProperty("operationId").GetString());
+        var pacs009 = paths.GetProperty("/api/ips/pacs009/send").GetProperty("post");
         Assert.Equal("SendPacs009", pacs009.GetProperty("operationId").GetString());
         foreach (var code in new[] { "200", "504", "400" })
         {
             Assert.True(pacs009.GetProperty("responses").TryGetProperty(code, out _));
         }
 
-        Assert.Equal("SendPacs004", paths.GetProperty("/api/v1/ips/pacs004/send").GetProperty("post").GetProperty("operationId").GetString());
-        Assert.Equal("SendCamt056", paths.GetProperty("/api/v1/ips/camt056/send").GetProperty("post").GetProperty("operationId").GetString());
-        Assert.Equal("SendCamt029", paths.GetProperty("/api/v1/ips/camt029/send").GetProperty("post").GetProperty("operationId").GetString());
-        Assert.Equal("SendPain002", paths.GetProperty("/api/v1/ips/pain002/send").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("SendPacs004", paths.GetProperty("/api/ips/pacs004/send").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("SendCamt056", paths.GetProperty("/api/ips/camt056/send").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("SendCamt029", paths.GetProperty("/api/ips/camt029/send").GetProperty("post").GetProperty("operationId").GetString());
+        Assert.Equal("SendPain002", paths.GetProperty("/api/ips/pain002/send").GetProperty("post").GetProperty("operationId").GetString());
         Assert.Equal(8, paths.EnumerateObject().Count());
     }
 
@@ -147,7 +147,7 @@ public sealed class OutgoingBindingTests
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("Accepted", document.RootElement.GetProperty("status").GetString());
         Assert.False(document.RootElement.TryGetProperty("failureReason", out _));
-        using var multipleReferences = await client.GetAsync("/api/v1/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing&clientReference=another");
+        using var multipleReferences = await client.GetAsync("/api/ips/transactions/status?messageKind=Pacs008&clientReference=outgoing&clientReference=another");
         Assert.Equal(HttpStatusCode.NotFound, multipleReferences.StatusCode);
         using var wrongMethod = await client.GetAsync(Send);
         Assert.Equal(HttpStatusCode.MethodNotAllowed, wrongMethod.StatusCode);

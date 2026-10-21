@@ -48,3 +48,5 @@ Approved exception (023, 2026-10-21): breaking, within the same 3.0.0-preview.1 
 - `GetPaymentStatusAsync` changes only its description.
 
 The expected entries were compared with a snapshot of the changed assembly line by line; every differing line was one of these changes. The outgoing pacs.009 (`Pacs009PaymentRequestDto`, `IGatewayApi.SendPacs009Async`) is unchanged. Wire cases and the source-manifest provenance are unchanged.
+
+Approved exception (unversioned gateway routes, 2026-10-21): a breaking change within the unpublished 3.0.0-preview.1. The owner removed the /api/v1 prefix of 017a from the routes the gateway serves: every *RestApiRoutes.Send, TransactionRestApiRoutes.Status and the three ProxyRestApiRoutes constants, and with them the RestEndpoint route arguments of IGatewayApi (/api/v1/ips/.../send becomes /api/ips/.../send, /api/v1/proxy/... becomes /api/proxy/...). The routes a core system implements are unchanged. The public-api.json entries were edited for exactly these route strings; no name, type, member or other value changes. No wire case contains a route, so wire-cases.json and the source-manifest provenance are unchanged.

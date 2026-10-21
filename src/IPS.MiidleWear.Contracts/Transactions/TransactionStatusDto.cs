@@ -91,7 +91,7 @@ public sealed record TransactionStatusQueryDto
 public static class TransactionRestApiRoutes
 {
     /// <summary>Implemented by the gateway: the core system reads a transaction's current status.</summary>
-    public const string Status = "/api/v1/ips/transactions/status";
+    public const string Status = "/api/ips/transactions/status";
 
     /// <summary>Implemented by the core system: the gateway posts a transaction's final status.</summary>
     public const string ReceiveStatus = "/api/ips/transactions/status/receive";

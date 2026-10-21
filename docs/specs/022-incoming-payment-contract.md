@@ -136,4 +136,4 @@ Answer, HTTP 200:
 
 - **Duplicate EndToEndId.** A different payment with the EndToEndId of one already registered is a duplicate. IPS is told RJCT with AM05 at once. The core system never sees it, and the registered payment is untouched. Before, the receipt was held without a reply, and IPS rejected the payment only at its deadline. A redelivery of the same payment (same contents) still joins the registered one.
 - **IntrBkSttlmDt** of an outgoing pacs.008 is the UTC calendar date of acceptanceDateTime; before, it was the date in Georgian time (+04). Between 00:00 and 04:00 Georgian time the two differ: the date is then the previous day. Annex D 3.2.1 requires the current calendar day, with a 20-second grace after midnight for the previous one. If IPS checks the date in Georgian time, payments accepted in those four hours will be rejected. To be confirmed on UAT.
-- **The outgoing contract stays as it is** (`POST /api/v1/ips/pacs008/send`, flat), and so does `initiationChannelInstrument`.
+- **The outgoing contract stays as it is** (`POST /api/ips/pacs008/send`, flat), and so does `initiationChannelInstrument`.

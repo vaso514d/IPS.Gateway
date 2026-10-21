@@ -7,8 +7,8 @@ namespace IPS.Middleware.AspireTests;
 // Valid requests for the sending side of the service, with a client reference per call so that tests never collide.
 internal static class Requests
 {
-    internal const string Pain002Send = "/api/v1/ips/pain002/send";
-    internal const string Pacs008Send = "/api/v1/ips/pacs008/send";
+    internal const string Pain002Send = "/api/ips/pain002/send";
+    internal const string Pacs008Send = "/api/ips/pacs008/send";
 
     internal static string Reference(string prefix) => prefix + "-" + Guid.NewGuid().ToString("N")[..12];
 

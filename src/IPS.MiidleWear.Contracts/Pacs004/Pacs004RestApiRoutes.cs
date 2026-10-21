@@ -10,5 +10,5 @@ public static class Pacs004RestApiRoutes
     /// <summary>
     /// Implemented by the gateway; called by external clients to initiate outbound IPS pacs.004.
     /// </summary>
-    public const string Send = "/api/v1/ips/pacs004/send";
+    public const string Send = "/api/ips/pacs004/send";
 }

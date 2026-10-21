@@ -24,7 +24,7 @@ namespace IPS.Middleware.IntegrationTests.Payments;
 [Collection("Outgoing transport timing")]
 public sealed class OutgoingMultiInstanceTests
 {
-    private const string Send = "/api/v1/ips/pain002/send";
+    private const string Send = "/api/ips/pain002/send";
 
     // How long "nothing more arrives" is observed; the proof is the durable state checked around it.
     private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(750);

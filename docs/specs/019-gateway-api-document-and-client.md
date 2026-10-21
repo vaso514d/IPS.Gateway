@@ -7,7 +7,7 @@ Status: proposed on main (base 19a9bb6); the owner chose to work on main on 2026
 A bank integrates in two directions.
 
 - **Gateway to bank.** The bank implements `IClientPaymentReceiver`. 017b and 018 cover this direction completely: Contracts, `IPS.MiidleWear.AspNetCore`, `IPS.MiidleWear.Testing`, the sample, and the receiver's OpenAPI document.
-- **Bank to gateway.** The bank calls `IGatewayApi`: the sends, the transaction status and proxy management under `/api/v1`. 017 left this direction for "its own specification". It has four gaps:
+- **Bank to gateway.** The bank calls `IGatewayApi`: the sends, the transaction status and proxy management, unversioned since 2026-10-21. 017 left this direction for "its own specification". It has four gaps:
   - The Api maps `/openapi/v1.json` in Development only.
   - The `Summary`, `Description` and `Tag` text on the `IGatewayApi` `[RestEndpoint]` attributes never reaches that document. The controllers declare only `ProducesResponseType`.
   - No browsable UI or committed document exists.

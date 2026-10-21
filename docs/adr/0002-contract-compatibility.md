@@ -56,3 +56,7 @@ Owner approved preserving the source timing distinction: the first inquiry is el
 ## Versioned routes (2026-10-16)
 
 The owner approved moving the routes the gateway serves (sends, the transaction status query, proxy management) under `/api/v1` (Contracts 2.0.0-preview.1) while no core system has integrated. The routes a core system implements (`IClientPaymentReceiver`, the status callback and the payment-status query) stay unversioned. Only route values change; DTOs, JSON shapes, methods, status meanings and callbacks are preserved. The baseline is hand-edited for exactly the route strings. See [017](../archive/specs/017-core-receiver-sdk.md).
+
+## Unversioned gateway routes (2026-10-21)
+
+The owner removed the `/api/v1` prefix again before any core system integrated (Contracts 3.0.0-preview.1, unpublished). The gateway serves `/api/ips/*/send`, `/api/ips/transactions/status` and `/api/proxy/*`; the `/api/v1` paths answer 404. Only route values change, and the baseline is hand-edited for exactly the route strings. A later breaking change of the gateway API needs its own owner decision on how callers migrate.

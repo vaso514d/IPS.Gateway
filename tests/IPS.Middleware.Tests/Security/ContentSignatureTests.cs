@@ -85,8 +85,8 @@ public sealed class ContentSignatureTests
             BaseAddress = new Uri("http://gateway/")
         };
 
-        await client.PostAsJsonAsync("api/v1/ips/pacs008/send", new { clientReference = "CBS-1", amount = 10.5m });
-        await client.GetAsync("api/v1/ips/transactions/status?messageKind=Pacs008&clientReference=CBS-1");
+        await client.PostAsJsonAsync("api/ips/pacs008/send", new { clientReference = "CBS-1", amount = 10.5m });
+        await client.GetAsync("api/ips/transactions/status?messageKind=Pacs008&clientReference=CBS-1");
 
         Assert.Equal(2, server.Requests.Count);
         var verifier = Verifier(certificate);

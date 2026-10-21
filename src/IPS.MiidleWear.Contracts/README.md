@@ -2,7 +2,7 @@
 
 The JSON contract of the IPS middleware (the gateway) for a core banking system: the models, the routes and two interfaces.
 
-- **`IGatewayApi`**: what the core system calls on the gateway, under `/api/v1`. Sends (`/api/v1/ips/{pacs008|pacs009|pacs004|camt056|camt029|pain002}/send`), the status of a sent transaction (`GET /api/v1/ips/transactions/status`), and proxy management (`/api/v1/proxy/{register|update|remove}`).
+- **`IGatewayApi`**: what the core system calls on the gateway. Sends (`/api/ips/{pacs008|pacs009|pacs004|camt056|camt029|pain002}/send`), the status of a sent transaction (`GET /api/ips/transactions/status`), and proxy management (`/api/proxy/{register|update|remove}`).
 - **`IClientPaymentReceiver`**: what the core system implements and the gateway calls.
   - The incoming instant payment (pacs.008), synchronous: `POST /stp/incoming-payments` and its status query `GET /stp/incoming-payments/{transactionId}`.
   - The incoming FI transfer (pacs.009), asynchronous: `POST /stp/fi-transfers` (answered 202) and its status query `GET /stp/fi-transfers/{transactionId}`.

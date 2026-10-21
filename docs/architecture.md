@@ -391,7 +391,7 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 
 ## Versioned routes (017a)
 
-- Contracts 2.0.0-preview.1 prefixes the routes the gateway serves with `/api/v1`: `/api/v1/ips/*/send`, `/api/v1/ips/transactions/status` and `/api/v1/proxy/*`. The Api controllers read the constants; the unversioned paths are not served. Health endpoints are not versioned. The routes a core system implements, which the gateway calls (`/api/ips/*/receive`, `/api/ips/transactions/status/receive`, `/api/ips/payments/status`), are unchanged.
+- Contracts 2.0.0-preview.1 prefixes the routes the gateway serves with `/api/v1` (removed again on 2026-10-21, below): `/api/v1/ips/*/send`, `/api/v1/ips/transactions/status` and `/api/v1/proxy/*`. The Api controllers read the constants; the unversioned paths are not served. Health endpoints are not versioned. The routes a core system implements, which the gateway calls (`/api/ips/*/receive`, `/api/ips/transactions/status/receive`, `/api/ips/payments/status`), are unchanged.
 - See [017](archive/specs/017-core-receiver-sdk.md).
 
 ## Core receiver package and its document (017b)
@@ -462,3 +462,8 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 - `IIncomingTransferCoreClient` and `IIncomingTransferReplyInterpreter` take the registered `IncomingTransfer`. `IncomingFiTransferContract` (Infrastructure) builds the envelope. The other kinds ignore the registration and keep their routes, DTOs and ACCP/RJCT.
 - The outgoing pacs.009 is unchanged.
 - See [023](specs/023-incoming-fi-transfer-contract.md).
+
+## Unversioned gateway routes (2026-10-21)
+
+- The owner removed the `/api/v1` prefix of 017a. The Api serves `/api/ips/*/send`, `/api/ips/transactions/status` and `/api/proxy/*`; the `/api/v1` paths are not served. The routes the core system implements were never versioned. The OpenAPI document keeps its name, `/openapi/v1.json`.
+- See [ADR 0002](adr/0002-contract-compatibility.md#unversioned-gateway-routes-2026-10-21).

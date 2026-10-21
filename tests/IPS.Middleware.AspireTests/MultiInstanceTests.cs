@@ -32,7 +32,7 @@ public sealed class MultiInstanceTests
         Assert.Equal(references.Order(), received.Callbacks.Select(ClientReferenceOf).Order());
         foreach (var reference in references)
         {
-            using var status = await second.GetAsync($"/api/v1/ips/transactions/status?messageKind=Pain002&clientReference={reference}");
+            using var status = await second.GetAsync($"/api/ips/transactions/status?messageKind=Pain002&clientReference={reference}");
             Assert.Equal(TransactionStatus.Accepted, (await status.Content.ReadFromJsonAsync<TransactionStatusDto>())!.Status);
         }
     }

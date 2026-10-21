@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Client contract for the IPS middleware: the JSON models and routes of our API (/api/v1/ips/*/send) and of the
+    Client contract for the IPS middleware: the JSON models and routes of our API (/api/ips/*/send) and of the
     callbacks a core banking system implements (/api/ips/*/receive, I*ClientPaymentReceiver).
     Deliberately dependency-free (no Domain, no FluentValidation, no ASP.NET) so it can be published as a NuGet
     package. net8.0 (LTS) rather than netstandard2.0 because the models use DateOnly/TimeOnly; net8+ and net10

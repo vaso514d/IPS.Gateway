@@ -107,5 +107,5 @@ To confirm with NBG on UAT: rows 3, 5 and 7.
 
 ## Not changed
 
-- **The outgoing pacs.009** (`POST /api/v1/ips/pacs009/send`) and its validation.
+- **The outgoing pacs.009** (`POST /api/ips/pacs009/send`) and its validation.
 - **The gateway's identity of an incoming transfer** stays the participant, the kind and the EndToEndId. The other five kinds keep their routes, DTOs and ACCP/RJCT.

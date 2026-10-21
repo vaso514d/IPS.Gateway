@@ -219,7 +219,7 @@ public sealed record Camt056CreditorReferenceDto
 public static class Camt056RestApiRoutes
 {
     /// <summary>Implemented by the gateway; called by external clients to send a camt.056 recall request to IPS.</summary>
-    public const string Send = "/api/v1/ips/camt056/send";
+    public const string Send = "/api/ips/camt056/send";
 
     /// <summary>Implemented by the core system; called by the gateway for an incoming camt.056 recall request.</summary>
     public const string Receive = "/api/ips/camt056/receive";

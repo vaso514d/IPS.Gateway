@@ -67,7 +67,7 @@ public sealed class OutgoingTransportConfigurationTests
         using var host = new Host(Settings(certificates));
         using var http = host.CreateClient();
         Assert.Equal("Healthy", await http.GetStringAsync("/health/live"));
-        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await http.PostAsync("/api/v1/ips/pacs008/send", null)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await http.PostAsync("/api/ips/pacs008/send", null)).StatusCode);
         Assert.Single(host.Services.GetRequiredService<OutgoingTransportCertificates>().IpsSignatureTrust);
         await Assert.ThrowsAsync<InvalidOperationException>(() => host.Services.GetRequiredService<IIncomingReceiveClient>().ReceiveAsync(default));
     }

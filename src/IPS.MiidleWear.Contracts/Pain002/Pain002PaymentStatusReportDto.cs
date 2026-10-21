@@ -53,5 +53,5 @@ public sealed record Pain002PaymentStatusReportDto
 public static class Pain002RestApiRoutes
 {
     /// <summary>Implemented by the gateway; called by the core system to refuse a received pain.001 payment initiation.</summary>
-    public const string Send = "/api/v1/ips/pain002/send";
+    public const string Send = "/api/ips/pain002/send";
 }
