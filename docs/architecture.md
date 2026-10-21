@@ -450,7 +450,15 @@ See [coding style](coding-style.md). Earlier stage descriptions above record his
 - An incoming pacs.008 goes to the core system in its own synchronous envelope: `POST /stp/incoming-payments` with `transactionId`, `operationType` INSTANT_PAYMENT and `data`. The status query is `GET /stp/incoming-payments/{transactionId}`. The answer is ACCEPTED or REJECTED (`IncomingPaymentResultDto`), with PENDING for the query only.
 - `transactionId` is the payment's id in the gateway. It is the Idempotency-Key and the status reference, so the core system's key no longer depends on an EndToEndId that two banks could share.
 - `IIncomingCoreClient` takes the stored `IncomingProcessingSnapshot` and the `IncomingPayment`. `IncomingPaymentContract` (Infrastructure) builds the envelope from them, including the IPS message and transaction ids and the receipt time. `IIncomingCoreReplyInterpreter` checks that an echoed transactionId is the payment's.
-- The other six delivered kinds keep their routes, their DTOs and ACCP/RJCT.
+- The other six delivered kinds keep their routes, their DTOs and ACCP/RJCT (pacs.009 moved to its own envelope in 023).
 - See [022](specs/022-incoming-payment-contract.md).
 - A different payment with a registered EndToEndId is rejected at once with AM05: `IncomingPaymentIntake` reports the conflict, keeping the receipt owned, and `IncomingReceiptPreparation` stages the paymentless rejection, like FF01 and RC07.
 - An outgoing pacs.008's IntrBkSttlmDt is the UTC date of acceptanceDateTime (`Pacs008Message.SettlementDate`, owner decision 2026-10-21).
+
+## Incoming FI transfer contract (023)
+
+- An incoming pacs.009 goes to the core system in its own asynchronous envelope: `POST /stp/fi-transfers` with `transactionId`, `operationType` FI_TRANSFER and `data`, answered 202 ACCEPTED_FOR_PROCESSING. The status query is `GET /stp/fi-transfers/{transactionId}`. COMPLETED and REJECTED are final; ACCEPTED_FOR_PROCESSING and PROCESSING keep the transfer in reconciliation.
+- `transactionId` is the transfer's id in the gateway: the Idempotency-Key and the status reference. A REJECTED transactionId stays rejected; a later posting by the core system is its own operation.
+- `IIncomingTransferCoreClient` and `IIncomingTransferReplyInterpreter` take the registered `IncomingTransfer`. `IncomingFiTransferContract` (Infrastructure) builds the envelope. The other kinds ignore the registration and keep their routes, DTOs and ACCP/RJCT.
+- The outgoing pacs.009 is unchanged.
+- See [023](specs/023-incoming-fi-transfer-contract.md).

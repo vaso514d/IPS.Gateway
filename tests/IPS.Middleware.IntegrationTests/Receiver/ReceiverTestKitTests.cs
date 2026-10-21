@@ -29,7 +29,7 @@ public sealed class ReceiverTestKitTests
         var result = await IpsReceiverConformance.RunAsync(sample.Client);
 
         Assert.True(result.Passed, result.ToString());
-        Assert.Equal(7 * 3 + 2 + 2 + 2, result.Checks.Count);
+        Assert.Equal(5 * 3 + 3 + 3 + 3 + 4, result.Checks.Count);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class ReceiverTestKitTests
     {
         { "204-for-unknown", "the payment-status query of a message never sent answers 404" },
         { "new-answer-on-redelivery", "pacs.008: a redelivery gets the first answer" },
-        { "wrong-end-to-end-id", "pacs.009: the answer is final" },
+        { "wrong-transaction-id-on-pacs009", "pacs.009: the answer is valid" },
         { "status-enum-rejected", "the status callback is accepted" },
         { "duplicate-member", "pacs.004: the answer is final" },
         { "other-transaction-id-on-pacs008", "pacs.008: the answer is final" }
@@ -117,10 +117,9 @@ public sealed class ReceiverTestKitTests
     public static TheoryData<int, string> TransferAnswers() => new()
     {
         { 200, """{"Status":"ACCP"}""" },
-        { 200, """{"Status":"ACCP","Id":"MSG-IN-1","EndToEndId":"E2E-IN-1","TxId":"TX-IN-1"}""" },
+        { 200, """{"Status":"ACCP","Id":"RTR-IN-1"}""" },
         { 200, """{"Status":"RJCT","Id":"OTHER"}""" },
-        { 200, """{"Status":"ACCP","TxId":"OTHER"}""" },
-        { 200, """{"Status":"PDNG","Id":"MSG-IN-1"}""" },
+        { 200, """{"Status":"PDNG","Id":"RTR-IN-1"}""" },
         { 404, "" }
     };
 
@@ -128,14 +127,46 @@ public sealed class ReceiverTestKitTests
     [MemberData(nameof(TransferAnswers))]
     public void The_kit_and_the_gateway_agree_on_a_transfer_answer(int status, string body)
     {
+        var transfer = new IncomingPacs004(
+            "RTR-IN-1", 100.5m, "GEL", new DateOnly(2026, 10, 4), "FOCR", null, "TESTGE22", "TBCBGE22", null,
+            new IncomingReturnParty("Original Payer", null, null, "GE95TB0000000123456789"),
+            new IncomingReturnParty("Original Payee", null, null, "GE29NB0000000101904917"),
+            new IncomingOriginalPayment("ORIG-TX-1", null, "ORIG-E2E-1", null, new DateOnly(2026, 10, 3), null, null, null, 100.5m, "GEL"));
+        var registered = IncomingTransfer.Register(Guid.NewGuid(), "TESTGE22", "pacs.004", "RTR-IN-1", DateTimeOffset.UtcNow);
+        var gateway = ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(Completion(status, body), registered, transfer);
+
+        var kit = AnswerReader.Read(status, body, new ExpectedEcho(null, "RTR-IN-1", null, AbsentWhenUnknown: false));
+
+        Assert.Equal(gateway.Status != CoreOutcome.Unknown, kit.Final);
+    }
+
+    public static TheoryData<int, string, bool> FiTransferAnswers() => new()
+    {
+        { 202, """{"status":"ACCEPTED_FOR_PROCESSING"}""", false },
+        { 200, """{"status":"PROCESSING"}""", false },
+        { 200, $$"""{"status":"COMPLETED","transactionId":"{{PaymentId}}","coreReference":"P-1"}""", true },
+        { 200, """{"status":"REJECTED","reasonCode":"AC04"}""", true },
+        { 200, """{"status":"COMPLETED","transactionId":"OTHER"}""", false },
+        { 200, """{"status":"ACCP"}""", false },
+        { 404, "", false }
+    };
+
+    // The kit accepts every readable answer; the gateway treats only COMPLETED and REJECTED as final.
+    [Theory]
+    [MemberData(nameof(FiTransferAnswers))]
+    public void The_kit_and_the_gateway_agree_on_an_fi_transfer_answer(int status, string body, bool final)
+    {
         var transfer = new IncomingPacs009(
             "MSG-IN-1", "E2E-IN-1", null, "TX-IN-1", null, null, new DateOnly(2026, 10, 4), "GEL", 100.5m,
             new IncomingAgent("TBCBGE22", null), new IncomingAgent("TESTGE22", null), null, null, null, null, null);
-        var gateway = ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(Completion(status, body), transfer);
+        var registered = IncomingTransfer.Register(Guid.Parse(PaymentId), "TESTGE22", "pacs.009", "E2E-IN-1", DateTimeOffset.UtcNow);
+        var gateway = ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(Completion(status, body), registered, transfer);
 
-        var kit = AnswerReader.Read(status, body, new ExpectedEcho("E2E-IN-1", "MSG-IN-1", "TX-IN-1", AbsentWhenUnknown: false));
+        var kit = AnswerReader.ReadFiTransfer(new Exchange(status, body), PaymentId);
 
-        Assert.Equal(gateway.Status != CoreOutcome.Unknown, kit.Final);
+        Assert.Equal(final, gateway.Status != CoreOutcome.Unknown);
+        Assert.True(kit.Final || !final);
+        Assert.Equal(final, kit.Final && kit.Status is "COMPLETED" or "REJECTED");
     }
 
     private static CoreCallCompletion Completion(int status, string body) =>
@@ -200,8 +231,8 @@ public sealed class ReceiverTestKitTests
                 case "new-answer-on-redelivery" when path.EndsWith("/stp/incoming-payments", StringComparison.Ordinal) && _deliveries.AddOrUpdate(key, 1, (_, count) => count + 1) > 1:
                     await Json(context, """{"status":"REJECTED","reasonCode":"AM04"}""");
                     return true;
-                case "wrong-end-to-end-id" when path.EndsWith("/pacs009/receive", StringComparison.Ordinal):
-                    await Json(context, """{"Status":"ACCP","EndToEndId":"WRONG"}""");
+                case "wrong-transaction-id-on-pacs009" when path.EndsWith("/stp/fi-transfers", StringComparison.Ordinal):
+                    await Json(context, """{"status":"COMPLETED","transactionId":"WRONG"}""");
                     return true;
                 case "status-enum-rejected" when path.EndsWith("/transactions/status/receive", StringComparison.Ordinal) && !key.StartsWith("in:", StringComparison.Ordinal):
                     context.Response.StatusCode = StatusCodes.Status400BadRequest;

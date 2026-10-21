@@ -37,7 +37,8 @@ The document lists only the receiver operations, with the `Idempotency-Key` head
 |---|---|---|---|
 | POST | `/stp/incoming-payments` | `ReceiveIncomingPaymentAsync` (pacs.008) | `transactionId` |
 | GET | `/stp/incoming-payments/{transactionId}` | `GetIncomingPaymentAsync` (pacs.008) | none |
-| POST | `/api/ips/pacs009/receive` | `ReceivePacs009Async` | `endToEndId` |
+| POST | `/stp/fi-transfers` | `ReceiveFiTransferAsync` (pacs.009), answered 202 | `transactionId` |
+| GET | `/stp/fi-transfers/{transactionId}` | `GetFiTransferAsync` (pacs.009) | none |
 | POST | `/api/ips/pacs004/receive` | `ReceivePacs004Async` | `id` (the return id) |
 | POST | `/api/ips/pain001/receive` | `ReceivePain001Async` | `paymentInformationId` |
 | POST | `/api/ips/camt056/receive` | `ReceiveCamt056Async` | `id` |

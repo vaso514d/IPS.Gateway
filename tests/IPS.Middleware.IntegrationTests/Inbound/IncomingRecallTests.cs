@@ -934,7 +934,7 @@ public sealed class IncomingRecallTests
             }
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(IncomingTransfer registered, IIncomingTransferContent transfer, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -945,8 +945,9 @@ public sealed class IncomingRecallTests
             return Submit(transfer);
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(IncomingTransfer registered, CancellationToken cancellationToken)
         {
+            var key = registered.Key;
             lock (_gate)
             {
                 _calls.Add(("query", key));

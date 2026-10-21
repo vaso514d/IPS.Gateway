@@ -44,7 +44,7 @@ public sealed class CoreReceiverPackageTests
     private const string Participant = "TESTGE22";
     private const string Other = "TBCBGE22";
 
-    public static TheoryData<string> Kinds() => new() { "pacs.009", "pacs.004", "pain.001", "camt.056", "camt.055", "camt.029" };
+    public static TheoryData<string> Kinds() => new() { "pacs.004", "pain.001", "camt.056", "camt.055", "camt.029" };
 
     // Specification 022: the envelope, keyed by the gateway's transactionId, with the IPS references and the receipt time.
     [Fact]
@@ -96,12 +96,74 @@ public sealed class CoreReceiverPackageTests
         using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
         var transfer = Transfer(kind);
 
-        var response = await gateway.GetRequiredService<IIncomingTransferCoreClient>().SubmitAsync(Participant, transfer, default);
+        var response = await gateway.GetRequiredService<IIncomingTransferCoreClient>().SubmitAsync(Registered(transfer), transfer, default);
 
         var call = Assert.Single(receiver.Script.Calls);
         Assert.Equal(transfer.Key, call.HeaderKey);
         Assert.Equal(call.HeaderKey, call.ContractKey);
         Assert.Equal(CoreOutcome.Accepted, InterpretTransfer(response, transfer).Status);
+    }
+
+    // Specification 023: the FI transfer envelope, keyed by the gateway's transactionId, answered 202.
+    [Fact]
+    public async Task An_incoming_pacs009_reaches_the_receiver_in_its_envelope_and_is_queried_by_its_transaction_id()
+    {
+        await using var receiver = await ReceiverHost.StartAsync();
+        using var certificates = new TransportCertificates();
+        using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
+        var core = gateway.GetRequiredService<IIncomingTransferCoreClient>();
+        var transfer = Transfer("pacs.009");
+        var registered = Registered(transfer);
+        receiver.Script.FiAnswer = IncomingFiTransferResultDto.AcceptedForProcessing;
+
+        var response = await core.SubmitAsync(registered, transfer, default);
+        receiver.Script.FiAnswer = key => IncomingFiTransferResultDto.Completed(key, "POSTING-LIQ-1");
+        receiver.Script.CompleteFiTransfers();
+        var known = await core.QueryAsync(registered, default);
+        var unknown = await core.QueryAsync(IncomingTransfer.Register(Guid.NewGuid(), Participant, "pacs.009", "E2E-NEVER", ReceivedAt), default);
+
+        var call = Assert.Single(receiver.Script.Calls);
+        Assert.Equal((nameof(IClientPaymentReceiver.ReceiveFiTransferAsync), TransferTransactionId), (call.Operation, call.HeaderKey));
+        var delivered = Assert.Single(receiver.Script.FiTransfers);
+        Assert.Equal((TransferTransactionId, IncomingOperationTypes.FiTransfer), (delivered.TransactionId, delivered.OperationType));
+        var data = delivered.Data!;
+        Assert.Equal(("MSG-IN-1", "INSTR-1", "E2E-IN-1", "TX-IN-1", ReceivedAt), (data.MessageId, data.InstructionId, data.EndToEndId, data.IsoTransactionId, data.ReceivedAt));
+        Assert.Equal((Other, Participant, "GE29NB0000000101904917"), (data.Debtor!.ParticipantBic, data.Creditor!.ParticipantBic, data.Creditor.AccountIban));
+        Assert.Equal((202, CoreOutcome.Unknown), (response.StatusCode, InterpretTransfer(response, transfer).Status));
+        var result = InterpretTransfer(known, transfer);
+        Assert.Equal((CoreOutcome.Accepted, "POSTING-LIQ-1"), (result.Status, result.CoreReference));
+        Assert.Equal(404, unknown.StatusCode);
+    }
+
+    public static TheoryData<string, CoreOutcome> FiAnswers() => new()
+    {
+        { "COMPLETED", CoreOutcome.Accepted },
+        { "REJECTED", CoreOutcome.Rejected },
+        { "ACCEPTED_FOR_PROCESSING", CoreOutcome.Unknown },
+        { "PROCESSING", CoreOutcome.Unknown },
+        { "ACCP", CoreOutcome.Unknown },
+        { "other-transaction", CoreOutcome.Unknown }
+    };
+
+    // COMPLETED and REJECTED are final; the processing statuses make the gateway ask again.
+    [Theory]
+    [MemberData(nameof(FiAnswers))]
+    public async Task Only_a_completed_or_a_rejected_fi_transfer_is_final(string answer, CoreOutcome outcome)
+    {
+        await using var receiver = await ReceiverHost.StartAsync();
+        receiver.Script.FiAnswer = key => answer switch
+        {
+            "other-transaction" => IncomingFiTransferResultDto.Completed("ANOTHER"),
+            "REJECTED" => IncomingFiTransferResultDto.Rejected(key, "AC04"),
+            _ => new IncomingFiTransferResultDto { TransactionId = key, Status = answer }
+        };
+        using var certificates = new TransportCertificates();
+        using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
+        var transfer = Transfer("pacs.009");
+
+        var response = await gateway.GetRequiredService<IIncomingTransferCoreClient>().SubmitAsync(Registered(transfer), transfer, default);
+
+        Assert.Equal(outcome, InterpretTransfer(response, transfer).Status);
     }
 
     public static TheoryData<string, CoreOutcome> Answers() => new()
@@ -150,16 +212,16 @@ public sealed class CoreReceiverPackageTests
         using var certificates = new TransportCertificates();
         using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
         var core = gateway.GetRequiredService<IIncomingTransferCoreClient>();
-        var transfer = Transfer("pacs.009");
-        await core.SubmitAsync(Participant, transfer, default);
+        var transfer = Transfer("pacs.004");
+        await core.SubmitAsync(Registered(transfer), transfer, default);
 
-        var known = await core.QueryAsync(Participant, "pacs.009", transfer.Key, default);
-        var unknown = await core.QueryAsync(Participant, "pacs.009", "NEVER-SENT", default);
+        var known = await core.QueryAsync(Registered(transfer), default);
+        var unknown = await core.QueryAsync(IncomingTransfer.Register(Guid.NewGuid(), Participant, "pacs.004", "NEVER-SENT", ReceivedAt), default);
 
         Assert.Equal(CoreOutcome.Accepted, InterpretTransfer(known, transfer).Status);
         Assert.Equal(404, unknown.StatusCode);
         var query = receiver.Script.Queries.Last();
-        Assert.Equal((IpsMessageKind.Pacs009, "NEVER-SENT", (string?)null), (query.Kind, query.Reference, query.HeaderKey));
+        Assert.Equal((IpsMessageKind.Pacs004, "NEVER-SENT", (string?)null), (query.Kind, query.Reference, query.HeaderKey));
     }
 
     [Fact]
@@ -187,17 +249,17 @@ public sealed class CoreReceiverPackageTests
     {
         await using var receiver = await ReceiverHost.StartAsync(services =>
             services.Configure<JsonOptions>(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower));
-        receiver.Script.Answer = (_, key) => Pacs008PaymentResultDto.Accept(null, key, null);
+        receiver.Script.Answer = (_, key) => Pacs008PaymentResultDto.Accept(key, null, null);
         using var http = new HttpClient { BaseAddress = new Uri(receiver.Url) };
 
-        using var accepted = await http.PostAsync("/api/ips/pacs009/receive",
-            new StringContent("""{"endToEndId":"E2E-RAW","amount":null,"unknownMember":1}""", Encoding.UTF8, "application/json"));
-        using var malformed = await http.PostAsync("/api/ips/pacs009/receive", new StringContent("{not json", Encoding.UTF8, "application/json"));
+        using var accepted = await http.PostAsync("/api/ips/pacs004/receive",
+            new StringContent("""{"id":"RTR-RAW","amount":null,"unknownMember":1}""", Encoding.UTF8, "application/json"));
+        using var malformed = await http.PostAsync("/api/ips/pacs004/receive", new StringContent("{not json", Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         using var body = JsonDocument.Parse(await accepted.Content.ReadAsStringAsync());
         Assert.Equal("ACCP", body.RootElement.GetProperty("Status").GetString());
-        Assert.Equal("E2E-RAW", body.RootElement.GetProperty("EndToEndId").GetString());
+        Assert.Equal("RTR-RAW", body.RootElement.GetProperty("Id").GetString());
         Assert.False(body.RootElement.TryGetProperty("ReasonCode", out _));
         Assert.Equal(HttpStatusCode.BadRequest, malformed.StatusCode);
         Assert.Equal("application/problem+json", malformed.Content.Headers.ContentType?.MediaType);
@@ -217,7 +279,7 @@ public sealed class CoreReceiverPackageTests
             .Select(endpoint => (endpoint.HttpMethod, endpoint.Route))
             .Order()
             .ToArray();
-        Assert.Equal(10, declared.Length);
+        Assert.Equal(11, declared.Length);
         Assert.Equal(declared, mapped);
     }
 
@@ -255,8 +317,16 @@ public sealed class CoreReceiverPackageTests
         null,
         null);
 
+    private static readonly Guid TransferId = Guid.Parse("0f21e748-2d45-4bd6-8cf1-fd67711e5a10");
+    private static readonly string TransferTransactionId = TransferId.ToString("D");
+
+    // The transfer as the gateway registered it.
+    private static IncomingTransfer Registered(IIncomingTransferContent transfer) =>
+        IncomingTransfer.Register(TransferId, Participant, transfer.Kind, transfer.Key, ReceivedAt);
+
     private static CorePaymentResult InterpretTransfer(CoreResponse response, IIncomingTransferContent transfer) =>
-        ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(new CoreCallCompletion(response, null, DateTimeOffset.UtcNow), transfer);
+        ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(new CoreCallCompletion(response, null, DateTimeOffset.UtcNow),
+            Registered(transfer), transfer);
 
     private static Pacs008Request Pacs008() => new()
     {
@@ -361,6 +431,33 @@ public sealed class CoreReceiverPackageTests
 
         public IncomingPaymentResultDto? FindIncoming(string transactionId) => _incoming.GetValueOrDefault(transactionId);
 
+        private readonly ConcurrentDictionary<string, IncomingFiTransferResultDto> _fi = new();
+
+        public ConcurrentQueue<IncomingFiTransferRequestDto> FiTransfers { get; } = new();
+
+        public Func<string, IncomingFiTransferResultDto> FiAnswer { get; set; } = key => IncomingFiTransferResultDto.Completed(key, "POSTING-" + key);
+
+        public IncomingFiTransferResultDto ReceiveFi(IncomingFiTransferRequestDto transfer, string? headerKey)
+        {
+            var key = IpsIdempotencyKeys.For(transfer);
+            Calls.Enqueue(new(nameof(IClientPaymentReceiver.ReceiveFiTransferAsync), headerKey, key));
+            FiTransfers.Enqueue(transfer);
+            var answer = FiAnswer(key!);
+            _fi[key!] = answer;
+            return answer;
+        }
+
+        // The asynchronous processing finishes: every stored transfer takes the current answer.
+        public void CompleteFiTransfers()
+        {
+            foreach (var key in _fi.Keys)
+            {
+                _fi[key] = FiAnswer(key);
+            }
+        }
+
+        public IncomingFiTransferResultDto? FindFi(string transactionId) => _fi.GetValueOrDefault(transactionId);
+
         public Pacs008PaymentResultDto? Find(InboundPaymentStatusQueryDto query, string? headerKey)
         {
             Queries.Enqueue(new(query.MessageKind, query.Reference, headerKey));
@@ -376,8 +473,11 @@ public sealed class CoreReceiverPackageTests
         public Task<IncomingPaymentResultDto?> GetIncomingPaymentAsync(string transactionId, CancellationToken cancellationToken) =>
             Task.FromResult(script.FindIncoming(transactionId));
 
-        public Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken) =>
-            Task.FromResult(script.Receive(nameof(ReceivePacs009Async), payment, context.IdempotencyKey, IpsIdempotencyKeys.For(payment)));
+        public Task<IncomingFiTransferResultDto> ReceiveFiTransferAsync(IncomingFiTransferRequestDto transfer, CancellationToken cancellationToken) =>
+            Task.FromResult(script.ReceiveFi(transfer, context.IdempotencyKey));
+
+        public Task<IncomingFiTransferResultDto?> GetFiTransferAsync(string transactionId, CancellationToken cancellationToken) =>
+            Task.FromResult(script.FindFi(transactionId));
 
         public Task<Pacs008PaymentResultDto> ReceivePacs004Async(Pacs004PaymentReturnRequestDto payment, CancellationToken cancellationToken) =>
             Task.FromResult(script.Receive(nameof(ReceivePacs004Async), payment, context.IdempotencyKey, IpsIdempotencyKeys.For(payment)));

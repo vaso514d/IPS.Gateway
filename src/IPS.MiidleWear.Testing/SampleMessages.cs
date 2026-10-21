@@ -24,18 +24,6 @@ internal static class SampleMessages
         var us = options.ParticipantBic;
         var account = options.CreditAccount;
 
-        var pacs009 = new Pacs009PaymentRequestDto
-        {
-            Id = $"KIT-M9-{run}",
-            EndToEndId = $"KIT-E9-{run}",
-            TxId = $"KIT-T9-{run}",
-            ValueDate = today,
-            Currency = options.Currency,
-            Amount = 1000.00m,
-            DebtorAgent = new() { Bicfi = OtherBank },
-            CreditorAgent = new() { Bicfi = us },
-            Creditor = new() { Account = account }
-        };
         var pacs004 = new Pacs004PaymentReturnRequestDto
         {
             Id = $"KIT-RT-{run}",
@@ -99,8 +87,6 @@ internal static class SampleMessages
 
         return
         [
-            new("pacs.009", IpsMessageKind.Pacs009, Pacs009RestApiRoutes.Receive, pacs009, IpsIdempotencyKeys.For(pacs009)!,
-                new(pacs009.EndToEndId, pacs009.Id, pacs009.TxId, AbsentWhenUnknown: false)),
             new("pacs.004", IpsMessageKind.Pacs004, Pacs004RestApiRoutes.Receive, pacs004, IpsIdempotencyKeys.For(pacs004)!,
                 new(null, pacs004.Id, null, AbsentWhenUnknown: false)),
             new("pain.001", IpsMessageKind.Pain001, Pain001RestApiRoutes.Receive, pain001, IpsIdempotencyKeys.For(pain001)!,
@@ -151,6 +137,26 @@ internal static class SampleMessages
             }
         };
     }
+
+    // The incoming FI transfer, in its own envelope: the gateway's transactionId is the key and the status reference.
+    internal static IncomingFiTransferRequestDto FiTransfer(string run, IpsReceiverConformanceOptions options) => new()
+    {
+        TransactionId = $"KIT-TX9-{run}",
+        OperationType = IncomingOperationTypes.FiTransfer,
+        Data = new()
+        {
+            MessageId = $"KIT-M9-{run}",
+            InstructionId = $"KIT-I9-{run}",
+            EndToEndId = $"KIT-E9-{run}",
+            IsoTransactionId = $"KIT-T9-{run}",
+            ReceivedAt = DateTimeOffset.UtcNow,
+            Amount = 1000.00m,
+            Currency = options.Currency,
+            SettlementDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            Debtor = new() { ParticipantBic = OtherBank },
+            Creditor = new() { ParticipantBic = options.ParticipantBic, AccountIban = options.CreditAccount }
+        }
+    };
 
     internal static TransactionStatusDto OutgoingStatus(string run) => new()
     {

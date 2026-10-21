@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using IPS.MiidleWear.Contracts.Pacs008;
+using IPS.MiidleWear.Contracts.Pacs009;
 
 namespace IPS.MiidleWear.Testing;
 
@@ -53,7 +54,17 @@ internal static class AnswerReader
     }
 
     // An incoming instant payment's answer: status ACCEPTED or REJECTED, and transactionId absent or the delivered one.
-    internal static AnswerVerdict ReadIncomingPayment(Exchange exchange, string transactionId)
+    internal static AnswerVerdict ReadIncomingPayment(Exchange exchange, string transactionId) =>
+        ReadEnvelopeAnswer(exchange, transactionId, [IncomingPaymentStatuses.Accepted, IncomingPaymentStatuses.Rejected], "final (ACCEPTED or REJECTED)");
+
+    // An incoming FI transfer's answer: any of its four statuses (COMPLETED and REJECTED are final), and transactionId
+    // absent or the delivered one. Final here means the gateway can read it.
+    internal static AnswerVerdict ReadFiTransfer(Exchange exchange, string transactionId) =>
+        ReadEnvelopeAnswer(exchange, transactionId,
+            [IncomingFiTransferStatuses.AcceptedForProcessing, IncomingFiTransferStatuses.Processing, IncomingFiTransferStatuses.Completed, IncomingFiTransferStatuses.Rejected],
+            "an answer (ACCEPTED_FOR_PROCESSING, PROCESSING, COMPLETED or REJECTED)");
+
+    private static AnswerVerdict ReadEnvelopeAnswer(Exchange exchange, string transactionId, string[] statuses, string expected)
     {
         if (exchange.Status == 0)
         {
@@ -76,9 +87,9 @@ internal static class AnswerReader
         }
 
         var outcome = answer?.Status?.ToUpperInvariant();
-        if (outcome is not (IncomingPaymentStatuses.Accepted or IncomingPaymentStatuses.Rejected))
+        if (outcome is null || !statuses.Contains(outcome))
         {
-            return new(false, outcome, $"status '{answer?.Status}' is not final (ACCEPTED or REJECTED).");
+            return new(false, outcome, $"status '{answer?.Status}' is not {expected}.");
         }
 
         return answer!.TransactionId is null || answer.TransactionId == transactionId

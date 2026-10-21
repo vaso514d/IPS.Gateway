@@ -61,7 +61,7 @@ public sealed class IncomingTransferTests
             new DateOnly(2026, 10, 4), "GEL", 100.5m,
             new("TBCBGE22", "MEMBER-9"), new(Participant, null),
             new(1, "Liquidity"), "INTC", "Liquidity transfer line one line two",
-            "GE95TB0000000123456789", "GE29NB0000000101904917"), stored.Content);
+            "GE95TB0000000123456789", "GE29NB0000000101904917", "TBCBGE22"), stored.Content);
         Assert.Equal(core.Clock.Now + new IncomingReconciliationOptions().Window, stored.DeadlineUtc);
     }
 
@@ -196,12 +196,12 @@ public sealed class IncomingTransferTests
     }
 
     [Theory]
-    [InlineData("ACCP", CoreOutcome.Accepted)]
-    [InlineData("RJCT", CoreOutcome.Rejected)]
+    [InlineData("COMPLETED", CoreOutcome.Accepted)]
+    [InlineData("REJECTED", CoreOutcome.Rejected)]
     public async Task The_core_is_asked_once_with_the_end_to_end_id_and_its_answer_is_final(string status, CoreOutcome expected)
     {
         await using var core = await ProcessingHarness.CreateAsync();
-        var cbs = new TransferCore { Submit = _ => Json(status, "E2E-IN-1", reason: status == "RJCT" ? "AC01" : null) };
+        var cbs = new TransferCore { Submit = registered => Fi(registered, status, reason: status == "REJECTED" ? "AC01" : null) };
         var id = await RegisterTransferAsync(core);
 
         await ProcessAsync(core, id, cbs);
@@ -213,18 +213,18 @@ public sealed class IncomingTransferTests
         Assert.Null(stored.NextActionAtUtc);
         Assert.Null(stored.ClaimToken);
         Assert.Equal(["incoming-transfer.registered", "incoming-transfer.submission-started", "incoming-transfer.core-outcome-recorded"], stored.Events);
-        Assert.Equal(status == "RJCT" ? "AC01" : null, stored.Transfer.CoreReasonCode);
+        Assert.Equal(status == "REJECTED" ? "AC01" : null, stored.Transfer.CoreReasonCode);
     }
 
     [Fact]
-    public async Task A_pacs009_without_a_transaction_id_accepts_an_answer_that_names_one()
+    public async Task A_pacs009_without_a_transaction_id_is_settled_by_the_answer_to_its_gateway_transaction_id()
     {
         await using var core = await ProcessingHarness.CreateAsync();
         await ApplyAsync(core, await SignedAsync(core, Unsigned().Replace("<pacs:TxId>TX-IN-1</pacs:TxId>", string.Empty)));
         var id = (await ReadOnlyAsync(core)).Transfer.Id;
         var cbs = new TransferCore
         {
-            Submit = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCP\",\"endToEndId\":\"E2E-IN-1\",\"txId\":\"CORE-TX\"}"))
+            Submit = registered => Fi(registered, "COMPLETED")
         };
 
         await ProcessAsync(core, id, cbs);
@@ -237,7 +237,7 @@ public sealed class IncomingTransferTests
     public async Task A_reply_about_other_identifiers_is_not_an_answer()
     {
         await using var core = await ProcessingHarness.CreateAsync();
-        var cbs = new TransferCore { Submit = _ => Json("ACCP", "OTHER") };
+        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(200, "{\"transactionId\":\"OTHER\",\"status\":\"COMPLETED\"}")) };
         var id = await RegisterTransferAsync(core);
 
         await ProcessAsync(core, id, cbs);
@@ -251,7 +251,7 @@ public sealed class IncomingTransferTests
     public async Task An_unanswered_submission_is_followed_by_status_questions_on_the_backoff_schedule()
     {
         await using var core = await ProcessingHarness.CreateAsync();
-        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(503, "down")), Query = _ => Json("PDNG", "E2E-IN-1") };
+        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(503, "down")), Query = registered => Fi(registered, "PROCESSING") };
         var id = await RegisterTransferAsync(core);
         var options = new IncomingReconciliationOptions();
         await ProcessAsync(core, id, cbs);
@@ -279,7 +279,7 @@ public sealed class IncomingTransferTests
     public async Task A_later_answer_settles_the_transfer()
     {
         await using var core = await ProcessingHarness.CreateAsync();
-        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(503, "down")), Query = _ => Json("ACCP", "E2E-IN-1") };
+        var cbs = new TransferCore { Submit = _ => Task.FromResult(new CoreResponse(503, "down")), Query = registered => Fi(registered, "COMPLETED") };
         var id = await RegisterTransferAsync(core);
         await ProcessAsync(core, id, cbs);
 
@@ -308,7 +308,7 @@ public sealed class IncomingTransferTests
         var afterQuery = await ReadOnlyAsync(core);
         Assert.Equal(CoreOutcome.NotSubmitted, afterQuery.Transfer.CoreStatus);
         Assert.Equal(core.Clock.Now, afterQuery.NextActionAtUtc);
-        cbs.Submit = _ => Json("ACCP", "E2E-IN-1");
+        cbs.Submit = registered => Fi(registered, "COMPLETED");
         await ProcessAsync(core, id, cbs);
 
         Assert.Equal(CoreOutcome.Accepted, (await ReadOnlyAsync(core)).Transfer.CoreStatus);
@@ -343,7 +343,7 @@ public sealed class IncomingTransferTests
     {
         await using var core = await ProcessingHarness.CreateAsync();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cbs = new TransferCore { Submit = async _ => { await gate.Task; return await Accept(); } };
+        var cbs = new TransferCore { Submit = async registered => { await gate.Task; return await Accept(registered); } };
         var id = await RegisterTransferAsync(core);
         var first = ProcessAsync(core, id, cbs);
         await WaitUntilAsync(() => cbs.Calls.Count == 1);
@@ -365,16 +365,16 @@ public sealed class IncomingTransferTests
         var calls = 0;
         var cbs = new TransferCore
         {
-            Submit = async _ =>
+            Submit = async registered =>
             {
                 if (Interlocked.Increment(ref calls) == 1)
                 {
                     await gate.Task;
                 }
 
-                return await Accept();
+                return await Accept(registered);
             },
-            Query = _ => Accept()
+            Query = Accept
         };
         var id = await RegisterTransferAsync(core);
         var stale = ProcessAsync(core, id, cbs);
@@ -395,7 +395,7 @@ public sealed class IncomingTransferTests
     public async Task A_crash_before_the_outcome_commits_is_recovered_by_asking_the_core_not_by_sending_again()
     {
         await using var core = await ProcessingHarness.CreateAsync();
-        var cbs = new TransferCore { Submit = _ => Json("ACCP", "E2E-IN-1"), Query = _ => Json("ACCP", "E2E-IN-1") };
+        var cbs = new TransferCore { Submit = Accept, Query = Accept };
         var id = await RegisterTransferAsync(core);
 
         await Assert.ThrowsAsync<SimulatedCrash>(() => ProcessAsync(core, id, cbs, new CrashWhenOutcomeIsSaved()));
@@ -439,12 +439,13 @@ public sealed class IncomingTransferTests
                 acknowledgements.Enqueue(context.Request.Headers["X-MONTRAN-IPS-MessageSeq"]);
                 context.Response.StatusCode = ackStatus;
             }
-            else if (context.Request.Method == "POST" && context.Request.Path == "/api/ips/pacs009/receive")
+            else if (context.Request.Method == "POST" && context.Request.Path == "/stp/fi-transfers")
             {
                 var body = await new StreamReader(context.Request.Body).ReadToEndAsync();
-                submissions.Enqueue((context.Request.Headers["Idempotency-Key"], body));
+                var key = context.Request.Headers["Idempotency-Key"].ToString();
+                submissions.Enqueue((key, body));
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-IN-1\"}");
+                await context.Response.WriteAsync("{\"status\":\"COMPLETED\",\"transactionId\":\"" + key + "\"}");
             }
             else
             {
@@ -466,9 +467,12 @@ public sealed class IncomingTransferTests
 
         Assert.Equal(["7", "7"], acknowledgements);
         var submission = Assert.Single(submissions);
-        Assert.Equal("E2E-IN-1", submission.Key);
-        Assert.Contains("\"EndToEndId\":\"E2E-IN-1\"", submission.Body);
-        Assert.Contains("\"Id\":\"MSG-IN-1\"", submission.Body);
+        var transferId = (await ReadOnlyAsync(core)).Transfer.Id.ToString("D");
+        Assert.Equal(transferId, submission.Key);
+        Assert.Contains("\"transactionId\":\"" + transferId + "\"", submission.Body);
+        Assert.Contains("\"operationType\":\"FI_TRANSFER\"", submission.Body);
+        Assert.Contains("\"endToEndId\":\"E2E-IN-1\"", submission.Body);
+        Assert.Contains("\"messageId\":\"MSG-IN-1\"", submission.Body);
     }
 
     [Fact]
@@ -1253,7 +1257,13 @@ public sealed class IncomingTransferTests
         return (await new InboundReceiptRepository(session.Context).ReadAsync(journalId, default))!;
     }
 
-    private static Task<CoreResponse> Accept() => Json("ACCP", "E2E-IN-1");
+    // A pacs.009 is answered by its gateway transactionId (specification 023); the other kinds by their identifiers.
+    private static Task<CoreResponse> Accept(IncomingTransfer registered) =>
+        registered.Kind == "pacs.009" ? Fi(registered, "COMPLETED") : Json("ACCP", "E2E-IN-1");
+
+    private static Task<CoreResponse> Fi(IncomingTransfer registered, string status, string? reason = null) =>
+        Task.FromResult(new CoreResponse(200, $"{{\"transactionId\":\"{registered.Id:D}\",\"status\":\"{status}\"" +
+            (reason is null ? string.Empty : $",\"reasonCode\":\"{reason}\"") + "}"));
 
     private static Task<CoreResponse> Json(string status, string endToEndId, string? reason = null, string? id = null) =>
         Task.FromResult(new CoreResponse(200, $"{{\"status\":\"{status}\",\"endToEndId\":\"{endToEndId}\"" +
@@ -1329,8 +1339,8 @@ public sealed class IncomingTransferTests
         private readonly List<(string Kind, string EndToEndId)> _calls = [];
         private readonly List<IIncomingTransferContent> _transfers = [];
 
-        public Func<IIncomingTransferContent, Task<CoreResponse>> Submit { get; set; } = _ => Accept();
-        public Func<string, Task<CoreResponse>> Query { get; set; } = _ => Accept();
+        public Func<IncomingTransfer, Task<CoreResponse>> Submit { get; set; } = Accept;
+        public Func<IncomingTransfer, Task<CoreResponse>> Query { get; set; } = Accept;
 
         public IReadOnlyList<(string Kind, string EndToEndId)> Calls
         {
@@ -1354,7 +1364,7 @@ public sealed class IncomingTransferTests
             }
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.SubmitAsync(IncomingTransfer registered, IIncomingTransferContent transfer, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
@@ -1362,17 +1372,18 @@ public sealed class IncomingTransferTests
                 _transfers.Add(transfer);
             }
 
-            return Submit(transfer);
+            return Submit(registered);
         }
 
-        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
+        Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(IncomingTransfer registered, CancellationToken cancellationToken)
         {
+            var key = registered.Key;
             lock (_gate)
             {
                 _calls.Add(("query", key));
             }
 
-            return Query(key);
+            return Query(registered);
         }
     }
 

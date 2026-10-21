@@ -38,3 +38,13 @@ Approved exception (022, 2026-10-21): a breaking change, with the package versio
 - Eleven types are added in `IPS.MiidleWear.Contracts.Pacs008`: the envelope, the payload, the debtor, creditor, account and ultimate-party DTOs, the result, and the status, operation-type, account-type and route constants.
 
 The expected entries were compared with a snapshot of the changed assembly line by line, and every differing line was one of these changes; only then was public-api.json written. Wire cases and the source-manifest provenance are unchanged. The send contract (`Pacs008InstantPaymentRequestDto`, `IGatewayApi`) is unchanged.
+
+Approved exception (023, 2026-10-21): breaking, within the same 3.0.0-preview.1 version (not yet published). The incoming pacs.009 delivery gets its own asynchronous contract, like pacs.008 in 022.
+- `IClientPaymentReceiver.ReceivePacs009Async` (`POST /api/ips/pacs009/receive`) is replaced by:
+  - `ReceiveFiTransferAsync` (`POST /stp/fi-transfers`, `IncomingFiTransferRequestDto` → `IncomingFiTransferResultDto`, success 202);
+  - `GetFiTransferAsync` (`GET /stp/fi-transfers/{transactionId}`).
+- `Pacs009RestApiRoutes.Receive` is removed; `IpsIdempotencyKeys.For` takes `IncomingFiTransferRequestDto` (its `transactionId`).
+- `IncomingOperationTypes` gains `FiTransfer`; six types are added in `IPS.MiidleWear.Contracts.Pacs009` (the envelope, the payload, the debtor and creditor DTOs, the result, and the status and route constants).
+- `GetPaymentStatusAsync` changes only its description.
+
+The expected entries were compared with a snapshot of the changed assembly line by line; every differing line was one of these changes. The outgoing pacs.009 (`Pacs009PaymentRequestDto`, `IGatewayApi.SendPacs009Async`) is unchanged. Wire cases and the source-manifest provenance are unchanged.

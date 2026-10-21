@@ -13,7 +13,7 @@ using Microsoft.Extensions.Options;
 
 namespace IPS.MiidleWear.CoreAPI;
 
-// The bank's part: the ten operations. IPS.MiidleWear.AspNetCore maps them to the gateway's routes, JSON and status codes.
+// The bank's part: the eleven operations. IPS.MiidleWear.AspNetCore maps them to the gateway's routes, JSON and status codes.
 public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context, IOptions<SampleOptions> options, TimeProvider timeProvider)
     : IClientPaymentReceiver
 {
@@ -29,8 +29,18 @@ public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context
     public Task<IncomingPaymentResultDto?> GetIncomingPaymentAsync(string transactionId, CancellationToken cancellationToken) =>
         Task.FromResult(ledger.Find(IpsMessageKind.Pacs008, transactionId) is { } answer ? ToIncomingPayment(transactionId, answer) : null);
 
-    public Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken) =>
-        ReceiveAsync("pacs.009", IpsMessageKind.Pacs009, IpsIdempotencyKeys.For(payment), new Echo(payment.Id, payment.EndToEndId, payment.TxId));
+    // An incoming FI transfer is posted once per transactionId. The sample posts within the call, so it answers COMPLETED
+    // (or REJECTED); a core system that processes later answers ACCEPTED_FOR_PROCESSING and reports the result on the query.
+    public async Task<IncomingFiTransferResultDto> ReceiveFiTransferAsync(IncomingFiTransferRequestDto transfer, CancellationToken cancellationToken)
+    {
+        var transactionId = context.IdempotencyKey ?? IpsIdempotencyKeys.For(transfer)
+            ?? throw new InvalidOperationException("The delivery carries no transactionId.");
+        var answer = await ReceiveAsync("pacs.009", IpsMessageKind.Pacs009, transactionId, new Echo(null, null, null));
+        return ToFiTransfer(transactionId, answer);
+    }
+
+    public Task<IncomingFiTransferResultDto?> GetFiTransferAsync(string transactionId, CancellationToken cancellationToken) =>
+        Task.FromResult(ledger.Find(IpsMessageKind.Pacs009, transactionId) is { } answer ? ToFiTransfer(transactionId, answer) : null);
 
     public Task<Pacs008PaymentResultDto> ReceivePacs004Async(Pacs004PaymentReturnRequestDto payment, CancellationToken cancellationToken) =>
         ReceiveAsync("pacs.004", IpsMessageKind.Pacs004, IpsIdempotencyKeys.For(payment), new Echo(payment.Id, null, null));
@@ -79,6 +89,13 @@ public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context
         Pacs008PaymentStatuses.Accepted => IncomingPaymentResultDto.Accepted(transactionId, answer.CoreReference),
         Pacs008PaymentStatuses.Rejected => IncomingPaymentResultDto.Rejected(transactionId, answer.ReasonCode!, answer.Description),
         _ => IncomingPaymentResultDto.Pending(transactionId)
+    };
+
+    private static IncomingFiTransferResultDto ToFiTransfer(string transactionId, Pacs008PaymentResultDto answer) => answer.Status switch
+    {
+        Pacs008PaymentStatuses.Accepted => IncomingFiTransferResultDto.Completed(transactionId, answer.CoreReference),
+        Pacs008PaymentStatuses.Rejected => IncomingFiTransferResultDto.Rejected(transactionId, answer.ReasonCode!, answer.Description),
+        _ => IncomingFiTransferResultDto.Processing(transactionId)
     };
 
     private Pacs008PaymentResultDto Answer(string kind, string key, Echo echo)
