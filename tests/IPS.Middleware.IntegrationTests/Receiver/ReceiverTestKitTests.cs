@@ -42,8 +42,15 @@ public sealed class ReceiverTestKitTests
         request.Headers.Add(IpsHttpHeaders.IdempotencyKey, "TX-SLOW");
 
         var posting = sample.Client.SendAsync(request);
-        await Task.Delay(TimeSpan.FromMilliseconds(200));
-        var during = await sample.Client.GetStringAsync("stp/incoming-payments/TX-SLOW");
+        // Under load the posting may not have started yet; the query answers 404 until it has.
+        var during = "";
+        for (var attempt = 0; attempt < 50 && !during.Contains("PENDING", StringComparison.Ordinal); attempt++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20));
+            using var query = await sample.Client.GetAsync("stp/incoming-payments/TX-SLOW");
+            during = query.IsSuccessStatusCode ? await query.Content.ReadAsStringAsync() : "";
+        }
+
         using var answer = await posting;
         var after = await sample.Client.GetStringAsync("stp/incoming-payments/TX-SLOW");
 

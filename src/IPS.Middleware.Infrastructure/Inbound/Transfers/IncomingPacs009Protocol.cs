@@ -73,7 +73,8 @@ public sealed class IncomingPacs009Protocol(IpsSignatureTrust trust) : IIncoming
             Purpose: Code(transaction.Element(Pacs + "Purp"))?.Value,
             AdditionalPurpose: remittance.Length == 0 ? null : remittance,
             DebtorAccount: Account(transaction.Element(Pacs + "DbtrAcct")),
-            CreditorAccount: Account(transaction.Element(Pacs + "CdtrAcct")));
+            CreditorAccount: Account(transaction.Element(Pacs + "CdtrAcct")),
+            InstructingAgentBic: group.Element(Pacs + "InstgAgt")?.Element(Pacs + "FinInstnId")?.Element(Pacs + "BICFI")?.Value.Trim());
     }
 
     private static IncomingAgent Agent(XElement? agent, string role)

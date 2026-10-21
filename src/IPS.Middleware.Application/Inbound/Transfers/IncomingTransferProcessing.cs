@@ -80,16 +80,15 @@ public sealed class IncomingTransferProcessing(
 
         var remaining = snapshot.DeadlineUtc - Now;
         var budget = remaining < options.CallTimeout ? remaining : options.CallTimeout;
-        var participant = transfer.ParticipantBic;
         var completion = await CoreCallExecution.ExecuteAsync(
             callToken => submitting
-                ? core.SubmitAsync(participant, snapshot.Content, callToken)
-                : core.QueryAsync(participant, transfer.Kind, transfer.Key, callToken),
+                ? core.SubmitAsync(transfer, snapshot.Content, callToken)
+                : core.QueryAsync(transfer, callToken),
             budget,
             timeProvider,
             token);
 
-        var result = replies.Interpret(completion, snapshot.Content);
+        var result = replies.Interpret(completion, transfer, snapshot.Content);
         if (!submitting && result.Status == CoreOutcome.Unknown && completion.Response?.StatusCode == NotFound)
         {
             transfer.RequireResubmission(Now);

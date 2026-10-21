@@ -99,7 +99,7 @@ public sealed class Pacs009ValidationTests
         { "debtorAgent", r => r with { DebtorAgent = null } },
         { "debtorAgent.bic", r => r with { DebtorAgent = new() { Bic = "TBCBGE22" } } },
         { "debtorAgent.bic", r => r with { DebtorAgent = new() { Bic = "bad" } } },
-        { "debtorAgent.clearingSystemMemberId", r => r with { DebtorAgent = new() { Bic = "BAGAGE22", ClearingSystemMemberId = new string('x', 29) } } },
+        { "debtorAgent.clearingSystemMemberId", r => r with { DebtorAgent = new() { Bic = "BAGAGE22", ClearingSystemMemberId = new string('x', 36) } } },
         { "creditorAgent", r => r with { CreditorAgent = null } },
         { "creditorAgent.bic", r => r with { CreditorAgent = new() { Bic = "tbc" } } },
         { "categoryPurpose.value", r => r with { CategoryPurpose = new() { Value = "TOOLONG" } } },

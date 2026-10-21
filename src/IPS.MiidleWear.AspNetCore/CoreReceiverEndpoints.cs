@@ -32,8 +32,8 @@ internal static class CoreReceiverEndpoints
         [
             MapIncomingPayment(endpoints),
             MapIncomingPaymentStatus(endpoints),
-            MapReceive<Pacs009PaymentRequestDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePacs009Async),
-                static (receiver, message, token) => receiver.ReceivePacs009Async(message, token)),
+            MapFiTransfer(endpoints),
+            MapFiTransferStatus(endpoints),
             MapReceive<Pacs004PaymentReturnRequestDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePacs004Async),
                 static (receiver, message, token) => receiver.ReceivePacs004Async(message, token)),
             MapReceive<Pain001PaymentInitiationDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePain001Async),
@@ -87,10 +87,41 @@ internal static class CoreReceiverEndpoints
     {
         const string operation = nameof(IClientPaymentReceiver.GetIncomingPaymentAsync);
         var endpoint = Endpoint(operation);
-        Func<string, HttpContext, Task> handler = IncomingPaymentStatusAsync;
+        Func<string, HttpContext, Task> handler = (transactionId, context) => StatusByIdAsync(transactionId, context,
+            static (receiver, id, token) => receiver.GetIncomingPaymentAsync(id, token));
         endpoints.MapMethods(endpoint.Route, [endpoint.HttpMethod], handler)
             .Describe(operation, endpoint)
             .Produces<IncomingPaymentResultDto>(StatusCodes.Status200OK, Json)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+        return operation;
+    }
+
+    // The incoming FI transfer (pacs.009) has its own envelope and answer; the receive call answers 202.
+    private static string MapFiTransfer(IEndpointRouteBuilder endpoints)
+    {
+        const string operation = nameof(IClientPaymentReceiver.ReceiveFiTransferAsync);
+        var endpoint = Endpoint(operation);
+        Func<HttpContext, Task> handler = context => ReceiveAsync<IncomingFiTransferRequestDto, IncomingFiTransferResultDto>(context,
+            static (receiver, message, token) => receiver.ReceiveFiTransferAsync(message, token), endpoint.SuccessStatusCode);
+        endpoints.MapMethods(endpoint.Route, [endpoint.HttpMethod], handler)
+            .Describe(operation, endpoint)
+            .Accepts<IncomingFiTransferRequestDto>(Json)
+            .Produces<IncomingFiTransferResultDto>(endpoint.SuccessStatusCode, Json)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+        return operation;
+    }
+
+    private static string MapFiTransferStatus(IEndpointRouteBuilder endpoints)
+    {
+        const string operation = nameof(IClientPaymentReceiver.GetFiTransferAsync);
+        var endpoint = Endpoint(operation);
+        Func<string, HttpContext, Task> handler = (transactionId, context) => StatusByIdAsync(transactionId, context,
+            static (receiver, id, token) => receiver.GetFiTransferAsync(id, token));
+        endpoints.MapMethods(endpoint.Route, [endpoint.HttpMethod], handler)
+            .Describe(operation, endpoint)
+            .Produces<IncomingFiTransferResultDto>(StatusCodes.Status200OK, Json)
             .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
         return operation;
@@ -132,7 +163,8 @@ internal static class CoreReceiverEndpoints
 
     private static async Task ReceiveAsync<TMessage, TResult>(
         HttpContext context,
-        Func<IClientPaymentReceiver, TMessage, CancellationToken, Task<TResult>> receive)
+        Func<IClientPaymentReceiver, TMessage, CancellationToken, Task<TResult>> receive,
+        int successStatus = StatusCodes.Status200OK)
         where TMessage : class
     {
         var message = await ReadAsync<TMessage>(context);
@@ -146,7 +178,7 @@ internal static class CoreReceiverEndpoints
         await RunAsync(context, async token =>
         {
             var result = await receive(receiver, message, token);
-            await WriteAsync(context, result, token);
+            await WriteAsync(context, result, token, successStatus);
         });
     }
 
@@ -183,12 +215,17 @@ internal static class CoreReceiverEndpoints
         });
     }
 
-    private static async Task IncomingPaymentStatusAsync(string transactionId, HttpContext context)
+    // A status query by the delivered transactionId: the result, or 404 when it never arrived.
+    private static async Task StatusByIdAsync<TResult>(
+        string transactionId,
+        HttpContext context,
+        Func<IClientPaymentReceiver, string, CancellationToken, Task<TResult?>> find)
+        where TResult : class
     {
         var receiver = Receiver(context, idempotencyKey: null);
         await RunAsync(context, async token =>
         {
-            if (await receiver.GetIncomingPaymentAsync(transactionId, token) is { } result)
+            if (await find(receiver, transactionId, token) is { } result)
             {
                 await WriteAsync(context, result, token);
                 return;
@@ -237,9 +274,9 @@ internal static class CoreReceiverEndpoints
         }
     }
 
-    private static Task WriteAsync<TResult>(HttpContext context, TResult result, CancellationToken token)
+    private static Task WriteAsync<TResult>(HttpContext context, TResult result, CancellationToken token, int status = StatusCodes.Status200OK)
     {
-        context.Response.StatusCode = StatusCodes.Status200OK;
+        context.Response.StatusCode = status;
         return context.Response.WriteAsJsonAsync(result, IpsJson.SerializerOptions, token);
     }
 

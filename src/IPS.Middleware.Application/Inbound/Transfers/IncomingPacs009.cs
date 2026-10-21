@@ -56,7 +56,10 @@ public sealed record IncomingPacs009(
     string? Purpose,
     string? AdditionalPurpose,
     string? DebtorAccount,
-    string? CreditorAccount) : IIncomingTransferContent
+    string? CreditorAccount,
+    // GrpHdr/InstgAgt, the direct participant that sent it, when IPS keeps it in the forwarded message (Annex D 3.2 says
+    // IPS removes it, so it is usually absent).
+    string? InstructingAgentBic = null) : IIncomingTransferContent
 {
     string IIncomingTransferContent.Kind => PaymentMessageTypes.Pacs009;
 

@@ -3,7 +3,9 @@ using System.Text.Json.Serialization;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Domain.Inbound;
+using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.MiidleWear.Contracts.Pacs008;
+using IPS.MiidleWear.Contracts.Pacs009;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
@@ -21,9 +23,16 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
     public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPayment payment) =>
         Interpret(completion, IncomingPaymentOutcome, reply => Matches(reply.TransactionId, IncomingPaymentContract.TransactionId(payment.Id)));
 
-    CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IIncomingTransferContent transfer)
+    // An incoming pacs.009 is answered in its own envelope (specification 023): COMPLETED or REJECTED is final,
+    // ACCEPTED_FOR_PROCESSING and PROCESSING are not; the reply may echo only the transfer's transactionId.
+    CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IncomingTransfer transfer, IIncomingTransferContent content)
     {
-        var echo = transfer.Echo;
+        if (content is IncomingPacs009)
+        {
+            return Interpret(completion, FiTransferOutcome, reply => Matches(reply.TransactionId, IncomingFiTransferContract.TransactionId(transfer)));
+        }
+
+        var echo = content.Echo;
         return Interpret(completion, TransferOutcome, reply =>
             Echoes(reply.EndToEndId, echo.EndToEndId)
             && Echoes(reply.Id, echo.Id)
@@ -57,6 +66,13 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
     {
         IncomingPaymentStatuses.Accepted => CoreOutcome.Accepted,
         IncomingPaymentStatuses.Rejected => CoreOutcome.Rejected,
+        _ => CoreOutcome.Unknown
+    };
+
+    private static CoreOutcome FiTransferOutcome(string? status) => status switch
+    {
+        IncomingFiTransferStatuses.Completed => CoreOutcome.Accepted,
+        IncomingFiTransferStatuses.Rejected => CoreOutcome.Rejected,
         _ => CoreOutcome.Unknown
     };
 

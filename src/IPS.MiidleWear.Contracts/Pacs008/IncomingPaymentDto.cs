@@ -254,6 +254,9 @@ public static class IncomingOperationTypes
 {
     /// <summary>An incoming instant payment, pacs.008.</summary>
     public const string InstantPayment = "INSTANT_PAYMENT";
+
+    /// <summary>An incoming FI transfer, pacs.009.</summary>
+    public const string FiTransfer = "FI_TRANSFER";
 }
 
 /// <summary>The values of <see cref="IncomingAccountDto.Type"/>.</summary>

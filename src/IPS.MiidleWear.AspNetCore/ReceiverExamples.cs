@@ -57,20 +57,31 @@ internal static class ReceiverExamples
     internal static readonly IncomingPaymentResultDto IncomingPaymentAnswer =
         IncomingPaymentResultDto.Accepted("3f2504e0-4f89-11d3-9a0c-0305e82c3301", coreReference: "POSTING-000123");
 
-    internal static readonly Pacs009PaymentRequestDto Pacs009 = new()
+    internal static readonly IncomingFiTransferRequestDto FiTransfer = new()
     {
-        ClientReference = "CBS-009",
-        Id = "MSG-009",
-        DebtorAgent = new() { Bicfi = "BAGAGE22" },
-        CreditorAgent = new() { Bicfi = "TBCBGE22" },
-        EndToEndId = "E2E-009",
-        TxId = "TX-009",
-        Uetr = Guid.Parse("11111111-2222-3333-4444-555555555555"),
-        FromTime = new TimeOnly(9, 30),
-        ValueDate = new DateOnly(2026, 10, 3),
-        Currency = "GEL",
-        Amount = 500m
+        TransactionId = "0f21e748-2d45-4bd6-8cf1-fd67711e5a10",
+        OperationType = IncomingOperationTypes.FiTransfer,
+        Data = new()
+        {
+            MessageId = "BANKA202609250001234567",
+            InstructionId = "BANK-LIQ-20260925-000123",
+            EndToEndId = "E2E-LIQ-20260925-000123",
+            IsoTransactionId = "TX-LIQ-20260925-000123",
+            ReceivedAt = new DateTimeOffset(2026, 9, 25, 15, 30, 15, 350, TimeSpan.FromHours(4)),
+            Amount = 100000.00m,
+            Currency = "GEL",
+            SettlementDate = new DateOnly(2026, 9, 25),
+            Debtor = new() { ParticipantBic = "BAGAGE22" },
+            Creditor = new() { ParticipantBic = "TBCBGE22" },
+            RemittanceInformation = "Participant liquidity lending"
+        }
     };
+
+    internal static readonly IncomingFiTransferResultDto FiTransferAnswer =
+        IncomingFiTransferResultDto.AcceptedForProcessing("0f21e748-2d45-4bd6-8cf1-fd67711e5a10");
+
+    internal static readonly IncomingFiTransferResultDto FiTransferStatus =
+        IncomingFiTransferResultDto.Completed("0f21e748-2d45-4bd6-8cf1-fd67711e5a10", coreReference: "POSTING-LIQ-000123");
 
     internal static readonly Pacs004PaymentReturnRequestDto Pacs004 = new()
     {

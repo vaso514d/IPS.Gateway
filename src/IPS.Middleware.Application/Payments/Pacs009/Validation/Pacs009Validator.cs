@@ -56,7 +56,7 @@ internal sealed class Pacs009Validator : AbstractValidator<Pacs009Request>
         public AgentValidator(Pacs008Policy? payer)
         {
             RuleFor(x => x.Bic).ProtocolText(Pacs008Text.Bic, required: true);
-            RuleFor(x => x.ClearingSystemMemberId).ProtocolText(Pacs008Text.Text(28));
+            RuleFor(x => x.ClearingSystemMemberId).ProtocolText(Pacs008Text.Text(35));
             if (payer is not null)
             {
                 RuleFor(x => x.Bic).Must(bic => string.IsNullOrWhiteSpace(bic) ||

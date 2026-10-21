@@ -19,7 +19,7 @@ public static class CoreReceiverOpenApi
     private static readonly Dictionary<string, string> Keys = new(StringComparer.Ordinal)
     {
         ["ReceiveIncomingPayment"] = "The payment's transactionId.",
-        ["ReceivePacs009"] = "The transfer's endToEndId.",
+        ["ReceiveFiTransfer"] = "The transfer's transactionId.",
         ["ReceivePacs004"] = "The return's id.",
         ["ReceivePain001"] = "The initiation's paymentInformationId.",
         ["ReceiveCamt056"] = "The recall's id (Assgnmt/Id).",
@@ -31,7 +31,7 @@ public static class CoreReceiverOpenApi
     private static readonly Dictionary<string, object> RequestExamples = new(StringComparer.Ordinal)
     {
         ["ReceiveIncomingPayment"] = ReceiverExamples.IncomingPayment,
-        ["ReceivePacs009"] = ReceiverExamples.Pacs009,
+        ["ReceiveFiTransfer"] = ReceiverExamples.FiTransfer,
         ["ReceivePacs004"] = ReceiverExamples.Pacs004,
         ["ReceivePain001"] = ReceiverExamples.Pain001,
         ["ReceiveCamt056"] = ReceiverExamples.Camt056,
@@ -102,10 +102,18 @@ public static class CoreReceiverOpenApi
             }
         }
 
-        if (operation.Responses?.TryGetValue("200", out var answer) == true && answer.Content is { } answers)
+        // The FI transfer's receive call answers 202; every other answer is 200.
+        var success = name == "ReceiveFiTransfer" ? "202" : "200";
+        if (operation.Responses?.TryGetValue(success, out var answer) == true && answer.Content is { } answers)
         {
-            // The incoming instant payment has its own answer; the other kinds share one.
-            object example = name is "ReceiveIncomingPayment" or "GetIncomingPayment" ? ReceiverExamples.IncomingPaymentAnswer : ReceiverExamples.Answer;
+            // The incoming instant payment and FI transfer have their own answers; the other kinds share one.
+            object example = name switch
+            {
+                "ReceiveIncomingPayment" or "GetIncomingPayment" => ReceiverExamples.IncomingPaymentAnswer,
+                "ReceiveFiTransfer" => ReceiverExamples.FiTransferAnswer,
+                "GetFiTransfer" => ReceiverExamples.FiTransferStatus,
+                _ => ReceiverExamples.Answer
+            };
             foreach (var media in answers.Values)
             {
                 media.Example = Serialize(example);

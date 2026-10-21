@@ -29,8 +29,8 @@ public static class IpsIdempotencyKeys
     /// <summary>An incoming pacs.008: its <c>transactionId</c>, also the status reference of its own query.</summary>
     public static string? For(IncomingPaymentRequestDto payment) => payment.TransactionId;
 
-    /// <summary>An incoming pacs.009: its <c>endToEndId</c>.</summary>
-    public static string? For(Pacs009PaymentRequestDto payment) => payment.EndToEndId;
+    /// <summary>An incoming pacs.009: its <c>transactionId</c>, also the status reference of its own query.</summary>
+    public static string? For(IncomingFiTransferRequestDto transfer) => transfer.TransactionId;
 
     /// <summary>An incoming pacs.004: the return's <c>id</c>.</summary>
     public static string? For(Pacs004PaymentReturnRequestDto payment) => payment.Id;

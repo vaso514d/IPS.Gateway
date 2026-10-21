@@ -25,7 +25,9 @@ public sealed class IncomingTransportSettings
     public string IncomingPaymentStatusPath { get; init; } = IncomingPaymentRestApiRoutes.Status;
     public string Pain001SubmissionPath { get; init; } = Pain001RestApiRoutes.Receive;
     public string Pacs004SubmissionPath { get; init; } = Pacs004RestApiRoutes.Receive;
-    public string Pacs009SubmissionPath { get; init; } = Pacs009RestApiRoutes.Receive;
+    // An incoming pacs.009 (specification 023): delivered to Pacs009SubmissionPath, queried at FiTransferStatusPath.
+    public string Pacs009SubmissionPath { get; init; } = IncomingFiTransferRestApiRoutes.Receive;
+    public string FiTransferStatusPath { get; init; } = IncomingFiTransferRestApiRoutes.Status;
     public string Camt056SubmissionPath { get; init; } = Camt056RestApiRoutes.Receive;
     public string Camt055SubmissionPath { get; init; } = Camt055RestApiRoutes.Receive;
     public string Camt029SubmissionPath { get; init; } = Camt029RestApiRoutes.Receive;
@@ -56,16 +58,17 @@ public sealed class IncomingTransportSettings
         string[] paths =
         [
             MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, Pacs004SubmissionPath, Pain001SubmissionPath,
-            Camt056SubmissionPath, Camt055SubmissionPath, Camt029SubmissionPath, StatusPath, ReversalPath, IncomingPaymentStatusPath
+            Camt056SubmissionPath, Camt055SubmissionPath, Camt029SubmissionPath, StatusPath, ReversalPath, IncomingPaymentStatusPath, FiTransferStatusPath
         ];
         foreach (var path in paths)
         {
             TransportPath.Validate(path);
         }
 
-        if (!IncomingPaymentStatusPath.Contains(TransactionIdPlaceholder, StringComparison.Ordinal))
+        if (!IncomingPaymentStatusPath.Contains(TransactionIdPlaceholder, StringComparison.Ordinal)
+            || !FiTransferStatusPath.Contains(TransactionIdPlaceholder, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"IncomingPaymentStatusPath must contain {TransactionIdPlaceholder}.");
+            throw new InvalidOperationException($"IncomingPaymentStatusPath and FiTransferStatusPath must contain {TransactionIdPlaceholder}.");
         }
 
         if (ReceiveTimeout <= Ips.ConnectTimeout || ReceiveTimeout > TimeSpan.FromDays(1))

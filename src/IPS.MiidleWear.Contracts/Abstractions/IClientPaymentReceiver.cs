@@ -44,10 +44,23 @@ public interface IClientPaymentReceiver
         Description = "Answer 200 with the delivery's answer (ACCEPTED or REJECTED), 200 with status PENDING while still processing, and 404 only when the payment never arrived. The gateway does not deliver a payment again after a 404: it stays unknown and ends in manual review.")]
     Task<IncomingPaymentResultDto?> GetIncomingPaymentAsync(string transactionId, CancellationToken cancellationToken);
 
-    [RestEndpoint("POST", Pacs009RestApiRoutes.Receive, Tag = "Pacs009", MessageType = "pacs.009",
-        Summary = "Receive an inbound pacs.009 FI-to-FI credit transfer.",
-        Description = "Idempotency-Key = endToEndId; a repeated key must get the first answer. Final answer: HTTP 2xx with Status ACCP, or RJCT with a ReasonCode. Id, EndToEndId and TxId may be omitted; when present they must equal the delivered id, endToEndId and txId. RJCT is final, so answer a technical failure with an error status, never with RJCT. Anything else is not an answer (another Status such as PDNG, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the payment-status query, posts the message again after its 404, and keeps asking until its window (24 hours by default) ends in manual review. IPS has already been acknowledged; the answer goes only to the gateway.")]
-    Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken);
+    /// <summary>
+    /// An incoming FI transfer (pacs.009), delivered asynchronously: the core system durably takes it and answers 202
+    /// ACCEPTED_FOR_PROCESSING; the result is read with <see cref="GetFiTransferAsync"/>. Idempotency-Key = transactionId.
+    /// </summary>
+    [RestEndpoint("POST", IncomingFiTransferRestApiRoutes.Receive, Tag = "Pacs009", MessageType = "pacs.009", SuccessStatusCode = 202,
+        Summary = "Receive an incoming FI transfer (pacs.009) for asynchronous processing.",
+        Description = "Idempotency-Key = transactionId; the same transactionId is never a new operation and must get the first answer. Answer HTTP 2xx (202) only after the operation is durably stored: status ACCEPTED_FOR_PROCESSING or PROCESSING (not final), COMPLETED (final, with coreReference) or REJECTED (final, with an ISO reasonCode). transactionId may be omitted; when present it must equal the delivered one. REJECTED is final for this transactionId: anything the core system does with the funds later is its own new operation under its own core reference. Anything else is not an answer (another status, a non-2xx status, unreadable JSON, a duplicate member, or no answer in time). The gateway then asks the status query, delivers the transfer again after its 404 with the same transactionId, and keeps asking until COMPLETED or REJECTED or until its window (24 hours by default) ends in manual review. IPS has already moved the funds and been acknowledged; the answer goes only to the gateway.")]
+    Task<IncomingFiTransferResultDto> ReceiveFiTransferAsync(IncomingFiTransferRequestDto transfer, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The gateway asks what the core system did with an incoming FI transfer. Returns its current result, or <c>null</c>
+    /// (404) when it never arrived.
+    /// </summary>
+    [RestEndpoint("GET", IncomingFiTransferRestApiRoutes.Status, Tag = "Pacs009", MessageType = "pacs.009",
+        Summary = "Return the result of an incoming FI transfer (404 when it was never received).",
+        Description = "Answer 200 with the current status (ACCEPTED_FOR_PROCESSING, PROCESSING, COMPLETED or REJECTED) and 404 only when the transfer never arrived; the gateway then delivers it again with the same transactionId. NOT_FOUND is not a status.")]
+    Task<IncomingFiTransferResultDto?> GetFiTransferAsync(string transactionId, CancellationToken cancellationToken);
 
     [RestEndpoint("POST", Pacs004RestApiRoutes.Receive, Tag = "Pacs004", MessageType = "pacs.004",
         Summary = "Receive an inbound pacs.004 payment return.",
@@ -125,11 +138,11 @@ public interface IClientPaymentReceiver
     /// The gateway asks what the core system did with an incoming payment whose receive call got no answer (timeout,
     /// broken connection). Returns the same result the receive call would have returned: ACCP or RJCT when the core
     /// system processed it, <c>Status = "PDNG"</c> while it is still processing, and <c>404</c> when it never
-    /// received the payment (the gateway then posts it again with the same Idempotency-Key): pacs.009, pacs.004,
-    /// pain.001, camt.056, camt.055 and camt.029. pacs.008 has its own query, <see cref="GetIncomingPaymentAsync"/>.
+    /// received the payment (the gateway then posts it again with the same Idempotency-Key):
+    /// pacs.004, pain.001, camt.056, camt.055 and camt.029. pacs.008 and pacs.009 have their own queries.
     /// </summary>
     [RestEndpoint("GET", TransactionRestApiRoutes.PaymentStatus, Tag = "Transactions",
         Summary = "Return the outcome of an incoming payment (404 when it was never received).",
-        Description = "Query messageKind and reference (the Idempotency-Key of the receive call). Answer 200 with the receive answer (ACCP or RJCT), 200 with Status PDNG while still processing, and 404 only when the message never arrived: the gateway then posts it again. pacs.008 is queried at /stp/incoming-payments/{transactionId} instead. An empty 2xx such as 204 is not a 404.")]
+        Description = "Query messageKind and reference (the Idempotency-Key of the receive call). Answer 200 with the receive answer (ACCP or RJCT), 200 with Status PDNG while still processing, and 404 only when the message never arrived: the gateway then posts it again. pacs.008 and pacs.009 are queried at /stp/incoming-payments/{transactionId} and /stp/fi-transfers/{transactionId} instead. An empty 2xx such as 204 is not a 404.")]
     Task<Pacs008PaymentResultDto?> GetPaymentStatusAsync(InboundPaymentStatusQueryDto query, CancellationToken cancellationToken);
 }

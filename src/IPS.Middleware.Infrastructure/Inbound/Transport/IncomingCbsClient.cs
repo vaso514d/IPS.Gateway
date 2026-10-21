@@ -28,41 +28,55 @@ public sealed class IncomingCbsClient(
             payment.TransactionId, cancellationToken);
     }
 
-    public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken cancellationToken)
-    {
-        var transactionId = Uri.EscapeDataString(IncomingPaymentContract.TransactionId(payment.Id));
-        var path = settings.IncomingPaymentStatusPath.Replace(IncomingTransportSettings.TransactionIdPlaceholder, transactionId, StringComparison.Ordinal);
-        return SendAsync(payment.ParticipantBic, HttpMethod.Get, path, null, null, cancellationToken);
-    }
+    public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken cancellationToken) =>
+        QueryByIdAsync(payment.ParticipantBic, settings.IncomingPaymentStatusPath, IncomingPaymentContract.TransactionId(payment.Id), cancellationToken);
 
-    public Task<CoreResponse> SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
+    public Task<CoreResponse> SubmitAsync(IncomingTransfer transfer, IIncomingTransferContent content, CancellationToken cancellationToken)
     {
-        var (path, content) = transfer switch
+        // An incoming pacs.009 goes in its own envelope, keyed by the gateway's transactionId (specification 023).
+        if (content is IncomingPacs009 pacs009)
         {
-            IncomingPacs009 pacs009 => (settings.Pacs009SubmissionPath, JsonContent.Create(IncomingPacs009CoreMapping.ToContract(pacs009))),
+            var delivery = IncomingFiTransferContract.Map(transfer, pacs009);
+            return SendAsync(transfer.ParticipantBic, HttpMethod.Post, settings.Pacs009SubmissionPath, JsonContent.Create(delivery),
+                delivery.TransactionId, cancellationToken);
+        }
+
+        var (path, body) = content switch
+        {
             IncomingPacs004 pacs004 => (settings.Pacs004SubmissionPath, JsonContent.Create(IncomingPacs004CoreMapping.ToContract(pacs004))),
             IncomingPain001 pain001 => (settings.Pain001SubmissionPath, JsonContent.Create(IncomingPain001CoreMapping.ToContract(pain001))),
             IncomingCamt056 camt056 => (settings.Camt056SubmissionPath, JsonContent.Create(IncomingRecallCoreMapping.ToContract(camt056))),
             IncomingCamt055 camt055 => (settings.Camt055SubmissionPath, JsonContent.Create(IncomingCamt055CoreMapping.ToContract(camt055))),
             IncomingCamt029 camt029 => (settings.Camt029SubmissionPath, JsonContent.Create(IncomingRecallCoreMapping.ToContract(camt029))),
-            _ => throw new ArgumentOutOfRangeException(nameof(transfer), transfer.GetType().Name, "Unsupported incoming transfer.")
+            _ => throw new ArgumentOutOfRangeException(nameof(content), content.GetType().Name, "Unsupported incoming transfer.")
         };
-        return SendAsync(participantBic, HttpMethod.Post, path, content, transfer.Key, cancellationToken);
+        return SendAsync(transfer.ParticipantBic, HttpMethod.Post, path, body, content.Key, cancellationToken);
     }
 
-    Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(string participantBic, string kind, string key, CancellationToken cancellationToken)
+    Task<CoreResponse> IIncomingTransferCoreClient.QueryAsync(IncomingTransfer transfer, CancellationToken cancellationToken)
     {
-        var messageKind = kind switch
+        if (transfer.Kind == PaymentMessageTypes.Pacs009)
         {
-            PaymentMessageTypes.Pacs009 => nameof(IpsMessageKind.Pacs009),
+            return QueryByIdAsync(transfer.ParticipantBic, settings.FiTransferStatusPath, IncomingFiTransferContract.TransactionId(transfer), cancellationToken);
+        }
+
+        var messageKind = transfer.Kind switch
+        {
             PaymentMessageTypes.Pacs004 => nameof(IpsMessageKind.Pacs004),
             PaymentMessageTypes.Pain001 => nameof(IpsMessageKind.Pain001),
             PaymentMessageTypes.Camt056 => nameof(IpsMessageKind.Camt056),
             PaymentMessageTypes.Camt055 => nameof(IpsMessageKind.Camt055),
             PaymentMessageTypes.Camt029 => nameof(IpsMessageKind.Camt029),
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported incoming transfer kind.")
+            _ => throw new ArgumentOutOfRangeException(nameof(transfer), transfer.Kind, "Unsupported incoming transfer kind.")
         };
-        return QueryAsync(participantBic, messageKind, key, cancellationToken);
+        return QueryAsync(transfer.ParticipantBic, messageKind, transfer.Key, cancellationToken);
+    }
+
+    // A status query by the delivered transactionId, in the path.
+    private Task<CoreResponse> QueryByIdAsync(string participantBic, string template, string transactionId, CancellationToken cancellationToken)
+    {
+        var path = template.Replace(IncomingTransportSettings.TransactionIdPlaceholder, Uri.EscapeDataString(transactionId), StringComparison.Ordinal);
+        return SendAsync(participantBic, HttpMethod.Get, path, null, null, cancellationToken);
     }
 
     private Task<CoreResponse> QueryAsync(string participantBic, string messageKind, string reference, CancellationToken cancellationToken)
