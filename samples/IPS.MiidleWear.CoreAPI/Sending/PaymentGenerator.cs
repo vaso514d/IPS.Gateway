@@ -224,5 +224,8 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
         : Settings.RecallReasons.Length > 0 ? Pick(Settings.RecallReasons)
         : DuplicateRecallReason;
 
-    private static T Pick<T>(IReadOnlyList<T> values) => values[Random.Shared.Next(values.Count)];
+    private static T Pick<T>(IReadOnlyList<T> values) =>
+        values.Count == 0
+            ? throw new InvalidOperationException("Nothing to pick from: give the value in the request or configure the list under Gateway.")
+            : values[Random.Shared.Next(values.Count)];
 }

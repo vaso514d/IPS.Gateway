@@ -1,3 +1,5 @@
+using IPS.MiidleWear.Security;
+
 namespace IPS.MiidleWear.CoreAPI.Sending;
 
 // Where CoreAPI sends the payments it generates, and the values that make them pass the gateway's validation.
@@ -29,8 +31,11 @@ public sealed class GatewayOptions
     // A send answers 200 when final or 504 after the gateway's wait; this must exceed that wait.
     public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(60);
 
-    // The certificate this core signs its requests to the gateway with (specification 021). None: requests are unsigned.
-    public GatewaySigningOptions Signing { get; set; } = new();
+    // What this core sends with every request to the gateway (specification 021): a static API token, and its own
+    // certificate (with the private key) that signs each body. Each is left out when not configured. What this core
+    // requires of the gateway's calls is in the Server section.
+    public string? ApiToken { get; set; }
+    public IpsSigningSettings Signing { get; set; } = new();
 
     // A bank not configured with a code falls back to the first two letters of its BIC.
     public string IbanCode(string bic)
@@ -40,15 +45,4 @@ public sealed class GatewayOptions
             : CreditorBanks.GetValueOrDefault(bic);
         return string.IsNullOrWhiteSpace(configured) ? bic[..2] : configured.Trim().ToUpperInvariant();
     }
-}
-
-// A thumbprint (Windows stores) or a PFX file and its password (a container); Algorithm RS256, PS256 or ES256.
-public sealed class GatewaySigningOptions
-{
-    public string? Thumbprint { get; set; }
-    public string? Path { get; set; }
-    public string? Password { get; set; }
-    public string Algorithm { get; set; } = "RS256";
-
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(Thumbprint) || !string.IsNullOrWhiteSpace(Path);
 }

@@ -10,7 +10,4 @@ public sealed class SampleOptions
 
     // How long a posting takes. While it runs, a redelivery waits for it and the payment-status query answers PDNG.
     public TimeSpan PostingDelay { get; init; } = TimeSpan.Zero;
-
-    // The gateway's static API tokens (specification 021): calls without one of them answer 401. Empty: open.
-    public string[] ApiTokens { get; init; } = [];
 }

@@ -1,3 +1,5 @@
+using IPS.MiidleWear.Security;
+
 namespace IPS.Middleware.Infrastructure.Transport;
 
 public sealed class HttpEndpointSettings
@@ -13,8 +15,12 @@ public sealed class HttpEndpointSettings
     public CertificateSettings[] ServerTrust { get; init; } = [];
     public bool CheckCertificateRevocation { get; init; } = true;
 
-    // Sent as Authorization: Bearer on every call to this endpoint (the core system, specification 021); none when empty.
+    // The core system's endpoints only (specification 021): what the gateway sends with every call to the core system.
+    // ApiToken goes as Authorization: Bearer, and Signing is the gateway's own certificate (with its private key) that
+    // signs each request body; each is left out when not configured. What the gateway requires of the core system's
+    // requests is in the Server section.
     public string? ApiToken { get; init; }
+    public IpsSigningSettings? Signing { get; init; }
 
     public void Validate(bool development)
     {
@@ -32,6 +38,25 @@ public sealed class HttpEndpointSettings
         }
 
         CircuitBreaker.Validate();
+    }
+
+    // The token and the request signature are for the core system: anywhere else they fail startup instead of being
+    // ignored (IPS and the Proxy Solution authenticate by TLS and their own XML signature).
+    internal void RequireNoCoreAuthentication(string endpoint)
+    {
+        if (!string.IsNullOrWhiteSpace(ApiToken) || Signing is { IsConfigured: true })
+        {
+            throw new InvalidOperationException($"{endpoint}: ApiToken and Signing belong to the Cbs endpoints.");
+        }
+    }
+
+    // A configured signing algorithm must be known at startup; the certificate is loaded with the HTTP client.
+    internal void ValidateCoreAuthentication()
+    {
+        if (Signing is { IsConfigured: true } signing)
+        {
+            _ = signing.SignatureAlgorithm();
+        }
     }
 
     // IPS authenticates the participant by its TLS client certificate and answers 401 without one (Annex D 6.2), so

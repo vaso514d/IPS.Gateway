@@ -35,6 +35,8 @@ public sealed class IncomingTransportSettings
 
     public void Validate(bool development)
     {
+        Ips.RequireNoCoreAuthentication("Payments:Incoming:Transport:Ips");
+        Cbs.ValidateCoreAuthentication();
         if (!Enabled)
         {
             return;

@@ -33,7 +33,9 @@ internal static class SingleAttemptHttp
                 SslOptions = settings.Tls
             };
         }).SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+        // Specification 021: the token and the body signature, when the endpoint configures them (the core system's).
         client.AddHttpMessageHandler(sp => new IpsApiTokenHandler(profile(sp).Endpoint.ApiToken));
+        client.AddHttpMessageHandler(sp => IpsSigningHandler.Create(profile(sp).Endpoint.Signing));
         client.AddResilienceHandler("single-attempt", (pipeline, context) =>
         {
             var settings = profile(context.ServiceProvider);

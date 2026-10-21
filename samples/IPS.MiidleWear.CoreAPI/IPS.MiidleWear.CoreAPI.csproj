@@ -19,6 +19,7 @@
     <ProjectReference Include="../../src/IPS.MiidleWear.AspNetCore/IPS.MiidleWear.AspNetCore.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Contracts/IPS.MiidleWear.Contracts.csproj" />
     <ProjectReference Include="../../src/IPS.MiidleWear.Security/IPS.MiidleWear.Security.csproj" />
+    <ProjectReference Include="../../src/IPS.MiidleWear.Security.AspNetCore/IPS.MiidleWear.Security.AspNetCore.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
       <PrivateAssets>all</PrivateAssets>

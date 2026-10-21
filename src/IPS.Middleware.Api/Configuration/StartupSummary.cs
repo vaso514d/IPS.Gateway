@@ -6,6 +6,9 @@ using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Payments.Transport;
 using IPS.Middleware.Infrastructure.Proxy;
 using IPS.Middleware.Infrastructure.Transport;
+using IPS.MiidleWear.Security;
+using IPS.MiidleWear.Security.AspNetCore;
+using Microsoft.Extensions.Options;
 
 namespace IPS.Middleware.Api.Configuration;
 
@@ -45,24 +48,29 @@ internal static class StartupSummary
         }
     }
 
-    // Specification 021: open is allowed, so it is reported as a warning rather than refused.
+    // Specification 021: open is allowed, so it is reported as a warning rather than refused. Loading the options here also
+    // loads the trusted certificates, so a wrong one stops startup before any request is served.
     private static void LogCoreAuthentication(IServiceProvider services, ILogger logger, IncomingTransportSettings incoming, OutgoingTransportSettings outgoing)
     {
-        var signing = services.GetRequiredService<CoreRequestSigning>();
-        if (signing.Verifier is null)
+        var server = services.GetRequiredService<IOptionsMonitor<IpsServerOptions>>().Get(IpsServerAuthentication.Scheme);
+        if (server.ApiTokens.Count == 0 && server.Verifier is null)
         {
-            logger.LogWarning("Core authentication: [RequireCoreSignature] endpoints are not checked (no CoreAuthentication:TrustedCertificates)");
+            logger.LogWarning("Server authentication: [RequireIpsAuthentication] endpoints are open (no Server:ApiTokens or Server:Signing:TrustedCertificates)");
         }
         else
         {
-            logger.LogInformation("Core authentication: [RequireCoreSignature] endpoints must be signed by one of {Count} trusted certificate(s)", signing.TrustedCertificates);
+            logger.LogInformation("Server authentication: [RequireIpsAuthentication] endpoints require {Token} and {Signature}",
+                server.ApiTokens.Count == 0 ? "no API token" : $"one of {server.ApiTokens.Count} API token(s)",
+                server.Verifier is null ? "no signature" : $"a signature by one of {server.TrustedCertificates} trusted certificate(s)");
         }
 
-        logger.LogInformation("Core authentication: API token to the CBS incoming {Incoming}, outgoing {Outgoing}",
-            Configured(incoming.Cbs.ApiToken), Configured(outgoing.Cbs.ApiToken));
+        logger.LogInformation("Calls to the CBS: API token incoming {IncomingToken}, outgoing {OutgoingToken}; signing incoming {IncomingSigning}, outgoing {OutgoingSigning}",
+            Configured(incoming.Cbs.ApiToken), Configured(outgoing.Cbs.ApiToken), Configured(incoming.Cbs.Signing), Configured(outgoing.Cbs.Signing));
     }
 
     private static string Configured(string? secret) => string.IsNullOrWhiteSpace(secret) ? "none" : "configured";
+
+    private static string Configured(IpsSigningSettings? signing) => signing is { IsConfigured: true } ? signing.Algorithm : "none";
 
     private static string OnOff(bool enabled) => enabled ? "on" : "off";
 

@@ -12,6 +12,7 @@ public sealed class ProxySettings
 
     public void Validate(bool development)
     {
+        Endpoint.RequireNoCoreAuthentication("Proxy:Endpoint");
         if (!Enabled)
         {
             return;

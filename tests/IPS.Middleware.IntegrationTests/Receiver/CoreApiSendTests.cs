@@ -113,7 +113,13 @@ public sealed class CoreApiSendTests
         {
             builder.Logging.ClearProviders();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
-            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Gateway:BaseUrl"] = gateway.Url });
+            // The test output's appsettings.json may be the gateway's, so the lists the send picks from are given here.
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Gateway:BaseUrl"] = gateway.Url,
+                ["Gateway:CreditorBanks:TBCBGE22"] = "TB",
+                ["Gateway:Currencies:0"] = "GEL"
+            });
         });
         await app.StartAsync();
         using var client = new HttpClient { BaseAddress = new Uri(app.Urls.Single() + "/") };

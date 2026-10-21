@@ -24,6 +24,15 @@ public sealed class IpsSigningHandler : DelegatingHandler
         _algorithm = algorithm;
     }
 
+    /// <summary>
+    /// A handler for configured signing: it signs with the loaded certificate, or passes requests on unsigned when no
+    /// certificate is configured.
+    /// </summary>
+    public static DelegatingHandler Create(IpsSigningSettings? signing) =>
+        signing is { IsConfigured: true }
+            ? new IpsSigningHandler(signing.Load(), signing.SignatureAlgorithm())
+            : new UnsignedHandler();
+
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -59,4 +68,6 @@ public sealed class IpsSigningHandler : DelegatingHandler
         request.Content = buffered;
         return body;
     }
+
+    private sealed class UnsignedHandler : DelegatingHandler;
 }

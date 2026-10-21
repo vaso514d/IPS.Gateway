@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using IPS.Middleware.Api.Authentication;
 using IPS.Middleware.Api.Binding;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Execution;
@@ -15,12 +14,13 @@ using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Pacs009;
 using IPS.MiidleWear.Contracts.Pain002;
 using IPS.MiidleWear.Contracts.Transactions;
+using IPS.MiidleWear.Security.AspNetCore;
 using Microsoft.AspNetCore.Mvc;
 
 namespace IPS.Middleware.Api.Payments;
 
 [ApiController]
-[RequireCoreSignature]
+[RequireIpsAuthentication]
 public sealed class OutgoingPaymentsController(
     OutgoingSubmission submission,
     OutgoingStatusReader reader,

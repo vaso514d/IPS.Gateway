@@ -1,5 +1,6 @@
 using IPS.MiidleWear.AspNetCore;
 using IPS.MiidleWear.CoreAPI.Sending;
+using IPS.MiidleWear.Security.AspNetCore;
 using Microsoft.Extensions.Options;
 
 namespace IPS.MiidleWear.CoreAPI;
@@ -16,14 +17,8 @@ public static class SampleApp
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<CoreLedger>();
         builder.Services.AddIpsCoreReceiver<SampleReceiver>();
-        // Read when first used, so it sees the final configuration.
-        builder.Services.AddIpsApiTokenAuthentication(options =>
-        {
-            foreach (var token in builder.Configuration.GetSection(SampleOptions.Section).Get<SampleOptions>()?.ApiTokens ?? [])
-            {
-                options.Tokens.Add(token);
-            }
-        });
+        // Server: where CoreAPI listens and what the gateway's calls must carry (specification 021).
+        builder.AddIpsServer();
         // Sending: CoreAPI also plays the core system that sends transfers to the gateway.
         builder.Services.Configure<GatewayOptions>(builder.Configuration.GetSection(GatewayOptions.Section));
         builder.Services.AddSingleton<PaymentGenerator>();
@@ -34,15 +29,17 @@ public static class SampleApp
             var gateway = services.GetRequiredService<IOptions<GatewayOptions>>().Value;
             client.BaseAddress = new Uri(gateway.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = gateway.Timeout;
-        }).AddHttpMessageHandler(services => services.GetRequiredService<GatewaySigning>().CreateHandler());
+        })
+            .AddHttpMessageHandler(services => services.GetRequiredService<GatewaySigning>().CreateTokenHandler())
+            .AddHttpMessageHandler(services => services.GetRequiredService<GatewaySigning>().CreateSigningHandler());
         // The receiver's own document, exactly as a bank's core system serves it; sending and the ledger are in v1.
         builder.Services.AddIpsCoreReceiverOpenApi();
         builder.Services.AddOpenApi(options => options.AddOperationTransformer(GatewayChoices.Apply));
         configure?.Invoke(builder);
 
         var app = builder.Build();
-        // The gateway calls with its static API token (specification 021); without configured tokens the receiver is open.
-        app.MapIpsCoreReceiver().RequireIpsApiToken();
+        // The gateway's calls must carry what Server configures: a token, a signature, both, or nothing (open).
+        app.MapIpsCoreReceiver().RequireIpsAuthentication();
         SendEndpoints.Map(app);
         // For people trying the sample: what the gateway delivered and what the core answered.
         app.MapGet("/sample/ledger", (CoreLedger ledger) => ledger.Snapshot());

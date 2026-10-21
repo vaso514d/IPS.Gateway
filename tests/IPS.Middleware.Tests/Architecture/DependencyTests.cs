@@ -7,15 +7,17 @@ public sealed class DependencyTests
     private static readonly Dictionary<string, string[]> AllowedReferences = new(StringComparer.Ordinal)
     {
         ["IPS.MiidleWear.Contracts"] = [],
-        ["IPS.MiidleWear.AspNetCore"] = ["IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"],
+        ["IPS.MiidleWear.AspNetCore"] = ["IPS.MiidleWear.Contracts"],
         ["IPS.MiidleWear.Security"] = [],
+        ["IPS.MiidleWear.Security.AspNetCore"] = ["IPS.MiidleWear.Security"],
         ["IPS.MiidleWear.Testing"] = ["IPS.MiidleWear.Contracts"],
         ["IPS.Middleware.Domain"] = [],
         ["IPS.Middleware.Application"] = ["IPS.Middleware.Domain"],
         ["IPS.Middleware.Infrastructure"] =
             ["IPS.Middleware.Application", "IPS.Middleware.Domain", "IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"],
         ["IPS.Middleware.Api"] =
-            ["IPS.Middleware.Application", "IPS.Middleware.Infrastructure", "IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security"]
+            ["IPS.Middleware.Application", "IPS.Middleware.Infrastructure", "IPS.MiidleWear.Contracts", "IPS.MiidleWear.Security",
+                "IPS.MiidleWear.Security.AspNetCore"]
     };
 
     [Fact]
@@ -53,6 +55,17 @@ public sealed class DependencyTests
         var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.MiidleWear.AspNetCore.dependencies.txt"));
         Assert.Equal(new[] { "Microsoft.AspNetCore.OpenApi" }, Values(lines, "packageReference"));
         Assert.Equal(new[] { "Microsoft.AspNetCore.OpenApi", "Microsoft.OpenApi" }, Values(lines, "assemblyReference").Order(StringComparer.Ordinal));
+        Assert.Equal(new[] { "Microsoft.AspNetCore.App", "Microsoft.NETCore.App" }, Values(lines, "frameworkReference").Order(StringComparer.Ordinal));
+    }
+
+    // The server authentication shared by the gateway and core systems (021): Security and the ASP.NET Core shared
+    // framework, no package.
+    [Fact]
+    public void The_server_authentication_package_uses_only_Security_and_the_AspNetCore_framework()
+    {
+        var lines = File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Architecture", "IPS.MiidleWear.Security.AspNetCore.dependencies.txt"));
+        Assert.Empty(Values(lines, "packageReference"));
+        Assert.Empty(Values(lines, "assemblyReference"));
         Assert.Equal(new[] { "Microsoft.AspNetCore.App", "Microsoft.NETCore.App" }, Values(lines, "frameworkReference").Order(StringComparer.Ordinal));
     }
 

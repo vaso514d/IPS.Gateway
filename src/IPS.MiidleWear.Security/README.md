@@ -1,13 +1,8 @@
 # IPS.MiidleWear.Security
 
-Authentication between a core banking system and the IPS middleware (the gateway). Base class library only.
+Authentication between a core banking system and the IPS middleware (the gateway): request signatures over the JSON body, and static API tokens. Base class library only. The server side for ASP.NET Core, the `Server` section and `[RequireIpsAuthentication]`, is in `IPS.MiidleWear.Security.AspNetCore`.
 
-| Direction | Mechanism | Core system |
-|---|---|---|
-| Core system → gateway | The core system signs every request body with its certificate | `IpsSigningHandler` on the `HttpClient` that calls the gateway |
-| Gateway → core system | The gateway sends a static API token, `Authorization: Bearer <token>` | `AddIpsApiTokenAuthentication`, then `.RequireIpsApiToken()` or `[RequireIpsApiToken]` (package `IPS.MiidleWear.AspNetCore`) |
-
-When the gateway has no trusted certificate configured it accepts unsigned requests; when it has no token it sends none, and a receiver given no tokens accepts every call.
+Which mechanism applies is a matter of configuration. The agreed scheme: the core system signs its requests to the gateway, and the gateway calls the core system with a token. A client sends what the other side's address section configures: `ApiToken`, and `Signing` (its own certificate with the private key). What is not configured is not sent.
 
 ## The signature
 
@@ -20,22 +15,29 @@ When the gateway has no trusted certificate configured it accepts unsigned reque
 | `X-Ips-Content-SHA256` | the digest |
 | `X-Ips-Signature` | the signature |
 | `X-Ips-Signature-Algorithm` | `RS256` (RSA PKCS#1 v1.5), `PS256` (RSA-PSS) or `ES256` (ECDSA, r‖s) |
-| `X-Ips-Certificate` | the certificate's SHA-1 thumbprint, which the gateway must trust |
+| `X-Ips-Certificate` | the certificate's SHA-1 thumbprint, which the receiver must trust |
 
-The gateway answers 401 when a header is missing, the digest does not match the body, the certificate is not trusted or not valid now, or the signature is wrong.
+The receiver answers 401 in any of these cases: a header is missing, the digest does not match the body, the certificate is not trusted or not valid now, or the signature is wrong.
+
+## The token
+
+`Authorization: Bearer <token>`. The token is any printable ASCII text without spaces and does not need to be Base64. Generate it at random, for example `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
 
 ## Use
 
-```csharp
-// Windows: by thumbprint (CurrentUser, then LocalMachine). A container: a PFX file and its password.
-var certificate = IpsCertificates.FromStore("B264BEB0329F4CDB55CFC84E12558CE7A9075A72");
-
-services.AddHttpClient("gateway", client => client.BaseAddress = new Uri("https://gateway/"))
-    .AddHttpMessageHandler(() => new IpsSigningHandler(certificate, IpsSignatureAlgorithm.RS256));
-
-// The receiver accepts only calls that carry one of these tokens (two at once while a token is replaced).
-services.AddIpsApiTokenAuthentication(options => options.Tokens.Add("token-from-the-gateway-operator"));
-app.MapIpsCoreReceiver().RequireIpsApiToken();
+```json
+"Gateway": {
+  "BaseUrl": "https://gateway.bank.local:5080",
+  "ApiToken": "",
+  "Signing": { "Thumbprint": "<own certificate, with its private key>", "Path": "", "Password": "", "Algorithm": "RS256" }
+}
 ```
 
-`IpsContentSignature` and `IpsSignatureVerifier` compute and check signatures directly, for tests or another HTTP stack.
+```csharp
+services.AddHttpClient("gateway", client => client.BaseAddress = new Uri(configuration["Gateway:BaseUrl"]!))
+    .AddHttpMessageHandler(() => new IpsApiTokenHandler(configuration["Gateway:ApiToken"]))        // nothing when empty
+    .AddHttpMessageHandler(() => IpsSigningHandler.Create(
+        configuration.GetSection("Gateway:Signing").Get<IpsSigningSettings>()));                   // unsigned when empty
+```
+
+The `Signing` certificate comes from one of two sources: a `Thumbprint` (Windows: CurrentUser, then LocalMachine), or a `Path` to a `.pfx` with its `Password` (a container). `IpsContentSignature` and `IpsSignatureVerifier` compute and check signatures directly, for tests or another HTTP stack.

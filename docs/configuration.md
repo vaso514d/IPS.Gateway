@@ -115,7 +115,7 @@ The first investigation identity freezes its absolute deadline from the accepted
 - `/openapi/v1.json` is the gateway's own OpenAPI 3.0 document, generated from the controllers and the `IGatewayApi` attributes. It lists only the operations the enabled features map, so the outgoing sends need `Payments:Outgoing:Execution:Enabled` and the proxy routes need `Proxy:Enabled`.
 - `/swagger` is Swagger UI over that document. Requests can be sent from the page in Development only; elsewhere the page is read-only.
 
-With the setting off, outside Development, both answer 404. Enable it in a bank's test environment rather than in production: nothing in the documentation is secret. Requests to `/api/v1` are checked only when `CoreAuthentication:TrustedCertificates` is set (021).
+With the setting off, outside Development, both answer 404. Enable it in a bank's test environment rather than in production: nothing in the documentation is secret. The payment and proxy routes require what the `Server` section configures (021).
 
 The endpoints a core system implements are described by the core system's own application: `AddIpsCoreReceiverOpenApi()` and `MapOpenApi()` from `IPS.MiidleWear.AspNetCore` serve `/openapi/ips-core-receiver.json`.
 
@@ -130,12 +130,105 @@ The gateway file describes every operation whatever the configuration: while the
 
 ## Core system authentication (021)
 
-- **Core system → gateway.** `CoreAuthentication:TrustedCertificates` is an array of certificate sources (`Thumbprint`, `Path`, `Pem` or `Pkcs12Base64`, as for the other certificates; the public certificate is enough). When it is set, every request to an endpoint marked `[RequireCoreSignature]` (the payment and proxy controllers; the health endpoints stay open) must carry the core system's signature. The signature covers `Base64(SHA-256(body))`, in the headers `X-Ips-Content-SHA256`, `X-Ips-Signature`, `X-Ips-Signature-Algorithm` and `X-Ips-Certificate` (the thumbprint). A request that fails answers 401, and the log says why.
-  - `CoreAuthentication:Algorithms` limits the accepted algorithms (`RS256`, `PS256`, `ES256`); it is empty by default, which accepts all three.
-  - Without trusted certificates the API is open, and startup logs a warning.
-  - List two certificates while one is replaced. An expired certificate fails startup.
-- **Gateway → core system.** `Payments:Incoming:Transport:Cbs:ApiToken` and `Payments:Outgoing:Transport:Cbs:ApiToken` are sent as `Authorization: Bearer <token>` on every call to the core system. Without them no header is sent. The startup log says only whether a token is configured.
-- The core system uses the `IPS.MiidleWear.Security` package: `IpsSigningHandler` to sign, and `AddIpsApiTokenAuthentication` with `.RequireIpsApiToken()` or `[RequireIpsApiToken]` from `IPS.MiidleWear.AspNetCore` to check the token. `samples/IPS.MiidleWear.CoreAPI` configures both, with `Gateway:Signing` (`Thumbprint`, or `Path` and `Password`, and `Algorithm`) and `Sample:ApiTokens`.
+Each service configures two things, and each in its own place:
+
+- **As a server**, in the `Server` section next to its own address, it says what it requires of incoming requests: `ApiTokens`, the tokens it accepts, and `Signing:TrustedCertificates`, the public certificates whose signatures it accepts.
+- **As a client**, in the section that holds the other side's address, it says what it sends: `ApiToken`, the token it sends, and `Signing`, its own certificate with the private key.
+
+A request to an endpoint marked `[RequireIpsAuthentication]` must carry everything the `Server` section configures:
+
+| `Server` configures | A marked endpoint requires |
+|---|---|
+| `ApiTokens` | `Authorization: Bearer <token>` with one of them |
+| `Signing:TrustedCertificates` | a signature of the body by one of them |
+| both | both |
+| neither | nothing: the endpoint is open, and the gateway logs a warning |
+
+Unmarked endpoints, such as `/health/live` and `/health/ready`, are always open. The gateway marks its payment and proxy controllers. CoreAPI marks its receiver (`MapIpsCoreReceiver().RequireIpsAuthentication()`).
+
+The signature covers `Base64(SHA-256(body))`, signed with RS256, PS256 or ES256, in the headers `X-Ips-Content-SHA256`, `X-Ips-Signature`, `X-Ips-Signature-Algorithm` and `X-Ips-Certificate` (the thumbprint). A request that fails answers 401; the log says why and never shows the token.
+
+### The agreed scheme
+
+The core system signs its requests to the gateway, and the gateway calls the core system with a token. Either side can also use the other mechanism, or both, by configuration alone.
+
+### The gateway (`src/IPS.Middleware.Api/appsettings.json`)
+
+```json
+"Server": {
+  "Url": "",
+  "ApiTokens": [],
+  "Signing": {
+    "TrustedCertificates": [ { "Thumbprint": "<the core system's public certificate>" } ],
+    "Algorithms": []
+  }
+},
+"Payments": {
+  "Outgoing": { "Transport": { "Cbs": {
+    "BaseUrl": "https://cbs.bank.local:5280",
+    "ApiToken": "token-the-core-system-accepts",
+    "Signing": { "Thumbprint": "", "Path": "", "Password": "", "Algorithm": "RS256" }
+  } } },
+  "Incoming": { "Transport": { "Cbs": {
+    "BaseUrl": "https://cbs.bank.local:5280",
+    "ApiToken": "token-the-core-system-accepts",
+    "Signing": { "Thumbprint": "", "Path": "", "Password": "", "Algorithm": "RS256" }
+  } } }
+}
+```
+
+- `Server:Url` is where the gateway listens. Empty keeps the launch profile's or the container's own setting.
+- The core system's address appears twice, once for incoming and once for outgoing payments, so `ApiToken` and `Signing` go in both.
+- `ApiToken` and `Signing` under the IPS or proxy endpoints stop startup instead of being ignored.
+
+### The core system (`samples/IPS.MiidleWear.CoreAPI/appsettings.json`)
+
+```json
+"Server": {
+  "Url": "http://localhost:5280",
+  "ApiTokens": [ "token-the-core-system-accepts" ],
+  "Signing": { "TrustedCertificates": [], "Algorithms": [] }
+},
+"Gateway": {
+  "BaseUrl": "https://gateway.bank.local:5080",
+  "ApiToken": "",
+  "Signing": {
+    "Thumbprint": "<this core system's certificate, with its private key>",
+    "Path": "",
+    "Password": "",
+    "Algorithm": "RS256"
+  }
+}
+```
+
+### Values
+
+- **A trusted certificate** (`TrustedCertificates`) is one of:
+  - a `Thumbprint`, from the Windows stores, CurrentUser and then LocalMachine;
+  - a `Path` to a `.cer` or `.pem` file (the public certificate is enough);
+  - `Pem` text.
+- **A signing certificate** (`Signing`) needs its private key: a `Thumbprint`, or a `Path` to a `.pfx` with its `Password` (in a container).
+- **`Algorithm`:** `RS256` or `PS256` for an RSA key, `ES256` for an ECDSA key.
+- **`Algorithms`** limits what a server accepts. Empty accepts all three.
+- **A token** is any printable ASCII text without spaces. It is compared as it is and does not need to be Base64. Generate it at random, for example:
+  ```powershell
+  [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+  ```
+- **Replacement:** list two tokens or two certificates while one is replaced. An expired trusted certificate is refused.
+- **Docker and environment variables** use the usual form, for example `Server__ApiTokens__0`, `Server__Signing__TrustedCertificates__0__Path` or `Payments__Outgoing__Transport__Cbs__ApiToken`.
+
+### A bank's own core system
+
+It uses `IPS.MiidleWear.Security` and `IPS.MiidleWear.Security.AspNetCore` (see their READMEs) with the same sections:
+
+```csharp
+builder.AddIpsServer();                                          // Server:Url, ApiTokens, Signing
+builder.Services.AddHttpClient("gateway", client => client.BaseAddress = new Uri(builder.Configuration["Gateway:BaseUrl"]!))
+    .AddHttpMessageHandler(() => new IpsApiTokenHandler(builder.Configuration["Gateway:ApiToken"]))
+    .AddHttpMessageHandler(() => IpsSigningHandler.Create(builder.Configuration.GetSection("Gateway:Signing").Get<IpsSigningSettings>()));
+var app = builder.Build();
+app.MapIpsCoreReceiver().RequireIpsAuthentication();             // or [RequireIpsAuthentication] on a controller
+```
 
 ## Database migration
 
