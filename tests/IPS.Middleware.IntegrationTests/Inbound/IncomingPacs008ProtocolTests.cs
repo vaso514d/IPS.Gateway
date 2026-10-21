@@ -163,7 +163,7 @@ public sealed class IncomingPacs008ProtocolTests(IncomingPacs008Fixture fixture)
         var doc = XDocument.Parse(xml);
         XNamespace p = "urn:iso:std:iso:20022:tech:xsd:pacs.002.001.14";
         Assert.Equal("2026-10-04T12:00:03.1234567Z", doc.Descendants(p + "AccptncDtTm").Single().Value);
-        Assert.Equal("INST", doc.Descendants(p + "SvcLvl").Single().Element(p + "Cd")!.Value);
+        Assert.Equal("SEPA", doc.Descendants(p + "SvcLvl").Single().Element(p + "Cd")!.Value);
         Assert.Equal("INST", doc.Descendants(p + "LclInstrm").Single().Element(p + "Cd")!.Value);
         Assert.All(doc.Descendants(p + "Rsn"), reason => Assert.Equal("MS03", reason.Element(p + "Cd")!.Value));
         Assert.All(doc.Descendants(p + "AddtlInf"), info => Assert.Equal(new string('x', 35), info.Value));

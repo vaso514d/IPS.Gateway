@@ -75,7 +75,7 @@ public sealed class IncomingPacs002Reply(Pacs008ProtocolProfile profile, Pacs008
             new XElement(Pacs + "OrgnlTxRef",
                 new XElement(Pacs + "PmtTpInf",
                     new XElement(Pacs + "SvcLvl", Element("Cd", original.ServiceLevelCode ?? profile.ServiceLevelCode)),
-                    new XElement(Pacs + "LclInstrm", Element("Cd", original.LocalInstrumentCode ?? Pacs008ProtocolProfile.InstantServiceLevel))),
+                    new XElement(Pacs + "LclInstrm", Element("Cd", original.LocalInstrumentCode ?? Pacs008ProtocolProfile.InstantLocalInstrument))),
                 Agent("DbtrAgt", original.DebtorAgentBic)));
 
     // The group-level reason has no originator; the transaction-level reason names the replying participant.

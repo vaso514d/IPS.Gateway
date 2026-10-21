@@ -5,11 +5,15 @@ namespace IPS.Middleware.Application.Payments.Pacs008;
 // Configurable XML mapping settings; intake snapshots them with each accepted payment.
 public sealed class Pacs008ProtocolProfile
 {
-    public const string InstantServiceLevel = "INST";
+    // PmtTpInf/SvcLvl/Cd. IPS UAT rejects INST here (1026); SEPA is the SEPA Instant service level Annex D 3 follows.
+    public const string DefaultServiceLevel = "SEPA";
+
+    // PmtTpInf/LclInstrm/Cd of an instant payment (Annex D 3.2.1, 4d).
+    public const string InstantLocalInstrument = "INST";
 
     public Pacs008ProtocolProfile(
         string ipsBic,
-        string serviceLevelCode = InstantServiceLevel,
+        string serviceLevelCode = DefaultServiceLevel,
         RemittanceDeliveryMethod remittanceMethod = RemittanceDeliveryMethod.Uri)
     {
         if (ipsBic is null || !Regex.IsMatch(ipsBic, Pacs008Text.Bic, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))

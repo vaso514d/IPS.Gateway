@@ -48,7 +48,7 @@ public sealed class Camt056ProcessingTests
         Assert.Equal("DUPL", reason.Element(Camt + "Rsn")!.Element(Camt + "Cd")!.Value);
         var reference = transaction.Element(Camt + "OrgnlTxRef")!;
         Assert.Equal("CLRG", reference.Element(Camt + "SttlmInf")!.Element(Camt + "SttlmMtd")!.Value);
-        Assert.Equal("INST", reference.Element(Camt + "PmtTpInf")!.Element(Camt + "SvcLvl")!.Element(Camt + "Cd")!.Value);
+        Assert.Equal("SEPA", reference.Element(Camt + "PmtTpInf")!.Element(Camt + "SvcLvl")!.Element(Camt + "Cd")!.Value);
         Assert.Equal("BAGAGE22", reference.Element(Camt + "DbtrAgt")!.Descendants(Camt + "BICFI").Single().Value);
         Assert.Equal("TBCBGE22", reference.Element(Camt + "CdtrAgt")!.Descendants(Camt + "BICFI").Single().Value);
         Assert.Equal("GE29NB0000000101904917", reference.Element(Camt + "DbtrAcct")!.Descendants(Camt + "IBAN").Single().Value);

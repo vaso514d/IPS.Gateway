@@ -352,7 +352,7 @@ public sealed class Pacs008ProcessingTests
                 Unstructured = "Invoice 42",
                 Structured = [new()
                 {
-                    ReferenceType = "scor",
+                    ReferenceType = "serv",
                     Reference = "RF18",
                     ReferenceIssuer = "Issuer"
                 }
@@ -497,6 +497,6 @@ public sealed class Pacs008ProcessingTests
 
     // Changing this format requires a new snapshot version and a reader for version 1.
     private const string PinnedSnapshot = """
-        {"version":1,"accepted":{"payment":{"clientReference":"processing","instructionId":"BANK-1","endToEndId":"E2E-1","creationDateTime":"2026-10-03T23:59:59+00:00","acceptanceDateTime":"2026-10-03T23:59:59.5+00:00","amount":12.34567,"currency":"GEL","priority":"High","categoryPurposeCode":null,"participantBic":"BAGAGE22","debtor":{"kind":"Individual","name":"\u10E5\u10D0\u10E0\u10D7\u10E3\u10DA\u10D8 \u0026 Debtor","identifier":null,"billIdentifier":null,"address":null},"creditor":{"kind":"Individual","name":"Creditor","identifier":null,"billIdentifier":null,"address":null},"debtorAccount":{"value":"GE95TB0000000123456789","kind":"Iban"},"creditorAccount":{"value":"GE29NB0000000101904917","kind":"Iban"},"debtorAgent":{"bic":"BAGAGE22","indirectParticipant":null},"creditorAgent":{"bic":"TBCBGE22","indirectParticipant":null},"ultimateDebtor":null,"ultimateCreditor":null,"paymentInitiation":null,"initiationChannel":null,"remittance":null},"profile":{"ipsBic":"NBGEGE22","serviceLevelCode":"INST","remittanceMethod":"Uri"},"envelopeCreatedAtUtc":"2026-10-04T00:00:00+00:00","submissionDeadlineUtc":"2026-10-04T00:00:19.5+00:00"}}
+        {"version":1,"accepted":{"payment":{"clientReference":"processing","instructionId":"BANK-1","endToEndId":"E2E-1","creationDateTime":"2026-10-03T23:59:59+00:00","acceptanceDateTime":"2026-10-03T23:59:59.5+00:00","amount":12.34567,"currency":"GEL","priority":"High","categoryPurposeCode":null,"participantBic":"BAGAGE22","debtor":{"kind":"Individual","name":"\u10E5\u10D0\u10E0\u10D7\u10E3\u10DA\u10D8 \u0026 Debtor","identifier":null,"billIdentifier":null,"address":null},"creditor":{"kind":"Individual","name":"Creditor","identifier":null,"billIdentifier":null,"address":null},"debtorAccount":{"value":"GE95TB0000000123456789","kind":"Iban"},"creditorAccount":{"value":"GE29NB0000000101904917","kind":"Iban"},"debtorAgent":{"bic":"BAGAGE22","indirectParticipant":null},"creditorAgent":{"bic":"TBCBGE22","indirectParticipant":null},"ultimateDebtor":null,"ultimateCreditor":null,"paymentInitiation":null,"initiationChannel":null,"remittance":null},"profile":{"ipsBic":"NBGEGE22","serviceLevelCode":"SEPA","remittanceMethod":"Uri"},"envelopeCreatedAtUtc":"2026-10-04T00:00:00+00:00","submissionDeadlineUtc":"2026-10-04T00:00:19.5+00:00"}}
         """;
 }

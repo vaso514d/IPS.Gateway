@@ -38,9 +38,17 @@ internal sealed class RemittanceValidator : AbstractValidator<Pacs008RemittanceI
 
 internal sealed class StructuredRemittanceValidator : AbstractValidator<Pacs008StructuredRemittanceInput>
 {
+    // CdtrRefInf/Tp/CdOrPrtry/Prtry codes of the NBG pacs.008 field workbook (row 42). Annex D 3.2.1 (4l) interprets only
+    // MCC and SERV and passes other values through, so the gateway refuses the rest before they reach IPS.
+    private static readonly string[] ReferenceTypes = ["MCC", "SERV", "BILL", "RSCUSORDER"];
+
     public StructuredRemittanceValidator()
     {
         RuleFor(x => x.ReferenceType).ProtocolText(Pacs008Text.Text(35), required: true);
+        RuleFor(x => x.ReferenceType)
+            .Must(type => ReferenceTypes.Contains(type!.Trim(), StringComparer.OrdinalIgnoreCase))
+            .When(x => !string.IsNullOrWhiteSpace(x.ReferenceType))
+            .WithMessage("Reference type must be MCC, SERV, BILL or RSCUSORDER.");
         RuleFor(x => x.Reference).ProtocolText(Pacs008Text.Text(35), required: true);
         RuleFor(x => x.Reference).ProtocolText("^[0-9]{4}$", required: true)
             .When(x => string.Equals(x.ReferenceType?.Trim(), "MCC", StringComparison.OrdinalIgnoreCase));

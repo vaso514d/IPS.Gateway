@@ -31,7 +31,7 @@ public sealed class Pacs028ProtocolTests(Pacs028ProtocolTests.Evidence evidence)
         Assert.Equal("request-identity", document.Descendants(P + "StsReqId").Single().Value);
         Assert.Equal("2026-10-04T00:00:59.0000000Z", document.Descendants(P + "CreDtTm").Single().Value);
         Assert.Equal(new[] { "BAGAGE22", "BAGAGE22", "TBCBGE22" }, document.Descendants(P + "BICFI").Select(e => e.Value));
-        Assert.Equal("INST", document.Descendants(P + "SvcLvl").Single().Value);
+        Assert.Equal("SEPA", document.Descendants(P + "SvcLvl").Single().Value);
         Assert.Equal("INST", document.Descendants(P + "LclInstrm").Single().Value);
         Assert.DoesNotContain("never-on-wire", xml);
         Assert.Equal(xml, new Pacs028Xml(new("NBGEGE22")).Build(payment, Original, Context));

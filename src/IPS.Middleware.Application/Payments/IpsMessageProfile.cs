@@ -7,9 +7,9 @@ namespace IPS.Middleware.Application.Payments;
 // accepted payment.
 public sealed record IpsMessageProfile
 {
-    public const string InstantServiceLevel = "INST";
+    public const string DefaultServiceLevel = Pacs008ProtocolProfile.DefaultServiceLevel;
 
-    public IpsMessageProfile(string ipsBic, string serviceLevelCode = InstantServiceLevel)
+    public IpsMessageProfile(string ipsBic, string serviceLevelCode = DefaultServiceLevel)
     {
         if (ipsBic is null || !Regex.IsMatch(ipsBic, Pacs008Text.Bic, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {

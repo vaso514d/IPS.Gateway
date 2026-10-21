@@ -212,6 +212,20 @@ public sealed class Pacs008ValidationTests
                 ]
             }
         }, "remittance.structured.reference"];
+        // Only the NBG workbook codes; SCOR belongs to the Cd choice of other messages, not to this Prtry.
+        yield return [r with
+        {
+            Remittance = new()
+            {
+                Structured = [new()
+                {
+                    ReferenceType = "SCOR",
+                    Reference = "RF18539007547034"
+                }
+
+                ]
+            }
+        }, "remittance.structured.referenceType"];
         yield return [r with
         {
             Remittance = new()

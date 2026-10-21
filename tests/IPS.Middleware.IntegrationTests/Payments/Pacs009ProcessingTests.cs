@@ -36,7 +36,7 @@ public sealed class Pacs009ProcessingTests
         Assert.Equal("P9-processing", document.Descendants(Pacs + "TxId").Single().Value);
         Assert.Equal("E2E-009", document.Descendants(Pacs + "EndToEndId").Single().Value);
         Assert.Equal("2026-10-04", document.Descendants(Pacs + "IntrBkSttlmDt").Last().Value);
-        Assert.Equal("INST", document.Descendants(Pacs + "SvcLvl").Single().Element(Pacs + "Cd")!.Value);
+        Assert.Equal("SEPA", document.Descendants(Pacs + "SvcLvl").Single().Element(Pacs + "Cd")!.Value);
         Assert.Equal("INTC", document.Descendants(Pacs + "Purp").Single().Element(Pacs + "Cd")!.Value);
         Assert.Equal("Liquidity transfer", document.Descendants(Pacs + "Ustrd").Single().Value);
         Assert.Equal("GE29NB0000000101904917", document.Descendants(Pacs + "DbtrAcct").Single().Descendants(Pacs + "IBAN").Single().Value);

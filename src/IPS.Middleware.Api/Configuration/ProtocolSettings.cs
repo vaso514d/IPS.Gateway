@@ -6,7 +6,7 @@ namespace IPS.Middleware.Api.Configuration;
 // The IPS counterparty in every message header is the NBG code of the bank identity (decision 016).
 internal sealed class ProtocolSettings
 {
-    public string ServiceLevelCode { get; set; } = Pacs008ProtocolProfile.InstantServiceLevel;
+    public string ServiceLevelCode { get; set; } = Pacs008ProtocolProfile.DefaultServiceLevel;
     public RemittanceDeliveryMethod RemittanceMethod { get; set; } = RemittanceDeliveryMethod.Uri;
 
     internal static Pacs008ProtocolProfile ReadProfile(IServiceProvider services, string section)
