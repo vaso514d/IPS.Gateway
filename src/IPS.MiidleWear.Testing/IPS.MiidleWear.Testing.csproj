@@ -9,7 +9,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <PackageId>IPS.MiidleWear.Testing</PackageId>
-    <Version>2.0.0-preview.1</Version>
+    <Version>3.0.0-preview.1</Version>
     <Description>Conformance checks for a core banking system's IClientPaymentReceiver: sends what the IPS middleware sends and reads the answers with its rules.</Description>
     <PackageTags>IPS;ISO20022;core banking;receiver;testing</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

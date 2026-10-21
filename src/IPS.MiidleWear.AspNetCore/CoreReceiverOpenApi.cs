@@ -18,7 +18,7 @@ public static class CoreReceiverOpenApi
     // The key the gateway sends with each delivery, as the operation's header description.
     private static readonly Dictionary<string, string> Keys = new(StringComparer.Ordinal)
     {
-        ["ReceivePacs008"] = "The payment's endToEndId.",
+        ["ReceiveIncomingPayment"] = "The payment's transactionId.",
         ["ReceivePacs009"] = "The transfer's endToEndId.",
         ["ReceivePacs004"] = "The return's id.",
         ["ReceivePain001"] = "The initiation's paymentInformationId.",
@@ -30,7 +30,7 @@ public static class CoreReceiverOpenApi
 
     private static readonly Dictionary<string, object> RequestExamples = new(StringComparer.Ordinal)
     {
-        ["ReceivePacs008"] = ReceiverExamples.Pacs008,
+        ["ReceiveIncomingPayment"] = ReceiverExamples.IncomingPayment,
         ["ReceivePacs009"] = ReceiverExamples.Pacs009,
         ["ReceivePacs004"] = ReceiverExamples.Pacs004,
         ["ReceivePain001"] = ReceiverExamples.Pain001,
@@ -104,9 +104,11 @@ public static class CoreReceiverOpenApi
 
         if (operation.Responses?.TryGetValue("200", out var answer) == true && answer.Content is { } answers)
         {
+            // The incoming instant payment has its own answer; the other kinds share one.
+            object example = name is "ReceiveIncomingPayment" or "GetIncomingPayment" ? ReceiverExamples.IncomingPaymentAnswer : ReceiverExamples.Answer;
             foreach (var media in answers.Values)
             {
-                media.Example = Serialize(ReceiverExamples.Answer);
+                media.Example = Serialize(example);
             }
         }
 

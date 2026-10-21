@@ -3,7 +3,7 @@ using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Application.Payments;
-using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Pacs008;
 using IPS.Middleware.Infrastructure.Inbound.Transfers;
 using IPS.Middleware.Infrastructure.Transport;
@@ -20,14 +20,20 @@ public sealed class IncomingCbsClient(
     ILogger<IncomingCbsClient> logger)
     : IIncomingCoreClient, IIncomingReversalClient, IIncomingTransferCoreClient
 {
-    public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request payment, CancellationToken cancellationToken)
+    // An incoming pacs.008 goes in its own envelope, keyed by the gateway's transactionId (specification 022).
+    public Task<CoreResponse> SubmitAsync(IncomingProcessingSnapshot snapshot, CancellationToken cancellationToken)
     {
-        var content = JsonContent.Create(IncomingPacs008CoreMapping.ToContract(payment));
-        return SendAsync(participantBic, HttpMethod.Post, settings.SubmissionPath, content, payment.EndToEndId, cancellationToken);
+        var payment = IncomingPaymentContract.Map(snapshot, bank);
+        return SendAsync(snapshot.Payment.ParticipantBic, HttpMethod.Post, settings.SubmissionPath, JsonContent.Create(payment),
+            payment.TransactionId, cancellationToken);
     }
 
-    public Task<CoreResponse> QueryAsync(string participantBic, string endToEndId, CancellationToken cancellationToken) =>
-        QueryAsync(participantBic, nameof(IpsMessageKind.Pacs008), endToEndId, cancellationToken);
+    public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken cancellationToken)
+    {
+        var transactionId = Uri.EscapeDataString(IncomingPaymentContract.TransactionId(payment.Id));
+        var path = settings.IncomingPaymentStatusPath.Replace(IncomingTransportSettings.TransactionIdPlaceholder, transactionId, StringComparison.Ordinal);
+        return SendAsync(payment.ParticipantBic, HttpMethod.Get, path, null, null, cancellationToken);
+    }
 
     public Task<CoreResponse> SubmitAsync(string participantBic, IIncomingTransferContent transfer, CancellationToken cancellationToken)
     {

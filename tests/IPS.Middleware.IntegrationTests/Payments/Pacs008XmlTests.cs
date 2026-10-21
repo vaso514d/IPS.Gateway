@@ -22,7 +22,8 @@ public sealed class Pacs008XmlTests
         Assert.Equal("stored-message", document.Descendants(H + "BizMsgIdr").Single().Value);
         Assert.Equal("stored-message", document.Descendants(P + "MsgId").Single().Value);
         Assert.Equal("stored-transaction", document.Descendants(P + "TxId").Single().Value);
-        Assert.Equal("2026-10-04", document.Descendants(P + "IntrBkSttlmDt").Single().Value);
+        // The UTC date of the acceptance time (owner decision, 2026-10-21), although it is already 10-04 in Georgia.
+        Assert.Equal("2026-10-03", document.Descendants(P + "IntrBkSttlmDt").Single().Value);
         Assert.Equal("2026-10-03T23:59:59.5000000Z", document.Descendants(P + "AccptncDtTm").Single().Value);
         Assert.Equal("12.34567", document.Descendants(P + "IntrBkSttlmAmt").Single().Value);
         Assert.Equal("GEL", document.Descendants(P + "IntrBkSttlmAmt").Single().Attribute("Ccy")!.Value);

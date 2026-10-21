@@ -11,7 +11,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <PackageId>IPS.MiidleWear.AspNetCore</PackageId>
-    <Version>2.0.0-preview.1</Version>
+    <Version>3.0.0-preview.1</Version>
     <Description>ASP.NET Core hosting of IClientPaymentReceiver: the receive, status-callback and payment-status endpoints the IPS middleware calls on a core banking system.</Description>
     <PackageTags>IPS;ISO20022;ASP.NET Core;core banking;receiver</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

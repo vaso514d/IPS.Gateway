@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Transfers;
 using IPS.Middleware.Domain.Inbound;
+using IPS.MiidleWear.Contracts.Pacs008;
 
 namespace IPS.Middleware.Infrastructure.Inbound.Pacs008;
 
@@ -16,22 +16,21 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
         AllowDuplicateProperties = false
     };
 
-    public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original) =>
-        Interpret(completion, reply =>
-            Matches(reply.EndToEndId, original.EndToEndId)
-            && Matches(reply.Id, original.GroupMessageId)
-            && Matches(reply.TxId, original.TransactionId));
+    // An incoming pacs.008 is answered in its own envelope (specification 022): ACCEPTED or REJECTED, echoing at most the
+    // payment's transactionId.
+    public CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPayment payment) =>
+        Interpret(completion, IncomingPaymentOutcome, reply => Matches(reply.TransactionId, IncomingPaymentContract.TransactionId(payment.Id)));
 
     CorePaymentResult IIncomingTransferReplyInterpreter.Interpret(CoreCallCompletion completion, IIncomingTransferContent transfer)
     {
         var echo = transfer.Echo;
-        return Interpret(completion, reply =>
+        return Interpret(completion, TransferOutcome, reply =>
             Echoes(reply.EndToEndId, echo.EndToEndId)
             && Echoes(reply.Id, echo.Id)
             && Echoes(reply.TxId, echo.TransactionId));
     }
 
-    private static CorePaymentResult Interpret(CoreCallCompletion completion, Func<CoreReply, bool> answersOriginal)
+    private static CorePaymentResult Interpret(CoreCallCompletion completion, Func<string?, CoreOutcome> readOutcome, Func<CoreReply, bool> answersOriginal)
     {
         var unknown = new CorePaymentResult(CoreOutcome.Unknown, completion.ObservedAtUtc, Description: completion.Failure);
         if (completion.Response is not { StatusCode: >= 200 and < 300 } response || Read(response.Body) is not { } reply)
@@ -39,7 +38,7 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
             return unknown;
         }
 
-        var outcome = ReadOutcome(reply.Status);
+        var outcome = readOutcome(reply.Status?.ToUpperInvariant());
         if (outcome == CoreOutcome.Unknown || !answersOriginal(reply))
         {
             return unknown;
@@ -51,13 +50,20 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
             reply.CoreReference,
             reply.ReasonCode,
             reply.InternalErrorCode,
-            reply.Description);
+            reply.ReasonDescription ?? reply.Description);
     }
 
-    private static CoreOutcome ReadOutcome(string? status) => status?.ToUpperInvariant() switch
+    private static CoreOutcome IncomingPaymentOutcome(string? status) => status switch
     {
-        "ACCP" => CoreOutcome.Accepted,
-        "RJCT" => CoreOutcome.Rejected,
+        IncomingPaymentStatuses.Accepted => CoreOutcome.Accepted,
+        IncomingPaymentStatuses.Rejected => CoreOutcome.Rejected,
+        _ => CoreOutcome.Unknown
+    };
+
+    private static CoreOutcome TransferOutcome(string? status) => status switch
+    {
+        Pacs008PaymentStatuses.Accepted => CoreOutcome.Accepted,
+        Pacs008PaymentStatuses.Rejected => CoreOutcome.Rejected,
         _ => CoreOutcome.Unknown
     };
 
@@ -79,15 +85,19 @@ public sealed class IncomingCoreReplyInterpreter : IIncomingCoreReplyInterpreter
     // A transfer checks only the identifiers it carries.
     private static bool Echoes(string? actual, string? expected) => actual is null || expected is null || actual == expected;
 
+    // The members of both answers: the incoming payment's (transactionId, reasonDescription) and the transfers' (ids,
+    // description); the rest are shared.
     private sealed record CoreReply
     {
         public string? Status { get; init; }
+        public string? TransactionId { get; init; }
         public string? EndToEndId { get; init; }
         public string? Id { get; init; }
         public string? TxId { get; init; }
         public DateTimeOffset? ProcessedAtUtc { get; init; }
         public string? CoreReference { get; init; }
         public string? ReasonCode { get; init; }
+        public string? ReasonDescription { get; init; }
         public int? InternalErrorCode { get; init; }
         public string? Description { get; init; }
 

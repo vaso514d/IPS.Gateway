@@ -71,7 +71,7 @@ public sealed class IncomingPaymentTests
     [InlineData("order")]
     [InlineData("missing")]
     [InlineData("case")]
-    public async Task Conflicting_contents_hold_the_new_receipt_and_leave_the_canonical_payment_unchanged(string change)
+    public async Task Conflicting_contents_keep_the_new_receipt_for_its_rejection_and_leave_the_canonical_payment_unchanged(string change)
     {
         await using var test = await Harness.CreateAsync();
         var first = await test.ReceiveAsync(1);
@@ -88,16 +88,16 @@ public sealed class IncomingPaymentTests
         Assert.Equivalent(new IncomingRegistration(IncomingRegistrationOutcome.Conflict, created.PaymentId), conflict, strict: true);
         await using var read = test.Database.Context();
         var receipt = (await new InboundReceiptRepository(read).ReadAsync(second.JournalId, default))!;
-        Assert.Equal(InboundProcessingStatus.Held, receipt.Status);
-        Assert.Equal(IncomingPaymentIntake.ConflictReason, receipt.HoldReason);
-        Assert.Null(receipt.NextActionAtUtc);
+        Assert.Equal(InboundProcessingStatus.Pending, receipt.Status);
+        Assert.Null(receipt.HoldReason);
         var payments = new IncomingPaymentRepository(read);
         Assert.Equal((null, "MSG-2"), await Attachment(read, second.JournalId));
         Assert.Equal(Incoming(message: "MSG-2").Original,
             await new InboundReceiptRepository(read).ReadOriginalReferencesAsync(second.JournalId, default));
         Assert.True(original.HasSameContents((await payments.FindAsync(Participant, "E2E-1", default))!.Request));
         Assert.Single(await Events(read, created.PaymentId!.Value));
-        Assert.Equal(new[] { first.JournalId }, await new InboundWorkRepository(read).FindDueAsync(Now + Lease, 10, default));
+        // The conflicting receipt stays owned until its rejection is prepared, so it is due again after the lease.
+        Assert.Equal(new[] { first.JournalId, second.JournalId }.Order(), (await new InboundWorkRepository(read).FindDueAsync(Now + Lease, 10, default)).Order());
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public sealed class IncomingPaymentTests
         Assert.True(contents[winner].HasSameContents((await new IncomingPaymentRepository(read).FindAsync(Participant, "E2E-1", default))!.Request));
         Assert.Equal(conflicting ? null : results[winner].PaymentId, (await Attachment(read, claims[loser].JournalId)).PaymentId);
         var receipt = (await new InboundReceiptRepository(read).ReadAsync(claims[loser].JournalId, default))!;
-        Assert.Equal(conflicting ? InboundProcessingStatus.Held : InboundProcessingStatus.Pending, receipt.Status);
+        Assert.Equal(InboundProcessingStatus.Pending, receipt.Status);
         Assert.Single(await Events(read, results[winner].PaymentId!.Value));
     }
 
@@ -238,7 +238,7 @@ public sealed class IncomingPaymentTests
         await using var committed = test.Database.Context();
         var stored = new InboundReceiptRepository(committed);
         Assert.Equal(conflict.Original, await stored.ReadOriginalReferencesAsync(claim.JournalId, default));
-        Assert.Equal(InboundProcessingStatus.Held, (await stored.ReadAsync(claim.JournalId, default))!.Status);
+        Assert.Equal(InboundProcessingStatus.Pending, (await stored.ReadAsync(claim.JournalId, default))!.Status);
         Assert.Equal((null, "CONFLICT"), await Attachment(committed, claim.JournalId));
     }
 

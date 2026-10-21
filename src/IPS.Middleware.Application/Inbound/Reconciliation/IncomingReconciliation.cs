@@ -127,7 +127,7 @@ public sealed class IncomingReconciliation(
     private Task<CoreResponse> SendAsync(IncomingProcessingSnapshot snapshot, IncomingCoreCall call, CancellationToken callToken) =>
         call.Kind == CoreCallKind.Reversal
             ? reversals.RequestAsync(call.Notification!, callToken)
-            : core.QueryAsync(snapshot.Payment.ParticipantBic, snapshot.Payment.EndToEndId, callToken);
+            : core.QueryAsync(snapshot.Payment, callToken);
 
     private ReversalNotification BeginReversal(ClaimedIncomingPayment claimed)
     {
@@ -174,7 +174,7 @@ public sealed class IncomingReconciliation(
         }
         else
         {
-            claimed.Payment.RecordCoreResult(replies.Interpret(completion, claimed.Snapshot.Context.Original), Now);
+            claimed.Payment.RecordCoreResult(replies.Interpret(completion, claimed.Payment), Now);
         }
     }
 

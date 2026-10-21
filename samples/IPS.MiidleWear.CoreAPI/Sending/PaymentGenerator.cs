@@ -157,9 +157,9 @@ public sealed class PaymentGenerator(IOptions<GatewayOptions> options)
         };
     }
 
-    // The gateway settles a pacs.008 on its acceptance day in Georgian time (Pacs008Message.SettlementOffset).
+    // The gateway settles a pacs.008 on the UTC date of its acceptance time (IntrBkSttlmDt).
     private static DateOnly? SettlementDate(Pacs008InstantPaymentRequestDto payment) =>
-        payment.AcceptanceDateTime is { } accepted ? DateOnly.FromDateTime(accepted.ToOffset(TimeSpan.FromHours(4)).DateTime) : null;
+        payment.AcceptanceDateTime is { } accepted ? DateOnly.FromDateTime(accepted.UtcDateTime) : null;
 
     private static Camt056PartyDto Party(string? name, int? type, string? identifier, string? account) =>
         new() { Name = name, Type = type, Id = identifier, Account = account };

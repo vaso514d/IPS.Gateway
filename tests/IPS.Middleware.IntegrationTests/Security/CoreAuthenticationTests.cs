@@ -122,7 +122,7 @@ public sealed class CoreAuthenticationTests
         using var certificates = new TransportCertificates();
         using var gateway = IncomingHttpClientTests.Services(WithCoreAuthentication(IncomingHttpClientTests.Settings(core.Urls.Single(), certificates), token, signing: null));
 
-        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Payment(), default);
+        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(IncomingHttpClientTests.Snapshot(Payment()), default);
 
         Assert.Equal((int)expected, response.StatusCode);
     }
@@ -144,8 +144,8 @@ public sealed class CoreAuthenticationTests
                 new IpsSigningSettings { Path = pfx, Password = "secret", Algorithm = "PS256" }));
             using var unsignedGateway = IncomingHttpClientTests.Services(settings);
 
-            var signed = await signedGateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Payment(), default);
-            var unsigned = await unsignedGateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Payment(), default);
+            var signed = await signedGateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(IncomingHttpClientTests.Snapshot(Payment()), default);
+            var unsigned = await unsignedGateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(IncomingHttpClientTests.Snapshot(Payment()), default);
 
             Assert.Equal(200, signed.StatusCode);
             Assert.Equal(401, unsigned.StatusCode);
@@ -163,7 +163,7 @@ public sealed class CoreAuthenticationTests
         using var certificates = new TransportCertificates();
         using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(core.Urls.Single(), certificates));
 
-        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Payment(), default);
+        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(IncomingHttpClientTests.Snapshot(Payment()), default);
 
         Assert.Equal(200, response.StatusCode);
     }

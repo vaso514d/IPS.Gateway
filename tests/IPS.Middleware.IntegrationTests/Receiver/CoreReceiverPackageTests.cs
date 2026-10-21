@@ -46,19 +46,45 @@ public sealed class CoreReceiverPackageTests
 
     public static TheoryData<string> Kinds() => new() { "pacs.009", "pacs.004", "pain.001", "camt.056", "camt.055", "camt.029" };
 
+    // Specification 022: the envelope, keyed by the gateway's transactionId, with the IPS references and the receipt time.
     [Fact]
-    public async Task An_incoming_pacs008_reaches_the_receiver_with_its_key_and_an_accp_is_final()
+    public async Task An_incoming_pacs008_reaches_the_receiver_in_its_envelope_and_an_accepted_is_final()
     {
         await using var receiver = await ReceiverHost.StartAsync();
         using var certificates = new TransportCertificates();
         using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
 
-        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Pacs008(), default);
+        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Snapshot(), default);
 
         var call = Assert.Single(receiver.Script.Calls);
-        Assert.Equal((nameof(IClientPaymentReceiver.ReceivePacs008Async), "E2E-008"), (call.Operation, call.HeaderKey));
+        Assert.Equal((nameof(IClientPaymentReceiver.ReceiveIncomingPaymentAsync), TransactionId), (call.Operation, call.HeaderKey));
         Assert.Equal(call.HeaderKey, call.ContractKey);
-        Assert.Equal(CoreOutcome.Accepted, Interpret(response).Status);
+        var delivered = Assert.Single(receiver.Script.IncomingPayments);
+        Assert.Equal((TransactionId, IncomingOperationTypes.InstantPayment), (delivered.TransactionId, delivered.OperationType));
+        var data = delivered.Data!;
+        Assert.Equal(("MSG-008", "INSTR-008", "E2E-008", "TX-008", ReceivedAt), (data.MessageId, data.InstructionId, data.EndToEndId, data.IsoTransactionId, data.ReceivedAt));
+        Assert.Equal((IncomingAccountTypes.TreasuryCode, null, "200122900"), (data.Debtor!.Account!.Type, data.Debtor.Account.Iban, data.Debtor.Account.TreasuryCode));
+        Assert.Equal((0, "204377003", "TRESGE22"), (data.Debtor.PartyType, data.Debtor.Identifier, data.Debtor.ParticipantBic));
+        Assert.Equal((IncomingAccountTypes.Iban, "GE29NB0000000101904917", null), (data.Creditor!.Account!.Type, data.Creditor.Account.Iban, data.Creditor.Account.TreasuryCode));
+        var result = Interpret(response);
+        Assert.Equal((CoreOutcome.Accepted, "POSTING-" + TransactionId), (result.Status, result.CoreReference));
+    }
+
+    [Fact]
+    public async Task The_incoming_payment_status_query_answers_the_stored_result_and_404_for_a_payment_never_received()
+    {
+        await using var receiver = await ReceiverHost.StartAsync();
+        using var certificates = new TransportCertificates();
+        using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
+        var core = gateway.GetRequiredService<IIncomingCoreClient>();
+        var snapshot = Snapshot();
+        await core.SubmitAsync(snapshot, default);
+
+        var known = await core.QueryAsync(snapshot.Payment, default);
+        var unknown = await core.QueryAsync(IncomingPayment.Register(Guid.NewGuid(), Participant, "E2E-NEVER", ReceivedAt), default);
+
+        Assert.Equal(CoreOutcome.Accepted, Interpret(known).Status);
+        Assert.Equal(404, unknown.StatusCode);
     }
 
     [Theory]
@@ -80,39 +106,40 @@ public sealed class CoreReceiverPackageTests
 
     public static TheoryData<string, CoreOutcome> Answers() => new()
     {
-        { "ACCP", CoreOutcome.Accepted },
-        { "RJCT", CoreOutcome.Rejected },
-        { "PDNG", CoreOutcome.Unknown },
+        { "ACCEPTED", CoreOutcome.Accepted },
+        { "REJECTED", CoreOutcome.Rejected },
+        { "PENDING", CoreOutcome.Unknown },
         { "throw", CoreOutcome.Unknown },
-        { "other-e2e", CoreOutcome.Unknown },
-        { "message-id", CoreOutcome.Unknown }
+        { "other-transaction", CoreOutcome.Unknown },
+        { "ACCP", CoreOutcome.Unknown }
     };
 
+    // Only ACCEPTED or REJECTED for this payment is final; the transfers' ACCP is not an answer here.
     [Theory]
     [MemberData(nameof(Answers))]
-    public async Task Only_an_accp_or_an_rjct_with_matching_ids_is_final_and_a_receiver_failure_is_a_500(string answer, CoreOutcome outcome)
+    public async Task Only_an_accepted_or_a_rejected_for_the_payment_is_final_and_a_receiver_failure_is_a_500(string answer, CoreOutcome outcome)
     {
         await using var receiver = await ReceiverHost.StartAsync();
-        receiver.Script.Answer = (message, key) => answer switch
+        receiver.Script.IncomingAnswer = key => answer switch
         {
-            "RJCT" => Pacs008PaymentResultDto.Reject(null, key, null, "AC04"),
-            "PDNG" => Pacs008PaymentResultDto.Pending(null, key, null),
+            "REJECTED" => IncomingPaymentResultDto.Rejected(key, "AC04", "Account closed"),
+            "PENDING" => IncomingPaymentResultDto.Pending(key),
             "throw" => throw new InvalidOperationException("Core database unavailable."),
-            "other-e2e" => Pacs008PaymentResultDto.Accept(null, "ANOTHER", null),
-            "message-id" => Pacs008PaymentResultDto.Accept("ANY-MESSAGE-ID", key, null),
-            _ => Pacs008PaymentResultDto.Accept(null, key, null, "POSTING-1")
+            "other-transaction" => IncomingPaymentResultDto.Accepted("ANOTHER"),
+            "ACCP" => new IncomingPaymentResultDto { TransactionId = key, Status = "ACCP" },
+            _ => IncomingPaymentResultDto.Accepted(key, "POSTING-1")
         };
         using var certificates = new TransportCertificates();
         using var gateway = IncomingHttpClientTests.Services(IncomingHttpClientTests.Settings(receiver.Url, certificates));
 
-        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Participant, Pacs008(), default);
+        var response = await gateway.GetRequiredService<IIncomingCoreClient>().SubmitAsync(Snapshot(), default);
 
         Assert.Equal(answer == "throw" ? 500 : 200, response.StatusCode);
         var result = Interpret(response);
         Assert.Equal(outcome, result.Status);
         if (outcome == CoreOutcome.Rejected)
         {
-            Assert.Equal("AC04", result.ReasonCode);
+            Assert.Equal(("AC04", "Account closed"), (result.ReasonCode, result.Description));
         }
     }
 
@@ -163,9 +190,9 @@ public sealed class CoreReceiverPackageTests
         receiver.Script.Answer = (_, key) => Pacs008PaymentResultDto.Accept(null, key, null);
         using var http = new HttpClient { BaseAddress = new Uri(receiver.Url) };
 
-        using var accepted = await http.PostAsync("/api/ips/pacs008/receive",
+        using var accepted = await http.PostAsync("/api/ips/pacs009/receive",
             new StringContent("""{"endToEndId":"E2E-RAW","amount":null,"unknownMember":1}""", Encoding.UTF8, "application/json"));
-        using var malformed = await http.PostAsync("/api/ips/pacs008/receive", new StringContent("{not json", Encoding.UTF8, "application/json"));
+        using var malformed = await http.PostAsync("/api/ips/pacs009/receive", new StringContent("{not json", Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         using var body = JsonDocument.Parse(await accepted.Content.ReadAsStringAsync());
@@ -190,7 +217,7 @@ public sealed class CoreReceiverPackageTests
             .Select(endpoint => (endpoint.HttpMethod, endpoint.Route))
             .Order()
             .ToArray();
-        Assert.Equal(9, declared.Length);
+        Assert.Equal(10, declared.Length);
         Assert.Equal(declared, mapped);
     }
 
@@ -205,9 +232,28 @@ public sealed class CoreReceiverPackageTests
         Assert.Contains(nameof(IpsCoreReceiverExtensions.AddIpsCoreReceiver), error.Message, StringComparison.Ordinal);
     }
 
+    private static readonly Guid PaymentId = Guid.Parse("3f2504e0-4f89-11d3-9a0c-0305e82c3301");
+    private static readonly string TransactionId = PaymentId.ToString("D");
+    private static readonly DateTimeOffset ReceivedAt = new(2026, 10, 21, 10, 0, 0, TimeSpan.Zero);
+
     private static CorePaymentResult Interpret(CoreResponse response) =>
         new IncomingCoreReplyInterpreter().Interpret(new CoreCallCompletion(response, null, DateTimeOffset.UtcNow),
-            new IncomingPacs008Reference("BAH-008", "MSG-008", "E2E-008", "TX-008", null, null, null, null, null, null));
+            IncomingPayment.Register(PaymentId, Participant, "E2E-008", ReceivedAt));
+
+    // The payment as the gateway stored it, from the Treasury: the debtor account is a Treasury code because its bank is
+    // the Treasury (TRESGE22 in IncomingHttpClientTests.Services), the creditor account an IBAN.
+    private static IncomingProcessingSnapshot Snapshot() => new(
+        IncomingPayment.Register(PaymentId, Participant, "E2E-008", ReceivedAt),
+        Pacs008() with
+        {
+            Debtor = new() { Type = 0, Name = "Treasury", Identifier = "204377003", ParticipantBic = "TRESGE22", Account = "200122900" },
+            Creditor = new() { Type = 1, Name = "Payee", Identifier = "01001012345", ParticipantBic = Participant, Account = "GE29NB0000000101904917" }
+        },
+        new IncomingProcessingContext(Guid.NewGuid(), ReceivedAt, ReceivedAt.AddSeconds(20),
+            new IncomingPacs008Reference("BAH-008", "MSG-008", "E2E-008", "TX-008", null, null, null, "BAGAGE22", null, null)),
+        [],
+        null,
+        null);
 
     private static CorePaymentResult InterpretTransfer(CoreResponse response, IIncomingTransferContent transfer) =>
         ((IIncomingTransferReplyInterpreter)new IncomingCoreReplyInterpreter()).Interpret(new CoreCallCompletion(response, null, DateTimeOffset.UtcNow), transfer);
@@ -297,6 +343,24 @@ public sealed class CoreReceiverPackageTests
             return answer;
         }
 
+        private readonly ConcurrentDictionary<string, IncomingPaymentResultDto> _incoming = new();
+
+        public ConcurrentQueue<IncomingPaymentRequestDto> IncomingPayments { get; } = new();
+
+        public Func<string, IncomingPaymentResultDto> IncomingAnswer { get; set; } = key => IncomingPaymentResultDto.Accepted(key, "POSTING-" + key);
+
+        public IncomingPaymentResultDto ReceiveIncoming(IncomingPaymentRequestDto payment, string? headerKey)
+        {
+            var key = IpsIdempotencyKeys.For(payment);
+            Calls.Enqueue(new(nameof(IClientPaymentReceiver.ReceiveIncomingPaymentAsync), headerKey, key));
+            IncomingPayments.Enqueue(payment);
+            var answer = IncomingAnswer(key!);
+            _incoming[key!] = answer;
+            return answer;
+        }
+
+        public IncomingPaymentResultDto? FindIncoming(string transactionId) => _incoming.GetValueOrDefault(transactionId);
+
         public Pacs008PaymentResultDto? Find(InboundPaymentStatusQueryDto query, string? headerKey)
         {
             Queries.Enqueue(new(query.MessageKind, query.Reference, headerKey));
@@ -306,8 +370,11 @@ public sealed class CoreReceiverPackageTests
 
     private sealed class ScriptedReceiver(ReceiverScript script, IIpsReceiveContext context) : IClientPaymentReceiver
     {
-        public Task<Pacs008PaymentResultDto> ReceivePacs008Async(Pacs008InstantPaymentRequestDto payment, CancellationToken cancellationToken) =>
-            Task.FromResult(script.Receive(nameof(ReceivePacs008Async), payment, context.IdempotencyKey, IpsIdempotencyKeys.For(payment)));
+        public Task<IncomingPaymentResultDto> ReceiveIncomingPaymentAsync(IncomingPaymentRequestDto payment, CancellationToken cancellationToken) =>
+            Task.FromResult(script.ReceiveIncoming(payment, context.IdempotencyKey));
+
+        public Task<IncomingPaymentResultDto?> GetIncomingPaymentAsync(string transactionId, CancellationToken cancellationToken) =>
+            Task.FromResult(script.FindIncoming(transactionId));
 
         public Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken) =>
             Task.FromResult(script.Receive(nameof(ReceivePacs009Async), payment, context.IdempotencyKey, IpsIdempotencyKeys.For(payment)));

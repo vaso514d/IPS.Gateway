@@ -13,13 +13,21 @@ using Microsoft.Extensions.Options;
 
 namespace IPS.MiidleWear.CoreAPI;
 
-// The bank's part: the nine operations. IPS.MiidleWear.AspNetCore maps them to the gateway's routes, JSON and status codes.
+// The bank's part: the ten operations. IPS.MiidleWear.AspNetCore maps them to the gateway's routes, JSON and status codes.
 public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context, IOptions<SampleOptions> options, TimeProvider timeProvider)
     : IClientPaymentReceiver
 {
-    // A pacs.008 delivery carries no message or transaction id, so only the end-to-end id is echoed.
-    public Task<Pacs008PaymentResultDto> ReceivePacs008Async(Pacs008InstantPaymentRequestDto payment, CancellationToken cancellationToken) =>
-        ReceiveAsync("pacs.008", IpsMessageKind.Pacs008, IpsIdempotencyKeys.For(payment), new Echo(null, payment.EndToEndId, null));
+    // An incoming instant payment is posted once per transactionId, like every other kind, and answered in its own envelope.
+    public async Task<IncomingPaymentResultDto> ReceiveIncomingPaymentAsync(IncomingPaymentRequestDto payment, CancellationToken cancellationToken)
+    {
+        var transactionId = context.IdempotencyKey ?? IpsIdempotencyKeys.For(payment)
+            ?? throw new InvalidOperationException("The delivery carries no transactionId.");
+        var answer = await ReceiveAsync("pacs.008", IpsMessageKind.Pacs008, transactionId, new Echo(null, null, null));
+        return ToIncomingPayment(transactionId, answer);
+    }
+
+    public Task<IncomingPaymentResultDto?> GetIncomingPaymentAsync(string transactionId, CancellationToken cancellationToken) =>
+        Task.FromResult(ledger.Find(IpsMessageKind.Pacs008, transactionId) is { } answer ? ToIncomingPayment(transactionId, answer) : null);
 
     public Task<Pacs008PaymentResultDto> ReceivePacs009Async(Pacs009PaymentRequestDto payment, CancellationToken cancellationToken) =>
         ReceiveAsync("pacs.009", IpsMessageKind.Pacs009, IpsIdempotencyKeys.For(payment), new Echo(payment.Id, payment.EndToEndId, payment.TxId));
@@ -65,6 +73,13 @@ public sealed class SampleReceiver(CoreLedger ledger, IIpsReceiveContext context
             return Answer(kind, key, echo);
         });
     }
+
+    private static IncomingPaymentResultDto ToIncomingPayment(string transactionId, Pacs008PaymentResultDto answer) => answer.Status switch
+    {
+        Pacs008PaymentStatuses.Accepted => IncomingPaymentResultDto.Accepted(transactionId, answer.CoreReference),
+        Pacs008PaymentStatuses.Rejected => IncomingPaymentResultDto.Rejected(transactionId, answer.ReasonCode!, answer.Description),
+        _ => IncomingPaymentResultDto.Pending(transactionId)
+    };
 
     private Pacs008PaymentResultDto Answer(string kind, string key, Echo echo)
     {

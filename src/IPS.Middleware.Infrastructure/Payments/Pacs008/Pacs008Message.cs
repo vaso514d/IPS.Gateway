@@ -17,7 +17,8 @@ internal static class Pacs008Message
     private const string LocalInstrument = "INST";
     private const string IndirectClearingSystem = "GE";
     private const string BillIdentificationScheme = "BILL";
-    private static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
+    // GrpHdr/IntrBkSttlmDt is the UTC calendar date of the acceptance time (owner decision, 2026-10-21).
+    internal static DateOnly SettlementDate(DateTimeOffset acceptance) => DateOnly.FromDateTime(acceptance.UtcDateTime);
 
     internal static XElement Build(ValidatedPacs008 payment, PaymentMessageContext context, Pacs008ProtocolProfile profile) =>
         IpsEnvelope.Wrap(
@@ -44,7 +45,7 @@ internal static class Pacs008Message
             new XElement(P + "CreDtTm", Timestamp(payment.CreationDateTime)),
             new XElement(P + "NbOfTxs", 1),
             Amount("TtlIntrBkSttlmAmt", payment),
-            new XElement(P + "IntrBkSttlmDt", payment.AcceptanceDateTime.ToOffset(SettlementOffset)
+            new XElement(P + "IntrBkSttlmDt", SettlementDate(payment.AcceptanceDateTime)
                 .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
             new XElement(P + "SttlmInf",
                 new XElement(P + "SttlmMtd", "CLRG"),

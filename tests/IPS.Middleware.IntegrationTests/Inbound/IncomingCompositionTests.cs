@@ -42,7 +42,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     {
         await using var h = await Harness.CreateAsync(fixture);
         var id = await h.SeedAsync();
-        h.Core.Response = new(200, accepted ? "{\"status\":\"ACCP\"}" : "{\"status\":\"RJCT\",\"reasonCode\":\"AC01\"}");
+        h.Core.Response = new(200, accepted ? "{\"status\":\"ACCEPTED\"}" : "{\"status\":\"REJECTED\",\"reasonCode\":\"AC01\"}");
         h.Reply.Response = fixture.Response(accepted ? "accepted" : "rejected");
         h.Core.BeforeSubmit = async () =>
         {
@@ -312,10 +312,11 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         await using var server = await HttpSimulator.StartAsync(async context =>
         {
             paths.Enqueue(context.Request.Path.Value!);
-            if (context.Request.Path == "/api/ips/pacs008/receive")
+            if (context.Request.Path == "/stp/incoming-payments")
             {
-                Assert.Equal("E2E-1", context.Request.Headers["Idempotency-Key"]);
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
+                // Specification 022: the key is the gateway's transactionId, the payment's identity.
+                Assert.True(Guid.TryParse(context.Request.Headers["Idempotency-Key"], out _));
+                await context.Response.WriteAsync("{\"status\":\"ACCEPTED\"}");
             }
             else if (context.Request.Path == "/Message")
             {
@@ -345,7 +346,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             services.AddIncomingHttpClients();
         });
         Assert.Equal(IncomingCompositionStatus.Terminal, (await h.RunAsync(await h.SeedAsync())).Status);
-        Assert.Equal(new[] { "/api/ips/pacs008/receive", "/Message" }, paths.ToArray());
+        Assert.Equal(new[] { "/stp/incoming-payments", "/Message" }, paths.ToArray());
     }
 
     [Fact]
@@ -391,17 +392,25 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
         Assert.Equal(IncomingReplyStatus.Delivered, (await h.SnapshotAsync(id)).Status);
     }
 
+    // A different payment with a registered EndToEndId is a duplicate: IPS is told RJCT AM05 at once, the core system never
+    // sees it and the registered payment is untouched (owner decision, 2026-10-21).
     [Fact]
-    public async Task Conflicting_payment_details_are_held_without_another_submission_or_reply()
+    public async Task A_duplicate_end_to_end_id_is_rejected_at_once_without_another_submission()
     {
         await using var h = await Harness.CreateAsync(fixture);
         await h.RunAsync(await h.SeedAsync());
         var xml = IncomingPacs008Fixture.Xml.Replace("12.50", "13.50", StringComparison.Ordinal);
         var signed = (await IpsReplies.SignAsync(fixture.Input.Certificate, xml))[0];
         var conflict = await h.SeedAsync(2, rawXml: signed);
-        Assert.Equal(IncomingCompositionStatus.Held, (await h.RunAsync(conflict)).Status);
+        h.Reply.Response = fixture.Response("rejected");
+
+        Assert.NotEqual(IncomingCompositionStatus.Held, (await h.RunAsync(conflict)).Status);
+
+        var reply = await h.SnapshotAsync(conflict);
+        Assert.Equal((false, "AM05", IncomingReplyStatus.Delivered), (reply.Envelope.Decision.Accepted, reply.Envelope.Decision.ReasonCode, reply.Status));
         Assert.Single(h.Core.Submissions);
-        Assert.Single(h.Reply.Messages);
+        Assert.Equal(2, h.Reply.Messages.Count);
+        Assert.Contains(">AM05<", h.Reply.Messages.Last(), StringComparison.Ordinal);
         Assert.Null((await h.Execution.ReadAsync(conflict, default))!.PaymentId);
     }
 
@@ -470,12 +479,12 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
     {
         public ConcurrentQueue<string> Submissions { get; } = new();
         public int Queries { get; private set; }
-        public CoreResponse Response { get; set; } = new(200, "{\"status\":\"ACCP\"}");
+        public CoreResponse Response { get; set; } = new(200, "{\"status\":\"ACCEPTED\"}");
         public Func<Task>? BeforeSubmit { get; set; }
         public Action? AfterSubmit { get; set; }
-        public async Task<CoreResponse> SubmitAsync(string participant, Pacs008Request payment, CancellationToken token)
+        public async Task<CoreResponse> SubmitAsync(IncomingProcessingSnapshot snapshot, CancellationToken token)
         {
-            Submissions.Enqueue(payment.EndToEndId!);
+            Submissions.Enqueue(snapshot.Request.EndToEndId!);
             if (BeforeSubmit is not null)
             {
                 await BeforeSubmit();
@@ -484,7 +493,7 @@ public sealed class IncomingCompositionTests(IncomingReplyFixture fixture) : ICl
             AfterSubmit?.Invoke();
             return Response;
         }
-        public Task<CoreResponse> QueryAsync(string participant, string endToEndId, CancellationToken token)
+        public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken token)
         {
             Queries++;
             return Task.FromResult(Response);

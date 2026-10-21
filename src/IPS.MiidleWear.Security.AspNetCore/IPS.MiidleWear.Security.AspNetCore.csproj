@@ -11,7 +11,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <PackageId>IPS.MiidleWear.Security.AspNetCore</PackageId>
-    <Version>2.0.0-preview.1</Version>
+    <Version>3.0.0-preview.1</Version>
     <Description>ASP.NET Core authentication between a core banking system and the IPS middleware: static API tokens and request signatures, required as configured on the endpoints marked [RequireIpsAuthentication].</Description>
     <PackageTags>IPS;ISO20022;core banking;signature;authentication;ASP.NET Core</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

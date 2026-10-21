@@ -115,13 +115,13 @@ public sealed class IncomingPacs008Processing(
 
     private Task<CoreResponse> SendAsync(IncomingProcessingSnapshot snapshot, CoreCallKind kind, CancellationToken callToken) =>
         kind == CoreCallKind.Submission
-            ? core.SubmitAsync(snapshot.Payment.ParticipantBic, snapshot.Request, callToken)
-            : core.QueryAsync(snapshot.Payment.ParticipantBic, snapshot.Payment.EndToEndId, callToken);
+            ? core.SubmitAsync(snapshot, callToken)
+            : core.QueryAsync(snapshot.Payment, callToken);
 
     private async Task InterpretAsync(ClaimedIncomingPayment claimed, IncomingCoreCall call, CancellationToken cancellationToken)
     {
         await processing.StageConsumptionAsync(claimed.Claim, call.Id, Now, cancellationToken);
-        var result = replies.Interpret(call.Completion!, claimed.Snapshot.Context.Original);
+        var result = replies.Interpret(call.Completion!, claimed.Payment);
         claimed.Payment.RecordCoreResult(result, Now);
 
         // Final outcomes, the IPS decision and follow-up release share one commit. Nonfinal evidence is consumed before querying again.

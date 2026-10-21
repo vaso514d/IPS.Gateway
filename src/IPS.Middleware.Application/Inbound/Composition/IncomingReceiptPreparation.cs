@@ -70,7 +70,7 @@ public sealed class IncomingReceiptPreparation(
         {
             IncomingPacs008ReadResult.Hold held => await HoldAsync(claim, held.Reason, now, token),
             IncomingPacs008ReadResult.Reject rejected => await PrepareRejectionAsync(claim, receipt, rejected, now, token),
-            IncomingPacs008ReadResult.Ready ready => await RegisterAsync(claim, ready.Payment, now, token),
+            IncomingPacs008ReadResult.Ready ready => await RegisterAsync(claim, receipt, ready.Payment, now, token),
             _ => throw new InvalidOperationException("Unsupported protocol result.")
         };
     }
@@ -141,15 +141,24 @@ public sealed class IncomingReceiptPreparation(
         return new IncomingCompositionResult(IncomingCompositionStatus.ReplyReady);
     }
 
-    private async Task<IncomingCompositionResult> RegisterAsync(InboundClaim claim, IncomingPacs008 payment, DateTimeOffset now, CancellationToken token)
+    // A duplicate EndToEndId is rejected at once (AM05), so the sender learns it now rather than at the IPS deadline.
+    private async Task<IncomingCompositionResult> RegisterAsync(
+        InboundClaim claim,
+        InboundReceipt receipt,
+        IncomingPacs008 payment,
+        DateTimeOffset now,
+        CancellationToken token)
     {
         var registered = await intake.RegisterAndReleaseAsync(claim, payment, now + options.ContinuationDelay, token);
-        var status = registered.Outcome switch
+        if (registered.Outcome == IncomingRegistrationOutcome.Conflict)
         {
-            IncomingRegistrationOutcome.Conflict => IncomingCompositionStatus.Held,
-            IncomingRegistrationOutcome.LostOwnership => IncomingCompositionStatus.OwnershipLost,
-            _ => IncomingCompositionStatus.Deferred
-        };
+            var duplicate = new IncomingPacs008ReadResult.Reject(payment.Original, IncomingPaymentIntake.DuplicateReasonCode, IncomingPaymentIntake.ConflictReason);
+            return await PrepareRejectionAsync(claim, receipt, duplicate, now, token);
+        }
+
+        var status = registered.Outcome == IncomingRegistrationOutcome.LostOwnership
+            ? IncomingCompositionStatus.OwnershipLost
+            : IncomingCompositionStatus.Deferred;
         return new IncomingCompositionResult(status, registered.PaymentId);
     }
 

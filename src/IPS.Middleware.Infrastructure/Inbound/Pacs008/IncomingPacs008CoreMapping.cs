@@ -75,7 +75,7 @@ public static class IncomingPacs008CoreMapping
         Identifier = value.Identifier
     };
 
-    private static Pacs008PostalAddressDto? Address(Pacs008PostalAddressInput? value) => value is null ? null : new()
+    internal static Pacs008PostalAddressDto? Address(Pacs008PostalAddressInput? value) => value is null ? null : new()
     {
         StreetName = value.StreetName,
         BuildingNumber = value.BuildingNumber,

@@ -13,21 +13,49 @@ namespace IPS.MiidleWear.AspNetCore;
 // IpsJson.SerializerOptions. The values follow the Contracts wire cases, so the document shows real wire shapes.
 internal static class ReceiverExamples
 {
-    internal static readonly Pacs008InstantPaymentRequestDto Pacs008 = new()
+    internal static readonly IncomingPaymentRequestDto IncomingPayment = new()
     {
-        ClientReference = "CBS-008",
-        EndToEndId = "E2E-008",
-        Amount = 125.5m,
-        Currency = "GEL",
-        Debtor = new() { ParticipantBic = "BAGAGE22", Name = "Test Debtor", Account = "GE00TEST00000000000000" },
-        Creditor = new() { Name = "Test Creditor", ParticipantBic = "TBCBGE22", Account = "GE00TEST00000000000001" },
-        InitiationChannelInstrument = new() { ChannelCode = "MOBL", InstrumentCodes = ["PRXY"] },
-        Remittance = new()
+        TransactionId = "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+        OperationType = IncomingOperationTypes.InstantPayment,
+        Data = new()
         {
-            Unstructured = "Test payment",
-            Structured = [new() { ReferenceType = "MCC", Reference = "5411" }]
+            MessageId = "BANKA202609250001234567",
+            InstructionId = "BANK-PMT-20260925-000123",
+            EndToEndId = "E2E-20260925-000123",
+            IsoTransactionId = "TX-20260925-000123",
+            ReceivedAt = new DateTimeOffset(2026, 9, 25, 14, 20, 15, 350, TimeSpan.FromHours(4)),
+            CreationDateTime = new DateTimeOffset(2026, 9, 25, 14, 20, 10, 200, TimeSpan.FromHours(4)),
+            AcceptanceDateTime = new DateTimeOffset(2026, 9, 25, 14, 20, 10, 700, TimeSpan.FromHours(4)),
+            Amount = 100.00m,
+            Currency = "GEL",
+            InstructionPriority = "NORM",
+            CategoryPurposeCode = "OTHR",
+            Debtor = new()
+            {
+                Name = "Giorgi Maisuradze",
+                PartyType = 1,
+                Identifier = "01001012345",
+                ParticipantBic = "BAGAGE22",
+                Account = new() { Type = IncomingAccountTypes.Iban, Iban = "GE29NB0000000101904917" }
+            },
+            Creditor = new()
+            {
+                Name = "Nino Beridze",
+                PartyType = 1,
+                Identifier = "01002012345",
+                Account = new() { Type = IncomingAccountTypes.Iban, Iban = "GE95TB0000000123456789" }
+            },
+            InitiationChannelInstrument = new() { ChannelCode = "MOBL", InstrumentCodes = ["PRXY"] },
+            Remittance = new()
+            {
+                Unstructured = "Invoice 2026-000123 payment",
+                Structured = [new() { ReferenceType = "SERV", Reference = "ORDER-2026-000123" }]
+            }
         }
     };
+
+    internal static readonly IncomingPaymentResultDto IncomingPaymentAnswer =
+        IncomingPaymentResultDto.Accepted("3f2504e0-4f89-11d3-9a0c-0305e82c3301", coreReference: "POSTING-000123");
 
     internal static readonly Pacs009PaymentRequestDto Pacs009 = new()
     {

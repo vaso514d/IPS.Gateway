@@ -1,11 +1,13 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Application.Inbound.Processing;
 using IPS.Middleware.Application.Inbound.Receipts;
 using IPS.Middleware.Application.Inbound.Reconciliation;
 using IPS.Middleware.Application.Inbound.Replies;
 using IPS.Middleware.Application.Payments;
 using IPS.Middleware.Application.Payments.Pacs008;
+using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Infrastructure.Inbound.Transport;
 using IPS.Middleware.Infrastructure.Payments.Pacs008.Signing;
 using IPS.Middleware.Infrastructure.Transport;
@@ -37,26 +39,29 @@ public sealed class IncomingHttpClientTests
         using var certificates = new TransportCertificates();
         using var services = Services(Settings(server.Url + "/prefix", certificates));
         var core = services.GetRequiredService<IIncomingCoreClient>();
-        var response = await core.SubmitAsync(Participant, new Pacs008Request
-        { EndToEndId = "unchanged-123", InstructionId = "instruction", Amount = 12.34m, Currency = "GEL" }, default);
+        var snapshot = Snapshot(new Pacs008Request { EndToEndId = "unchanged-123", InstructionId = "instruction", Amount = 12.34m, Currency = "GEL" });
+        var response = await core.SubmitAsync(snapshot, default);
         Assert.Equal(404, response.StatusCode);
         Assert.Equal("{\"unknown\":true}", response.Body);
         Assert.Contains(response.Headers, h => h.Name == "X-Evidence" && h.Value == "source-value");
-        await core.QueryAsync(Participant, "a/b &?", default);
+        await core.QueryAsync(snapshot.Payment, default);
         var notification = new ReversalNotification(Guid.NewGuid(), Participant, "unchanged-123",
             DateTimeOffset.Parse("2026-01-02T03:04:05Z"), "MS03", "Frozen rejection", "original-message");
         await services.GetRequiredService<IIncomingReversalClient>().RequestAsync(notification, default);
         var captured = requests.ToArray();
         Assert.Equal(3, captured.Length);
-        Assert.Equal(("POST", "/prefix/api/ips/pacs008/receive", "unchanged-123"),
+        // Specification 022: the envelope at its own route, keyed and queried by the gateway's transactionId.
+        Assert.Equal(("POST", "/prefix/stp/incoming-payments", PaymentTransactionId),
             (captured[0].Method, captured[0].Path, captured[0].Key));
         Assert.StartsWith("application/json", captured[0].ContentType, StringComparison.Ordinal);
         using var submitted = JsonDocument.Parse(captured[0].Body);
-        Assert.Equal("unchanged-123", submitted.RootElement.GetProperty("endToEndId").GetString());
-        Assert.Equal(12.34m, submitted.RootElement.GetProperty("amount").GetDecimal());
+        Assert.Equal(PaymentTransactionId, submitted.RootElement.GetProperty("transactionId").GetString());
+        Assert.Equal("INSTANT_PAYMENT", submitted.RootElement.GetProperty("operationType").GetString());
+        Assert.Equal("unchanged-123", submitted.RootElement.GetProperty("data").GetProperty("endToEndId").GetString());
+        Assert.Equal(12.34m, submitted.RootElement.GetProperty("data").GetProperty("amount").GetDecimal());
         Assert.Equal("GET", captured[1].Method);
-        Assert.Equal("/prefix/api/ips/payments/status", captured[1].Path);
-        Assert.Equal("?messageKind=Pacs008&reference=a%2Fb%20%26%3F", captured[1].Query);
+        Assert.Equal("/prefix/stp/incoming-payments/" + PaymentTransactionId, captured[1].Path);
+        Assert.Empty(captured[1].Query);
         Assert.Empty(captured[1].Key);
         Assert.Equal("/prefix/api/ips/transactions/status/receive", captured[2].Path);
         Assert.Equal("in:unchanged-123:Rejected", captured[2].Key);
@@ -147,7 +152,7 @@ public sealed class IncomingHttpClientTests
         using var certificates = new TransportCertificates();
         using var services = Services(Settings(server.Url, certificates, timeout: TimeSpan.FromSeconds(1)));
         using var cancellation = new CancellationTokenSource();
-        var call = services.GetRequiredService<IIncomingCoreClient>().QueryAsync(Participant, "original", cancellation.Token);
+        var call = services.GetRequiredService<IIncomingCoreClient>().QueryAsync(Payment(), cancellation.Token);
         await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         if (cancelCaller)
         {
@@ -175,9 +180,9 @@ public sealed class IncomingHttpClientTests
         using var certificates = new TransportCertificates();
         using var services = Services(Settings(server.Url, certificates));
         var client = services.GetRequiredService<IIncomingCoreClient>();
-        Assert.Equal(503, (await client.QueryAsync(Participant, "original", default)).StatusCode);
-        Assert.Equal(503, (await client.QueryAsync(Participant, "original", default)).StatusCode);
-        await Assert.ThrowsAnyAsync<BrokenCircuitException>(() => client.QueryAsync(Participant, "original", default));
+        Assert.Equal(503, (await client.QueryAsync(Payment(), default)).StatusCode);
+        Assert.Equal(503, (await client.QueryAsync(Payment(), default)).StatusCode);
+        await Assert.ThrowsAnyAsync<BrokenCircuitException>(() => client.QueryAsync(Payment(), default));
         Assert.Equal(2, calls);
     }
 
@@ -212,6 +217,22 @@ public sealed class IncomingHttpClientTests
         }
     }
 
+    private static readonly Guid PaymentId = Guid.Parse("0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9");
+    internal static readonly string PaymentTransactionId = PaymentId.ToString("D");
+
+    // An incoming pacs.008 as stored for the bank of Services, with its IPS references and receipt time.
+    internal static IncomingPayment Payment() =>
+        IncomingPayment.Register(PaymentId, Participant, "E2E-HTTP", DateTimeOffset.UnixEpoch);
+
+    internal static IncomingProcessingSnapshot Snapshot(Pacs008Request request) => new(
+        Payment(),
+        request,
+        new IncomingProcessingContext(Guid.NewGuid(), DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(20),
+            new IncomingPacs008Reference("BAH-HTTP", "MSG-HTTP", request.EndToEndId ?? "E2E-HTTP", "TX-HTTP", null, null, null, "BAGAGE22", null, null)),
+        [],
+        null,
+        null);
+
     internal static IncomingTransportSettings Settings(string url, TransportCertificates certificates, TimeSpan? timeout = null,
         bool tls = false, bool untrusted = false, CertificateSettings? tlsIdentity = null)
     {
@@ -241,7 +262,7 @@ public sealed class IncomingHttpClientTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(settings);
-        services.AddSingleton(new BankIdentity("TESTGE22", "NBGEGE22"));
+        services.AddSingleton(new BankIdentity("TESTGE22", "NBGEGE22", "TRESGE22"));
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(new Pacs008SigningPolicy(true, true));
         services.AddIncomingHttpClients();

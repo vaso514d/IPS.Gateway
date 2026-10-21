@@ -10,6 +10,7 @@ using IPS.Middleware.Application.Payments.Pain002;
 using IPS.Middleware.Domain;
 using IPS.Middleware.Domain.Inbound;
 using IPS.Middleware.Domain.Transactions;
+using IPS.Middleware.Infrastructure.Payments.Pacs008;
 using IPS.Middleware.Infrastructure.Persistence.History;
 using IPS.Middleware.Infrastructure.Persistence.Inbound;
 using IPS.Middleware.Infrastructure.Persistence.Outgoing;
@@ -184,8 +185,6 @@ internal static class MessageTables
 
     private static class Pacs008Rows
     {
-        private static readonly TimeSpan SettlementOffset = TimeSpan.FromHours(4);
-
         internal static Pacs008PaymentRow Outgoing(ValidatedPacs008? sent) =>
             new()
             {
@@ -193,7 +192,7 @@ internal static class MessageTables
                 EndToEndId = sent?.EndToEndId,
                 Amount = sent?.Amount,
                 Currency = sent?.Currency,
-                ValueDate = sent is null ? null : DateOnly.FromDateTime(sent.AcceptanceDateTime.ToOffset(SettlementOffset).DateTime),
+                ValueDate = sent is null ? null : Pacs008Message.SettlementDate(sent.AcceptanceDateTime),
                 AcceptanceDateTime = sent?.AcceptanceDateTime,
                 DebtorName = Fit(sent?.Debtor.Name, 140),
                 DebtorAccount = sent?.DebtorAccount.Value,

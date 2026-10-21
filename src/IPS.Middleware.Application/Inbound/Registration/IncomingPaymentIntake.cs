@@ -15,10 +15,13 @@ public sealed class IncomingPaymentIntake(
         TimeProvider timeProvider,
         IncomingProcessingOptions options)
 {
-    public const string ConflictReason = "Payment identity conflict: contents differ from the registered payment.";
+    // A different payment with the EndToEndId of one already registered is a duplicate. IPS is told RJCT with this reason
+    // and the registered payment is untouched (owner decision, 2026-10-21); it fits pacs.002 AddtlInf (Max105Text).
+    public const string DuplicateReasonCode = "AM05";
+    public const string ConflictReason = "Duplicate EndToEndId: a different payment with this reference was already received.";
 
     // Uniqueness and concurrency failures propagate and fail this scope. A fresh attempt reuses the persisted winner
-    // only when its contents match; otherwise the receipt is held.
+    // only when its contents match; otherwise the receipt keeps its references and the caller rejects it.
     public Task<IncomingRegistration> RegisterAsync(InboundClaim claim, IncomingPacs008 incoming, CancellationToken cancellationToken) =>
         RegisterAsync(claim, incoming, null, cancellationToken);
 
@@ -48,12 +51,11 @@ public sealed class IncomingPaymentIntake(
             return IncomingRegistration.LostOwnership;
         }
 
-        // The canonical payment stays unchanged; the conflicting receipt keeps its references for investigation.
+        // The canonical payment stays unchanged; the conflicting receipt keeps its references and stays owned, so the
+        // caller can prepare its rejection.
         if (existing is not null && !incoming.HasSameContents(existing.Request))
         {
-            return await receipts.StageHoldAsync(claim, now, ConflictReason, cancellationToken)
-                ? await CommitAsync(IncomingRegistrationOutcome.Conflict, existing.Payment.Id, cancellationToken)
-                : IncomingRegistration.LostOwnership;
+            return await CommitAsync(IncomingRegistrationOutcome.Conflict, existing.Payment.Id, cancellationToken);
         }
 
         var payment = existing?.Payment ?? IncomingPayment.Register(Guid.NewGuid(), receipt.ParticipantBic, endToEndId, now);

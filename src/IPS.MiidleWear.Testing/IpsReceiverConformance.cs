@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using IPS.MiidleWear.Contracts.Http;
+using IPS.MiidleWear.Contracts.Pacs008;
 using IPS.MiidleWear.Contracts.Transactions;
 
 namespace IPS.MiidleWear.Testing;
@@ -82,6 +83,7 @@ public static class IpsReceiverConformance
     {
         var run = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
         var checks = new List<IpsReceiverCheck>();
+        await CheckIncomingPaymentAsync(client, SampleMessages.IncomingPayment(run, options ?? new()), checks, cancellationToken);
         foreach (var sample in SampleMessages.All(run, options ?? new()))
         {
             await CheckKindAsync(client, sample, checks, cancellationToken);
@@ -106,8 +108,28 @@ public static class IpsReceiverConformance
         checks.Add(Same($"{sample.Kind}: the payment-status query returns the answer", first, queried));
     }
 
+    private static async Task CheckIncomingPaymentAsync(HttpClient client, IncomingPaymentRequestDto payment, List<IpsReceiverCheck> checks, CancellationToken token)
+    {
+        var key = IpsIdempotencyKeys.For(payment)!;
+        var first = AnswerReader.ReadIncomingPayment(await PostAsync(client, IncomingPaymentRestApiRoutes.Receive, payment, key, token), key);
+        checks.Add(new("pacs.008: the answer is final", first.Final, first.Reason));
+
+        var again = AnswerReader.ReadIncomingPayment(await PostAsync(client, IncomingPaymentRestApiRoutes.Receive, payment, key, token), key);
+        checks.Add(Same("pacs.008: a redelivery gets the first answer", first, again));
+
+        var queried = AnswerReader.ReadIncomingPayment(await GetAsync(client, IncomingPaymentStatusPath(key), token), key);
+        checks.Add(Same("pacs.008: the status query returns the answer", first, queried));
+    }
+
+    private static string IncomingPaymentStatusPath(string transactionId) =>
+        IncomingPaymentRestApiRoutes.Status.Replace("{transactionId}", Uri.EscapeDataString(transactionId), StringComparison.Ordinal);
+
     private static async Task CheckUnknownReferenceAsync(HttpClient client, string run, List<IpsReceiverCheck> checks, CancellationToken token)
     {
+        var unknownPayment = await GetAsync(client, IncomingPaymentStatusPath($"KIT-NEVER-SENT-{run}"), token);
+        checks.Add(new("the status query of a pacs.008 never sent answers 404", unknownPayment.Status == 404,
+            unknownPayment.Status == 404 ? "404." : $"HTTP {unknownPayment.Status}: only 404 tells the gateway the payment never arrived."));
+
         var query = $"{TransactionRestApiRoutes.PaymentStatus}?messageKind={IpsMessageKind.Pacs009}&reference=KIT-NEVER-SENT-{run}";
         var exchange = await GetAsync(client, query, token);
         checks.Add(new("the payment-status query of a message never sent answers 404", exchange.Status == 404,

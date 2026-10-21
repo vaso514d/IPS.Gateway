@@ -28,7 +28,7 @@ public sealed class IncomingReconciliationTests
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync();
         var before = await test.ReadAsync(id);
-        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"Status\":\"RJCT\",\"EndToEndId\":\"E2E\",\"ReasonCode\":\"AC01\"}"));
+        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"REJECTED\",\"EndToEndId\":\"E2E\",\"ReasonCode\":\"AC01\"}"));
         var result = await test.RunAsync(id);
         Assert.Equal(CoreOutcome.Rejected, result!.CoreStatus);
         Assert.Equal(IncomingFollowUp.None, result.FollowUp);
@@ -42,9 +42,9 @@ public sealed class IncomingReconciliationTests
     [InlineData(404, "")]
     [InlineData(500, "")]
     [InlineData(200, "{}")]
-    [InlineData(200, "{\"Status\":\"PDNG\"}")]
+    [InlineData(200, "{\"status\":\"PENDING\"}")]
     [InlineData(200, "not-json")]
-    [InlineData(200, "{\"Status\":\"ACCP\",\"EndToEndId\":\"OTHER\"}")]
+    [InlineData(200, "{\"status\":\"ACCEPTED\",\"transactionId\":\"OTHER\"}")]
     public async Task Unresolved_evidence_retries_then_expires_without_resubmitting(int status, string body)
     {
         await using var test = await Harness.CreateAsync();
@@ -86,7 +86,7 @@ public sealed class IncomingReconciliationTests
     {
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync();
-        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"Status\":\"ACCP\",\"CoreReference\":\"CBS-17\"}"));
+        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCEPTED\",\"CoreReference\":\"CBS-17\"}"));
         Assert.Equal(IncomingFollowUp.ReversalRequired, (await test.RunAsync(id))!.FollowUp);
         Assert.Equal(0, test.Remote.Reversals);
         test.Remote.Reverse = _ => Task.FromResult(new CoreResponse(status, "receipt", [new("Trace", "one"), new("Trace", "two")]));
@@ -140,7 +140,7 @@ public sealed class IncomingReconciliationTests
     {
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync(credit: reversal);
-        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"Status\":\"RJCT\"}"));
+        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"REJECTED\"}"));
         await Assert.ThrowsAsync<Crash>(() => test.RunAsync(id, default, new AfterCommit(commit)));
         test.Time.Now += TimeSpan.FromSeconds(46);
         await test.RunAsync(id);
@@ -165,7 +165,7 @@ public sealed class IncomingReconciliationTests
     {
         await using var test = await Harness.CreateAsync();
         var id = await test.SeedAsync();
-        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, credit ? "{\"Status\":\"ACCP\"}" : "{\"Status\":\"RJCT\"}"));
+        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, credit ? "{\"status\":\"ACCEPTED\"}" : "{\"status\":\"REJECTED\"}"));
         await Assert.ThrowsAsync<Crash>(() => test.RunAsync(id, default, new AfterCommit(3)));
         test.Time.Now = Start.AddHours(25);
         var result = await test.RunAsync(id);
@@ -193,9 +193,9 @@ public sealed class IncomingReconciliationTests
         await test.RunAsync(id);
         Assert.Equal(1, test.Remote.Queries);
         test.Time.Now += TimeSpan.FromSeconds(46);
-        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"Status\":\"RJCT\"}"));
+        test.Remote.Query = _ => Task.FromResult(new CoreResponse(200, "{\"status\":\"REJECTED\"}"));
         await test.RunAsync(id);
-        response.SetResult(new(200, "{\"Status\":\"ACCP\"}"));
+        response.SetResult(new(200, "{\"status\":\"ACCEPTED\"}"));
         await first;
         var stored = await test.ReadAsync(id);
         Assert.Equal(CoreOutcome.Rejected, stored.Payment.CoreStatus);
@@ -449,7 +449,7 @@ public sealed class IncomingReconciliationTests
             payment.BeginSubmission(Start);
             var call = await repo.StageCallAsync(claim, CoreCallKind.Submission, Start, default);
             await unit.SaveAsync(default);
-            await repo.StageCompletionAsync(claim, call.Id, new(new(200, credit ? "{\"Status\":\"ACCP\"}" : "{}"), null, Start), Start, default);
+            await repo.StageCompletionAsync(claim, call.Id, new(new(200, credit ? "{\"status\":\"ACCEPTED\"}" : "{}"), null, Start), Start, default);
             await unit.SaveAsync(default);
             await repo.StageConsumptionAsync(claim, call.Id, Start, default);
             payment.RecordCoreResult(new(credit ? CoreOutcome.Accepted : CoreOutcome.Unknown, Start), Start);
@@ -499,12 +499,12 @@ public sealed class IncomingReconciliationTests
         public Func<CancellationToken, Task<CoreResponse>> Query { get; set; } = _ => Task.FromResult(new CoreResponse(404, ""));
         public Func<CancellationToken, Task<CoreResponse>> Reverse { get; set; } = _ => Task.FromResult(new CoreResponse(202, ""));
 
-        public Task<CoreResponse> SubmitAsync(string participant, Pacs008Request request, CancellationToken token) => throw new Xunit.Sdk.XunitException("Reconciliation must never submit a payment.");
-        public Task<CoreResponse> QueryAsync(string participant, string reference, CancellationToken token)
+        public Task<CoreResponse> SubmitAsync(IncomingProcessingSnapshot snapshot, CancellationToken token) => throw new Xunit.Sdk.XunitException("Reconciliation must never submit a payment.");
+        public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken token)
         {
             CheckTransaction?.Invoke();
-            Assert.Equal("BAGAGE22", participant);
-            Assert.Equal("E2E", reference);
+            Assert.Equal("BAGAGE22", payment.ParticipantBic);
+            Assert.Equal("E2E", payment.EndToEndId);
             Queries++;
             return Query(token);
         }

@@ -26,8 +26,8 @@ public static class IpsHttpHeaders
 /// </summary>
 public static class IpsIdempotencyKeys
 {
-    /// <summary>An incoming pacs.008: its <c>endToEndId</c>.</summary>
-    public static string? For(Pacs008InstantPaymentRequestDto payment) => payment.EndToEndId;
+    /// <summary>An incoming pacs.008: its <c>transactionId</c>, also the status reference of its own query.</summary>
+    public static string? For(IncomingPaymentRequestDto payment) => payment.TransactionId;
 
     /// <summary>An incoming pacs.009: its <c>endToEndId</c>.</summary>
     public static string? For(Pacs009PaymentRequestDto payment) => payment.EndToEndId;

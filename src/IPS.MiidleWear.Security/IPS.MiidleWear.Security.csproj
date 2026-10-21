@@ -10,7 +10,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsPackable>true</IsPackable>
     <PackageId>IPS.MiidleWear.Security</PackageId>
-    <Version>2.0.0-preview.1</Version>
+    <Version>3.0.0-preview.1</Version>
     <Description>Request signing (SHA-256 of the JSON body, RSA or ECDSA) and static API tokens between a core banking system and the IPS middleware.</Description>
     <PackageTags>IPS;ISO20022;core banking;signature;authentication</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>

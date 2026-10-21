@@ -1,9 +1,9 @@
-using IPS.Middleware.Application.Inbound.Pacs008;
 using IPS.Middleware.Domain.Inbound;
 
 namespace IPS.Middleware.Application.Inbound.Processing;
 
 public interface IIncomingCoreReplyInterpreter
 {
-    CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPacs008Reference original);
+    // A reply answers the payment only when the identifier it echoes, if any, is the payment's.
+    CorePaymentResult Interpret(CoreCallCompletion completion, IncomingPayment payment);
 }

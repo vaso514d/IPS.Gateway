@@ -46,15 +46,15 @@ public sealed class IncomingWorkerCrashTests(IncomingReplyFixture fixture) : ICl
                     context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
                 }
             }
-            else if (context.Request.Path == "/api/ips/pacs008/receive")
+            else if (context.Request.Path == "/stp/incoming-payments")
             {
                 Interlocked.Increment(ref submissions);
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
+                await context.Response.WriteAsync("{\"status\":\"ACCEPTED\"}");
             }
-            else if (context.Request.Path == "/api/ips/payments/status")
+            else if (context.Request.Path.StartsWithSegments("/stp/incoming-payments"))
             {
                 Interlocked.Increment(ref queries);
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
+                await context.Response.WriteAsync("{\"status\":\"ACCEPTED\"}");
             }
             else if (context.Request.Path == "/api/ips/transactions/status/receive")
             {

@@ -66,7 +66,7 @@ public sealed class CoreApiSendTests
 
         var recall = Generator.Camt056(sent, " TX-FROM-GATEWAY ", "frad");
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.Now.ToOffset(TimeSpan.FromHours(4)).DateTime);
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         Assert.Empty(ValidatedCamt056.Validate(RecallRequestMapping.Map(recall), Policy, today).Errors);
         Assert.Equal(("MSG-FROM-GATEWAY", payment.EndToEndId, "TX-FROM-GATEWAY", "FRAD"),
             (recall.OriginalMessageId, recall.OriginalEndToEndId, recall.OriginalTransactionId, recall.ReasonCode));

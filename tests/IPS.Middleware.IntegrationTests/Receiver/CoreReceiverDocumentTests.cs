@@ -24,7 +24,7 @@ public sealed class CoreReceiverDocumentTests
 {
     private static readonly Dictionary<string, Type> Bodies = new(StringComparer.Ordinal)
     {
-        ["ReceivePacs008"] = typeof(Pacs008InstantPaymentRequestDto),
+        ["ReceiveIncomingPayment"] = typeof(IncomingPaymentRequestDto),
         ["ReceivePacs009"] = typeof(Pacs009PaymentRequestDto),
         ["ReceivePacs004"] = typeof(Pacs004PaymentReturnRequestDto),
         ["ReceivePain001"] = typeof(Pain001PaymentInitiationDto),
@@ -35,7 +35,7 @@ public sealed class CoreReceiverDocumentTests
     };
 
     [Fact]
-    public async Task The_document_is_valid_openapi_3_0_with_exactly_the_nine_receiver_operations()
+    public async Task The_document_is_valid_openapi_3_0_with_exactly_the_ten_receiver_operations()
     {
         var result = OpenApiDocument.Parse(await ReadAsync(CoreReceiverOpenApi.DocumentName), OpenApiConstants.Json);
 
@@ -49,14 +49,15 @@ public sealed class CoreReceiverDocumentTests
         (string Method, string Path, string? OperationId)[] expected =
         [
             ("GET", "/api/ips/payments/status", "GetPaymentStatus"),
+            ("GET", "/stp/incoming-payments/{transactionId}", "GetIncomingPayment"),
             ("POST", "/api/ips/camt029/receive", "ReceiveCamt029"),
             ("POST", "/api/ips/camt055/receive", "ReceiveCamt055"),
             ("POST", "/api/ips/camt056/receive", "ReceiveCamt056"),
             ("POST", "/api/ips/pacs004/receive", "ReceivePacs004"),
-            ("POST", "/api/ips/pacs008/receive", "ReceivePacs008"),
             ("POST", "/api/ips/pacs009/receive", "ReceivePacs009"),
             ("POST", "/api/ips/pain001/receive", "ReceivePain001"),
-            ("POST", "/api/ips/transactions/status/receive", "ReceiveTransactionStatus")
+            ("POST", "/api/ips/transactions/status/receive", "ReceiveTransactionStatus"),
+            ("POST", "/stp/incoming-payments", "ReceiveIncomingPayment")
         ];
         Assert.Equal(expected, operations);
     }
@@ -83,11 +84,13 @@ public sealed class CoreReceiverDocumentTests
                 if (operation.Value.GetProperty("responses").TryGetProperty("200", out var answer))
                 {
                     var example = answer.GetProperty("content").GetProperty("application/json").GetProperty("example");
-                    Assert.NotNull(example.Deserialize<Pacs008PaymentResultDto>(strict));
+                    // The incoming instant payment has its own answer; the other kinds share one.
+                    var answerType = id is "ReceiveIncomingPayment" or "GetIncomingPayment" ? typeof(IncomingPaymentResultDto) : typeof(Pacs008PaymentResultDto);
+                    Assert.NotNull(example.Deserialize(answerType, strict));
                     checkedExamples++;
                 }
 
-                if (id != "GetPaymentStatus")
+                if (id is not ("GetPaymentStatus" or "GetIncomingPayment"))
                 {
                     Assert.Contains(operation.Value.GetProperty("parameters").EnumerateArray(),
                         parameter => parameter.GetProperty("name").GetString() == IpsHttpHeaders.IdempotencyKey
@@ -96,7 +99,7 @@ public sealed class CoreReceiverDocumentTests
             }
         }
 
-        Assert.Equal(8 + 8, checkedExamples);
+        Assert.Equal(8 + 9, checkedExamples);
     }
 
     [Fact]

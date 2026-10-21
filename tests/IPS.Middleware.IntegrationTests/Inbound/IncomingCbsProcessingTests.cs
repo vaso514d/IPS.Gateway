@@ -36,7 +36,7 @@ public sealed class IncomingCbsProcessingTests
         Assert.Equal(1, test.Cbs.Submissions);
         await using var db = test.Database.Context();
         var stored = (await new IncomingProcessingRepository(db).ReadAsync(id, default))!;
-        Assert.Equal("{\"Status\":\"ACCP\",\"CoreReference\":\"credit-1\"}", Assert.Single(stored.Calls).Completion!.Response!.Body);
+        Assert.Equal("{\"status\":\"ACCEPTED\",\"CoreReference\":\"credit-1\"}", Assert.Single(stored.Calls).Completion!.Response!.Body);
         Assert.True(stored.Calls[0].Consumed);
         Assert.Null(stored.FollowUpAtUtc);
         Assert.Empty(await new IncomingPaymentWorkRepository(db).FindDueAsync(Now.AddDays(1), 100, default));
@@ -59,9 +59,9 @@ public sealed class IncomingCbsProcessingTests
     }
 
     [Theory]
-    [InlineData("{\"Status\":\"RJCT\",\"ReasonCode\":\"AC04\"}", false, "AC04", IncomingFollowUp.None)]
+    [InlineData("{\"status\":\"REJECTED\",\"ReasonCode\":\"AC04\"}", false, "AC04", IncomingFollowUp.None)]
     [InlineData("{}", false, "MS03", IncomingFollowUp.ReconciliationRequired)]
-    [InlineData("{\"Status\":\"PDNG\"}", false, "MS03", IncomingFollowUp.ReconciliationRequired)]
+    [InlineData("{\"status\":\"PENDING\"}", false, "MS03", IncomingFollowUp.ReconciliationRequired)]
     public async Task Final_rejection_or_unresolved_result_keeps_the_correct_followup(string body, bool accepted, string reason, IncomingFollowUp followUp)
     {
         await using var test = await Harness.CreateAsync();
@@ -89,7 +89,7 @@ public sealed class IncomingCbsProcessingTests
         var id = await test.RegisterAsync();
         var credited = false;
         test.Cbs.Submit = _ => { credited = true; throw new IOException("Reply lost after credit."); };
-        test.Cbs.Query = _ => Task.FromResult(new CoreResponse(200, credited ? "{\"Status\":\"ACCP\"}" : "{\"Status\":\"PDNG\"}"));
+        test.Cbs.Query = _ => Task.FromResult(new CoreResponse(200, credited ? "{\"status\":\"ACCEPTED\"}" : "{\"status\":\"PENDING\"}"));
         Assert.True((await test.ProcessAsync(id))!.IpsDecision!.Accepted);
         Assert.Equal((1, 1), (test.Cbs.Submissions, test.Cbs.Queries));
         await using var db = test.Database.Context();
@@ -125,7 +125,7 @@ public sealed class IncomingCbsProcessingTests
         test.Cbs.Submit = _ =>
         {
             test.Time.Now = Now.AddSeconds(elapsed);
-            return Task.FromResult(new CoreResponse(200, "{\"Status\":\"ACCP\"}"));
+            return Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCEPTED\"}"));
         };
         var result = (await test.ProcessAsync(id))!;
         Assert.Equal(CoreOutcome.Accepted, result.CoreStatus);
@@ -172,7 +172,7 @@ public sealed class IncomingCbsProcessingTests
         test.Cbs.Submit = _ =>
         {
             shutdown.Cancel();
-            return Task.FromResult(new CoreResponse(200, "{\"Status\":\"ACCP\"}"));
+            return Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCEPTED\"}"));
         };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => test.ProcessAsync(id, shutdown.Token));
         await using (var db = test.Database.Context())
@@ -197,7 +197,7 @@ public sealed class IncomingCbsProcessingTests
         var first = test.ProcessAsync(id);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Null((await test.ProcessAsync(id))!.IpsDecision);
-        answer.SetResult(new(200, "{\"Status\":\"ACCP\"}"));
+        answer.SetResult(new(200, "{\"status\":\"ACCEPTED\"}"));
         Assert.True((await first)!.IpsDecision!.Accepted);
         Assert.Equal(1, test.Cbs.Submissions);
     }
@@ -212,7 +212,7 @@ public sealed class IncomingCbsProcessingTests
             test.Time.Now = Now.AddSeconds(46);
             var recovered = (await test.ProcessAsync(id))!;
             Assert.False(recovered.IpsDecision!.Accepted);
-            return new(200, "{\"Status\":\"ACCP\"}");
+            return new(200, "{\"status\":\"ACCEPTED\"}");
         };
         await test.ProcessAsync(id);
         await using var db = test.Database.Context();
@@ -324,7 +324,7 @@ public sealed class IncomingCbsProcessingTests
         await unit.SaveAsync();
         payment.BeginSubmission(Now);
         var call = await repository.StageCallAsync(claim, CoreCallKind.Submission, Now, default);
-        var response = new CoreCallCompletion(new(200, "{\"Status\":\"ACCP\"}", [new("X-Trace", "one"), new("X-Trace", "two")]), null, Now);
+        var response = new CoreCallCompletion(new(200, "{\"status\":\"ACCEPTED\"}", [new("X-Trace", "one"), new("X-Trace", "two")]), null, Now);
         await Assert.ThrowsAsync<InvalidOperationException>(() => repository.StageCompletionAsync(claim, call.Id, response, Now, default));
         await unit.SaveAsync();
         await repository.StageCompletionAsync(claim, call.Id, response, Now, default);
@@ -385,15 +385,15 @@ public sealed class IncomingCbsProcessingTests
 
     private sealed class OutsideTransaction(IIncomingCoreClient inner, TransactionDbContext db) : IIncomingCoreClient
     {
-        public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request request, CancellationToken token)
+        public Task<CoreResponse> SubmitAsync(IncomingProcessingSnapshot snapshot, CancellationToken token)
         {
             Assert.Null(db.Database.CurrentTransaction);
-            return inner.SubmitAsync(participantBic, request, token);
+            return inner.SubmitAsync(snapshot, token);
         }
-        public Task<CoreResponse> QueryAsync(string participantBic, string reference, CancellationToken token)
+        public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken token)
         {
             Assert.Null(db.Database.CurrentTransaction);
-            return inner.QueryAsync(participantBic, reference, token);
+            return inner.QueryAsync(payment, token);
         }
     }
 
@@ -450,7 +450,7 @@ public sealed class IncomingCbsProcessingTests
         public int Queries { get; private set; }
         public Func<CancellationToken, Task<CoreResponse>>? Submit { get; set; }
         public Func<CancellationToken, Task<CoreResponse>>? Query { get; set; }
-        public Task<CoreResponse> SubmitAsync(string participantBic, Pacs008Request payment, CancellationToken cancellationToken)
+        public Task<CoreResponse> SubmitAsync(IncomingProcessingSnapshot snapshot, CancellationToken cancellationToken)
         {
             Submissions++;
             if (Submit is not null)
@@ -458,14 +458,14 @@ public sealed class IncomingCbsProcessingTests
                 return Submit(cancellationToken);
             }
 
-            _credits.Add(payment.EndToEndId!);
-            return Task.FromResult(new CoreResponse(200, "{\"Status\":\"ACCP\",\"CoreReference\":\"credit-1\"}"));
+            _credits.Add(snapshot.Request.EndToEndId!);
+            return Task.FromResult(new CoreResponse(200, "{\"status\":\"ACCEPTED\",\"CoreReference\":\"credit-1\"}"));
         }
-        public Task<CoreResponse> QueryAsync(string participantBic, string endToEndId, CancellationToken cancellationToken)
+        public Task<CoreResponse> QueryAsync(IncomingPayment payment, CancellationToken cancellationToken)
         {
             Queries++;
-            return Query?.Invoke(cancellationToken) ?? Task.FromResult(_credits.Contains(endToEndId)
-                ? new CoreResponse(200, "{\"Status\":\"ACCP\"}") : new CoreResponse(404, ""));
+            return Query?.Invoke(cancellationToken) ?? Task.FromResult(_credits.Contains(payment.EndToEndId)
+                ? new CoreResponse(200, "{\"status\":\"ACCEPTED\"}") : new CoreResponse(404, ""));
         }
     }
 }

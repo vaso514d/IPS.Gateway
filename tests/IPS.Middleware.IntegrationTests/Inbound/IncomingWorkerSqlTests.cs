@@ -57,13 +57,14 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
                     context.Response.Headers["X-MONTRAN-IPS-ReqSts"] = "EMPTY";
                 }
             }
-            else if (context.Request.Path == "/api/ips/pacs008/receive")
+            else if (context.Request.Path == "/stp/incoming-payments")
             {
-                Assert.Equal("E2E-1", context.Request.Headers["Idempotency-Key"]);
+                // Specification 022: the key is the gateway's transactionId, the payment's identity.
+                Assert.True(Guid.TryParse(context.Request.Headers["Idempotency-Key"], out _));
                 Interlocked.Increment(ref submissions);
                 coreStarted.TrySetResult();
                 await coreRelease.Task.WaitAsync(context.RequestAborted);
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
+                await context.Response.WriteAsync("{\"status\":\"ACCEPTED\"}");
             }
             else if (context.Request.Method == "POST" && context.Request.Path == "/Message")
             {
@@ -274,10 +275,10 @@ public sealed class IncomingWorkerSqlTests(IncomingReplyFixture fixture) : IClas
                 context.Response.Headers["X-MONTRAN-IPS-MessageType"] = "pacs.008";
                 await context.Response.WriteAsync(fixture.Input.Signed["valid"]);
             }
-            else if (context.Request.Path == "/api/ips/pacs008/receive")
+            else if (context.Request.Path == "/stp/incoming-payments")
             {
                 Interlocked.Increment(ref submissions);
-                await context.Response.WriteAsync("{\"status\":\"ACCP\",\"endToEndId\":\"E2E-1\"}");
+                await context.Response.WriteAsync("{\"status\":\"ACCEPTED\"}");
             }
             else if (context.Request.Method == "POST" && context.Request.Path == "/Message")
             {

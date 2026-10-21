@@ -29,25 +29,26 @@ public sealed class ReceiverTestKitTests
         var result = await IpsReceiverConformance.RunAsync(sample.Client);
 
         Assert.True(result.Passed, result.ToString());
-        Assert.Equal(7 * 3 + 1 + 2 + 2, result.Checks.Count);
+        Assert.Equal(7 * 3 + 2 + 2 + 2, result.Checks.Count);
     }
 
     [Fact]
-    public async Task The_sample_answers_pdng_to_the_status_query_while_posting_and_the_result_afterwards()
+    public async Task The_sample_answers_pending_to_the_status_query_while_posting_and_the_result_afterwards()
     {
         await using var sample = await SampleHost.StartAsync(TimeSpan.FromSeconds(1));
-        using var body = new StringContent("""{"endToEndId":"E2E-SLOW","amount":10}""", System.Text.Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, "api/ips/pacs008/receive") { Content = body };
-        request.Headers.Add(IpsHttpHeaders.IdempotencyKey, "E2E-SLOW");
+        using var body = new StringContent("""{"transactionId":"TX-SLOW","operationType":"INSTANT_PAYMENT","data":{"endToEndId":"E2E-SLOW","amount":10}}""",
+            System.Text.Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "stp/incoming-payments") { Content = body };
+        request.Headers.Add(IpsHttpHeaders.IdempotencyKey, "TX-SLOW");
 
         var posting = sample.Client.SendAsync(request);
         await Task.Delay(TimeSpan.FromMilliseconds(200));
-        var during = await sample.Client.GetStringAsync("api/ips/payments/status?messageKind=Pacs008&reference=E2E-SLOW");
+        var during = await sample.Client.GetStringAsync("stp/incoming-payments/TX-SLOW");
         using var answer = await posting;
-        var after = await sample.Client.GetStringAsync("api/ips/payments/status?messageKind=Pacs008&reference=E2E-SLOW");
+        var after = await sample.Client.GetStringAsync("stp/incoming-payments/TX-SLOW");
 
-        Assert.Contains("\"Status\":\"PDNG\"", during, StringComparison.Ordinal);
-        Assert.Contains("\"Status\":\"ACCP\"", after, StringComparison.Ordinal);
+        Assert.Contains("\"status\":\"PENDING\"", during, StringComparison.Ordinal);
+        Assert.Contains("\"status\":\"ACCEPTED\"", after, StringComparison.Ordinal);
     }
 
     public static TheoryData<string, string> Faults() => new()
@@ -57,7 +58,7 @@ public sealed class ReceiverTestKitTests
         { "wrong-end-to-end-id", "pacs.009: the answer is final" },
         { "status-enum-rejected", "the status callback is accepted" },
         { "duplicate-member", "pacs.004: the answer is final" },
-        { "message-id-on-pacs008", "pacs.008: the answer is final" }
+        { "other-transaction-id-on-pacs008", "pacs.008: the answer is final" }
     };
 
     [Theory]
@@ -73,24 +74,25 @@ public sealed class ReceiverTestKitTests
         Assert.Throws<IpsReceiverConformanceException>(result.EnsurePassed);
     }
 
+    private const string PaymentId = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+
     public static TheoryData<int, string> Pacs008Answers() => new()
     {
-        { 200, """{"Status":"ACCP"}""" },
-        { 200, """{"status":"rjct","ReasonCode":"AC04"}""" },
-        { 200, """{"Status":"ACCP","EndToEndId":"E2E-008"}""" },
-        { 200, """{"Status":"ACCP","EndToEndId":"OTHER"}""" },
-        { 200, """{"Status":"ACCP","Id":"ANY-MESSAGE-ID"}""" },
-        { 200, """{"Status":"ACCP","TxId":"ANY-TX-ID"}""" },
-        { 200, """{"Status":"PDNG"}""" },
-        { 200, """{"Status":"ACCP","Status":"ACCP"}""" },
-        { 200, """{"Status":"ACCP","status":"ACCP"}""" },
-        { 200, """{"Status":"ACCP","Extra":1,"extra":2}""" },
-        { 200, """{"Status":"ACCP","ProcessedAtUtc":"not a date"}""" },
-        { 200, """{"Status":"ACCP","InternalErrorCode":"seven"}""" },
-        { 200, """{"Status":"ACCP","ProcessedAtUtc":"2026-10-16T10:00:00+04:00","CoreReference":"POST-1"}""" },
+        { 200, """{"status":"ACCEPTED"}""" },
+        { 200, """{"Status":"rejected","reasonCode":"AC04","reasonDescription":"Account closed"}""" },
+        { 200, $$"""{"status":"ACCEPTED","transactionId":"{{PaymentId}}"}""" },
+        { 200, """{"status":"ACCEPTED","transactionId":"OTHER"}""" },
+        { 200, """{"status":"PENDING"}""" },
+        { 200, """{"status":"ACCP"}""" },
+        { 200, """{"status":"ACCEPTED","status":"ACCEPTED"}""" },
+        { 200, """{"status":"ACCEPTED","Status":"ACCEPTED"}""" },
+        { 200, """{"status":"ACCEPTED","Extra":1,"extra":2}""" },
+        { 200, """{"status":"ACCEPTED","reasonDescription":5}""" },
+        { 200, """{"status":"ACCEPTED","processedAtUtc":"not a date"}""" },
+        { 200, """{"status":"ACCEPTED","coreReference":"POST-1"}""" },
         { 200, "not json" },
         { 204, "" },
-        { 500, """{"Status":"ACCP"}""" }
+        { 500, """{"status":"ACCEPTED"}""" }
     };
 
     [Theory]
@@ -98,9 +100,9 @@ public sealed class ReceiverTestKitTests
     public void The_kit_and_the_gateway_agree_on_a_pacs008_answer(int status, string body)
     {
         var gateway = new IncomingCoreReplyInterpreter().Interpret(Completion(status, body),
-            new IncomingPacs008Reference("BAH-008", "MSG-008", "E2E-008", "TX-008", null, null, null, null, null, null));
+            IncomingPayment.Register(Guid.Parse(PaymentId), "TESTGE22", "E2E-008", DateTimeOffset.UtcNow));
 
-        var kit = AnswerReader.Read(status, body, new ExpectedEcho("E2E-008", null, null, AbsentWhenUnknown: true));
+        var kit = AnswerReader.ReadIncomingPayment(new Exchange(status, body), PaymentId);
 
         Assert.Equal(gateway.Status != CoreOutcome.Unknown, kit.Final);
     }
@@ -188,8 +190,8 @@ public sealed class ReceiverTestKitTests
                 case "204-for-unknown" when context.Request.Query["reference"].ToString().StartsWith("KIT-NEVER", StringComparison.Ordinal):
                     context.Response.StatusCode = StatusCodes.Status204NoContent;
                     return true;
-                case "new-answer-on-redelivery" when path.EndsWith("/pacs008/receive", StringComparison.Ordinal) && _deliveries.AddOrUpdate(key, 1, (_, count) => count + 1) > 1:
-                    await Json(context, """{"Status":"RJCT","ReasonCode":"AM04"}""");
+                case "new-answer-on-redelivery" when path.EndsWith("/stp/incoming-payments", StringComparison.Ordinal) && _deliveries.AddOrUpdate(key, 1, (_, count) => count + 1) > 1:
+                    await Json(context, """{"status":"REJECTED","reasonCode":"AM04"}""");
                     return true;
                 case "wrong-end-to-end-id" when path.EndsWith("/pacs009/receive", StringComparison.Ordinal):
                     await Json(context, """{"Status":"ACCP","EndToEndId":"WRONG"}""");
@@ -201,8 +203,8 @@ public sealed class ReceiverTestKitTests
                 case "duplicate-member" when path.EndsWith("/pacs004/receive", StringComparison.Ordinal):
                     await Json(context, """{"Status":"ACCP","Status":"ACCP"}""");
                     return true;
-                case "message-id-on-pacs008" when path.EndsWith("/pacs008/receive", StringComparison.Ordinal):
-                    await Json(context, """{"Status":"ACCP","Id":"CORE-MESSAGE-1"}""");
+                case "other-transaction-id-on-pacs008" when path.EndsWith("/stp/incoming-payments", StringComparison.Ordinal):
+                    await Json(context, """{"status":"ACCEPTED","transactionId":"OTHER"}""");
                     return true;
                 default:
                     return false;

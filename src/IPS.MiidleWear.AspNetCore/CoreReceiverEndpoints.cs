@@ -30,8 +30,8 @@ internal static class CoreReceiverEndpoints
     {
         string[] mapped =
         [
-            MapReceive<Pacs008InstantPaymentRequestDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePacs008Async),
-                static (receiver, message, token) => receiver.ReceivePacs008Async(message, token)),
+            MapIncomingPayment(endpoints),
+            MapIncomingPaymentStatus(endpoints),
             MapReceive<Pacs009PaymentRequestDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePacs009Async),
                 static (receiver, message, token) => receiver.ReceivePacs009Async(message, token)),
             MapReceive<Pacs004PaymentReturnRequestDto>(endpoints, nameof(IClientPaymentReceiver.ReceivePacs004Async),
@@ -67,6 +67,35 @@ internal static class CoreReceiverEndpoints
         return operation;
     }
 
+    // The incoming instant payment (pacs.008) has its own envelope and answer.
+    private static string MapIncomingPayment(IEndpointRouteBuilder endpoints)
+    {
+        const string operation = nameof(IClientPaymentReceiver.ReceiveIncomingPaymentAsync);
+        var endpoint = Endpoint(operation);
+        Func<HttpContext, Task> handler = context => ReceiveAsync<IncomingPaymentRequestDto, IncomingPaymentResultDto>(context,
+            static (receiver, message, token) => receiver.ReceiveIncomingPaymentAsync(message, token));
+        endpoints.MapMethods(endpoint.Route, [endpoint.HttpMethod], handler)
+            .Describe(operation, endpoint)
+            .Accepts<IncomingPaymentRequestDto>(Json)
+            .Produces<IncomingPaymentResultDto>(StatusCodes.Status200OK, Json)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+        return operation;
+    }
+
+    private static string MapIncomingPaymentStatus(IEndpointRouteBuilder endpoints)
+    {
+        const string operation = nameof(IClientPaymentReceiver.GetIncomingPaymentAsync);
+        var endpoint = Endpoint(operation);
+        Func<string, HttpContext, Task> handler = IncomingPaymentStatusAsync;
+        endpoints.MapMethods(endpoint.Route, [endpoint.HttpMethod], handler)
+            .Describe(operation, endpoint)
+            .Produces<IncomingPaymentResultDto>(StatusCodes.Status200OK, Json)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+        return operation;
+    }
+
     private static string MapStatusCallback(IEndpointRouteBuilder endpoints)
     {
         const string operation = nameof(IClientPaymentReceiver.ReceiveTransactionStatusAsync);
@@ -95,9 +124,15 @@ internal static class CoreReceiverEndpoints
         return operation;
     }
 
-    private static async Task ReceiveAsync<TMessage>(
+    private static Task ReceiveAsync<TMessage>(
         HttpContext context,
         Func<IClientPaymentReceiver, TMessage, CancellationToken, Task<Pacs008PaymentResultDto>> receive)
+        where TMessage : class =>
+        ReceiveAsync<TMessage, Pacs008PaymentResultDto>(context, receive);
+
+    private static async Task ReceiveAsync<TMessage, TResult>(
+        HttpContext context,
+        Func<IClientPaymentReceiver, TMessage, CancellationToken, Task<TResult>> receive)
         where TMessage : class
     {
         var message = await ReadAsync<TMessage>(context);
@@ -148,6 +183,21 @@ internal static class CoreReceiverEndpoints
         });
     }
 
+    private static async Task IncomingPaymentStatusAsync(string transactionId, HttpContext context)
+    {
+        var receiver = Receiver(context, idempotencyKey: null);
+        await RunAsync(context, async token =>
+        {
+            if (await receiver.GetIncomingPaymentAsync(transactionId, token) is { } result)
+            {
+                await WriteAsync(context, result, token);
+                return;
+            }
+
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+        });
+    }
+
     // The receiver's own failure is answered 500, never a business answer: the gateway then asks again. A call the
     // gateway abandoned has nobody to answer.
     private static async Task RunAsync(HttpContext context, Func<CancellationToken, Task> call)
@@ -187,7 +237,7 @@ internal static class CoreReceiverEndpoints
         }
     }
 
-    private static Task WriteAsync(HttpContext context, Pacs008PaymentResultDto result, CancellationToken token)
+    private static Task WriteAsync<TResult>(HttpContext context, TResult result, CancellationToken token)
     {
         context.Response.StatusCode = StatusCodes.Status200OK;
         return context.Response.WriteAsJsonAsync(result, IpsJson.SerializerOptions, token);

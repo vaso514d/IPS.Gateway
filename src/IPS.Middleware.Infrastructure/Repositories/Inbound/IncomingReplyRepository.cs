@@ -14,7 +14,8 @@ public sealed class IncomingReplyRepository(TransactionDbContext db) : IIncoming
 {
     // Rejections decided before a payment exists: a trusted count/batch violation (FF01) and a payment for another bank
     // (RC07, decision 016).
-    private static readonly string[] PaymentlessRejectionReasons = ["FF01", "RC07"];
+    // Rejections decided without registering a payment: unreadable (FF01), another bank's (RC07), a duplicate EndToEndId (AM05).
+    private static readonly string[] PaymentlessRejectionReasons = ["FF01", "RC07", "AM05"];
 
     public async Task<IncomingReplySnapshot?> ReadAsync(Guid journalId, CancellationToken token)
     {

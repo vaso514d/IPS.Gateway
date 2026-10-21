@@ -18,7 +18,11 @@ public sealed class IncomingTransportSettings
     public string IpsVersion { get; init; } = "1";
     public string MessagePath { get; init; } = "Message";
     public string AckPath { get; init; } = "MessageAck";
-    public string SubmissionPath { get; init; } = Pacs008RestApiRoutes.Receive;
+    // An incoming pacs.008 (specification 022): delivered to SubmissionPath, queried at IncomingPaymentStatusPath, whose
+    // {transactionId} is replaced by the payment's transactionId.
+    public const string TransactionIdPlaceholder = "{transactionId}";
+    public string SubmissionPath { get; init; } = IncomingPaymentRestApiRoutes.Receive;
+    public string IncomingPaymentStatusPath { get; init; } = IncomingPaymentRestApiRoutes.Status;
     public string Pain001SubmissionPath { get; init; } = Pain001RestApiRoutes.Receive;
     public string Pacs004SubmissionPath { get; init; } = Pacs004RestApiRoutes.Receive;
     public string Pacs009SubmissionPath { get; init; } = Pacs009RestApiRoutes.Receive;
@@ -52,11 +56,16 @@ public sealed class IncomingTransportSettings
         string[] paths =
         [
             MessagePath, AckPath, SubmissionPath, Pacs009SubmissionPath, Pacs004SubmissionPath, Pain001SubmissionPath,
-            Camt056SubmissionPath, Camt055SubmissionPath, Camt029SubmissionPath, StatusPath, ReversalPath
+            Camt056SubmissionPath, Camt055SubmissionPath, Camt029SubmissionPath, StatusPath, ReversalPath, IncomingPaymentStatusPath
         ];
         foreach (var path in paths)
         {
             TransportPath.Validate(path);
+        }
+
+        if (!IncomingPaymentStatusPath.Contains(TransactionIdPlaceholder, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"IncomingPaymentStatusPath must contain {TransactionIdPlaceholder}.");
         }
 
         if (ReceiveTimeout <= Ips.ConnectTimeout || ReceiveTimeout > TimeSpan.FromDays(1))

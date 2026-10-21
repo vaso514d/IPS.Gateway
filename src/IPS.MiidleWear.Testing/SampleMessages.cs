@@ -24,19 +24,6 @@ internal static class SampleMessages
         var us = options.ParticipantBic;
         var account = options.CreditAccount;
 
-        var pacs008 = new Pacs008InstantPaymentRequestDto
-        {
-            InstructionId = $"KIT-I8-{run}",
-            EndToEndId = $"KIT-E8-{run}",
-            CreationDateTime = now,
-            AcceptanceDateTime = now,
-            Amount = 10.00m,
-            Currency = options.Currency,
-            InstructionPriority = "NORM",
-            Debtor = new() { ParticipantBic = OtherBank, Type = 0, Name = "Kit Payer", Identifier = "01001000001", Account = "GE29TB0000000101904917" },
-            Creditor = new() { ParticipantBic = us, Type = 0, Name = "Kit Payee", Account = account },
-            Remittance = new() { Unstructured = "Receiver conformance check" }
-        };
         var pacs009 = new Pacs009PaymentRequestDto
         {
             Id = $"KIT-M9-{run}",
@@ -112,8 +99,6 @@ internal static class SampleMessages
 
         return
         [
-            new("pacs.008", IpsMessageKind.Pacs008, Pacs008RestApiRoutes.Receive, pacs008, IpsIdempotencyKeys.For(pacs008)!,
-                new(pacs008.EndToEndId, null, null, AbsentWhenUnknown: true)),
             new("pacs.009", IpsMessageKind.Pacs009, Pacs009RestApiRoutes.Receive, pacs009, IpsIdempotencyKeys.For(pacs009)!,
                 new(pacs009.EndToEndId, pacs009.Id, pacs009.TxId, AbsentWhenUnknown: false)),
             new("pacs.004", IpsMessageKind.Pacs004, Pacs004RestApiRoutes.Receive, pacs004, IpsIdempotencyKeys.For(pacs004)!,
@@ -127,6 +112,44 @@ internal static class SampleMessages
             new("camt.029", IpsMessageKind.Camt029, Camt029RestApiRoutes.Receive, camt029, IpsIdempotencyKeys.For(camt029)!,
                 new(null, camt029.Id, null, AbsentWhenUnknown: false))
         ];
+    }
+
+    // The incoming instant payment, in its own envelope: the gateway's transactionId is the key and the status reference.
+    internal static IncomingPaymentRequestDto IncomingPayment(string run, IpsReceiverConformanceOptions options)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new()
+        {
+            TransactionId = $"KIT-TX8-{run}",
+            OperationType = IncomingOperationTypes.InstantPayment,
+            Data = new()
+            {
+                MessageId = $"KIT-M8-{run}",
+                InstructionId = $"KIT-I8-{run}",
+                EndToEndId = $"KIT-E8-{run}",
+                IsoTransactionId = $"KIT-T8-{run}",
+                ReceivedAt = now,
+                CreationDateTime = now,
+                AcceptanceDateTime = now,
+                Amount = 10.00m,
+                Currency = options.Currency,
+                InstructionPriority = "NORM",
+                Debtor = new()
+                {
+                    Name = "Kit Payer",
+                    PartyType = 1,
+                    Identifier = "01001000001",
+                    ParticipantBic = OtherBank,
+                    Account = new() { Type = IncomingAccountTypes.Iban, Iban = "GE29TB0000000101904917" }
+                },
+                Creditor = new()
+                {
+                    Name = "Kit Payee",
+                    Account = new() { Type = IncomingAccountTypes.Iban, Iban = options.CreditAccount }
+                },
+                Remittance = new() { Unstructured = "Receiver conformance check" }
+            }
+        };
     }
 
     internal static TransactionStatusDto OutgoingStatus(string run) => new()
@@ -144,7 +167,7 @@ internal static class SampleMessages
     {
         MessageKind = IpsMessageKind.Pacs008,
         Direction = TransactionDirection.Incoming,
-        CoreReference = $"KIT-E8-{run}",
+        CoreReference = $"KIT-POSTING-{run}",
         TransactionId = Guid.NewGuid(),
         Status = TransactionStatus.Rejected,
         StatusAtUtc = DateTimeOffset.UtcNow,

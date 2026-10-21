@@ -52,6 +52,40 @@ internal static class AnswerReader
         return mismatch is null ? new(true, outcome, $"{outcome}.") : new(false, outcome, mismatch);
     }
 
+    // An incoming instant payment's answer: status ACCEPTED or REJECTED, and transactionId absent or the delivered one.
+    internal static AnswerVerdict ReadIncomingPayment(Exchange exchange, string transactionId)
+    {
+        if (exchange.Status == 0)
+        {
+            return new(false, null, exchange.Body);
+        }
+
+        if (exchange.Status is < 200 or >= 300)
+        {
+            return new(false, null, $"HTTP {exchange.Status} is not an answer.");
+        }
+
+        IncomingAnswer? answer;
+        try
+        {
+            answer = JsonSerializer.Deserialize<IncomingAnswer>(exchange.Body, Strict);
+        }
+        catch (JsonException error)
+        {
+            return new(false, null, $"The body is not a readable answer: {error.Message}");
+        }
+
+        var outcome = answer?.Status?.ToUpperInvariant();
+        if (outcome is not (IncomingPaymentStatuses.Accepted or IncomingPaymentStatuses.Rejected))
+        {
+            return new(false, outcome, $"status '{answer?.Status}' is not final (ACCEPTED or REJECTED).");
+        }
+
+        return answer!.TransactionId is null || answer.TransactionId == transactionId
+            ? new(true, outcome, $"{outcome}.")
+            : new(false, outcome, $"transactionId '{answer.TransactionId}' must be omitted or equal '{transactionId}'.");
+    }
+
     private static string? Mismatch(string name, string? actual, string? expected, bool absentWhenUnknown)
     {
         var matches = actual is null || actual == expected || (expected is null && !absentWhenUnknown);
@@ -63,6 +97,26 @@ internal static class AnswerReader
         return expected is null
             ? $"{name} '{actual}' must be omitted: the delivery does not carry it."
             : $"{name} '{actual}' must be omitted or equal '{expected}'.";
+    }
+
+    // The gateway reads both answers with one model, so an incoming payment's answer is also unusable when one of the
+    // other answer's members has the wrong type.
+    private sealed record IncomingAnswer
+    {
+        public string? TransactionId { get; init; }
+        public string? Status { get; init; }
+        public string? ReasonCode { get; init; }
+        public string? ReasonDescription { get; init; }
+        public string? CoreReference { get; init; }
+        public string? EndToEndId { get; init; }
+        public string? Id { get; init; }
+        public string? TxId { get; init; }
+        public DateTimeOffset? ProcessedAtUtc { get; init; }
+        public int? InternalErrorCode { get; init; }
+        public string? Description { get; init; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement> Unmapped { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     // The members the gateway reads, with its types: a value of the wrong type makes the whole answer unusable there too.
